@@ -1,0 +1,63 @@
+# Docker Swarm stack — Book Symbius
+# Na VPS:
+#   cd /opt/apps/book
+#   set -a && source .env && set +a
+#   docker build -t book-web:latest .
+#   docker stack deploy -c deploy/stack.yml book
+
+version: "3.8"
+
+services:
+  web:
+    image: book-web:latest
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      DATABASE_URL: ${DATABASE_URL:-file:/data/book.db}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://book.symbius.com.br}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://book.symbius.com.br}
+      EMAIL_FROM: ${EMAIL_FROM:-Book Symbius <onboarding@resend.dev>}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://book.symbius.com.br/api/google/callback}
+    volumes:
+      - book_data:/data
+    networks:
+      - traefik_proxy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik_proxy
+        - traefik.http.routers.book.rule=Host(`book.symbius.com.br`)
+        - traefik.http.routers.book.entrypoints=websecure
+        - traefik.http.routers.book.tls=true
+        - traefik.http.routers.book.tls.certresolver=letsencryptresolver
+        - traefik.http.services.book.loadbalancer.server.port=3000
+        - traefik.http.routers.book-http.rule=Host(`book.symbius.com.br`)
+        - traefik.http.routers.book-http.entrypoints=web
+        - traefik.http.routers.book-http.middlewares=book-https-redirect
+        - traefik.http.middlewares.book-https-redirect.redirectscheme.scheme=https
+        - traefik.http.middlewares.book-https-redirect.redirectscheme.permanent=true
+
+networks:
+  traefik_proxy:
+    external: true
+
+volumes:
+  book_data:
