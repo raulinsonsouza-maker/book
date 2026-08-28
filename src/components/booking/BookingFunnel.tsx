@@ -220,18 +220,6 @@ export function BookingFunnel({ slug }: { slug: string }) {
     }
   }, [step, bookingId, payMethod, pixQr, pixLoading, startPix]);
 
-  useEffect(() => {
-    if (step !== "payment" || payMethod !== "pix" || !bookingId || !pixQr) return;
-    const id = setInterval(async () => {
-      const res = await fetch(
-        `/api/public/${slug}/status?bookingId=${bookingId}`,
-      );
-      const data = await res.json();
-      if (data.status === "CONFIRMED") setStep("done");
-    }, 2500);
-    return () => clearInterval(id);
-  }, [step, payMethod, bookingId, pixQr, slug]);
-
   const daySet = useMemo(() => new Set(availableDays), [availableDays]);
   const calendarDays = useMemo(() => {
     const start = startOfMonth(month);
@@ -267,6 +255,49 @@ export function BookingFunnel({ slug }: { slug: string }) {
     setStep("details");
     setError("");
   }
+
+  async function refreshSlotsForDate(date: string) {
+    if (!service) return;
+    setSlotsLoading(true);
+    try {
+      const res = await fetch(`/api/public/${slug}?date=${date}&serviceId=${service.id}`);
+      const data = await res.json();
+      setSlots(data.slots || []);
+    } catch {
+      setSlots([]);
+    } finally {
+      setSlotsLoading(false);
+    }
+  }
+
+  function handleSlotUnavailable(message: string) {
+    setBookingId(null);
+    setHoldExpiresAt(null);
+    setPixQr(null);
+    setSelectedSlot(null);
+    setStep("datetime");
+    setError(message || "Este horário não está mais disponível. Escolha outro.");
+    if (selectedDate) {
+      void refreshSlotsForDate(selectedDate);
+    }
+  }
+
+  useEffect(() => {
+    if (step !== "payment" || payMethod !== "pix" || !bookingId || !pixQr) return;
+    const id = setInterval(async () => {
+      const res = await fetch(
+        `/api/public/${slug}/status?bookingId=${bookingId}`,
+      );
+      const data = await res.json();
+      if (data.status === "CONFIRMED") setStep("done");
+      if (data.status === "CANCELLED") {
+        handleSlotUnavailable(
+          "Este horário não está mais disponível. Escolha outro.",
+        );
+      }
+    }, 2500);
+    return () => clearInterval(id);
+  }, [step, payMethod, bookingId, pixQr, slug, selectedDate, service]);
 
   async function submitDetails(e: React.FormEvent) {
     e.preventDefault();
@@ -321,6 +352,10 @@ export function BookingFunnel({ slug }: { slug: string }) {
     const data = await res.json();
     setPaying(false);
     if (!res.ok) {
+      if (res.status === 409 || data.code === "SLOT_UNAVAILABLE") {
+        handleSlotUnavailable(data.error);
+        return;
+      }
       setError(data.error || "Não foi possível reservar este horário");
       return;
     }
@@ -342,6 +377,10 @@ export function BookingFunnel({ slug }: { slug: string }) {
     if (res.ok) setStep("done");
     else {
       const data = await res.json();
+      if (res.status === 409 || data.code === "SLOT_UNAVAILABLE") {
+        handleSlotUnavailable(data.error);
+        return;
+      }
       setError(data.error || "Erro");
     }
   }
@@ -432,6 +471,10 @@ export function BookingFunnel({ slug }: { slug: string }) {
     const data = await res.json();
     setPaying(false);
     if (!res.ok) {
+      if (res.status === 409 || data.code === "SLOT_UNAVAILABLE") {
+        handleSlotUnavailable(data.error);
+        return;
+      }
       setError(data.error || "Pagamento recusado");
       return;
     }

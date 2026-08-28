@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { addMinutes } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { isSlotAvailable } from "@/lib/availability";
+import { assertSlotAvailable, SlotUnavailableError } from "@/lib/availability";
 import { parseBookBody } from "@/lib/book-validation";
 import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
 
@@ -38,58 +38,37 @@ export async function POST(
     const startAt = new Date(body.startAt);
     const endAt = addMinutes(startAt, service.durationMinutes);
     const holdExpiresAt = addMinutes(new Date(), HOLD_MINUTES);
-    const now = new Date();
-
-    // Anti double-booking
-    const conflict = await prisma.booking.findFirst({
-      where: {
-        bookingPageId: page.id,
-        startAt,
-        OR: [
-          { status: "CONFIRMED" },
-          { status: "PENDING_PAYMENT", holdExpiresAt: { gt: now } },
-        ],
-      },
-    });
-    if (conflict) {
-      return NextResponse.json(
-        { error: "Horário indisponível. Escolha outro." },
-        { status: 409 },
-      );
-    }
-
-    const holdConflict = await prisma.slotHold.findFirst({
-      where: {
-        bookingPageId: page.id,
-        startAt,
-        expiresAt: { gt: now },
-      },
-    });
-    if (holdConflict) {
-      return NextResponse.json(
-        { error: "Horário temporariamente reservado. Tente outro." },
-        { status: 409 },
-      );
-    }
-
-    const slotOk = await isSlotAvailable({
-      bookingPageId: page.id,
-      serviceId: service.id,
-      startAt,
-      endAt,
-      timezone: body.timezone || page.timezone,
-      durationMinutes: service.durationMinutes,
-      bufferBefore: service.bufferBefore,
-      bufferAfter: service.bufferAfter,
-    });
-    if (!slotOk) {
-      return NextResponse.json(
-        { error: "Horário indisponível (conflito com agenda). Escolha outro." },
-        { status: 409 },
-      );
-    }
+    const timezone = body.timezone || page.timezone;
 
     const booking = await prisma.$transaction(async (tx) => {
+      await assertSlotAvailable({
+        bookingPageId: page.id,
+        serviceId: service.id,
+        startAt,
+        endAt,
+        timezone,
+        durationMinutes: service.durationMinutes,
+        bufferBefore: service.bufferBefore,
+        bufferAfter: service.bufferAfter,
+      });
+
+      const overlap = await tx.booking.findFirst({
+        where: {
+          bookingPageId: page.id,
+          startAt: { lt: endAt },
+          endAt: { gt: startAt },
+          OR: [
+            { status: "CONFIRMED" },
+            { status: "PENDING_PAYMENT", holdExpiresAt: { gt: new Date() } },
+          ],
+        },
+      });
+      if (overlap) {
+        throw new SlotUnavailableError(
+          "Este horário acabou de ser reservado. Escolha outro.",
+        );
+      }
+
       const b = await tx.booking.create({
         data: {
           bookingPageId: page.id,
@@ -97,7 +76,7 @@ export async function POST(
           status: "PENDING_PAYMENT",
           startAt,
           endAt,
-          timezone: body.timezone || page.timezone,
+          timezone,
           customerName: body.customerName,
           customerEmail: body.customerEmail?.toLowerCase() ?? "",
           customerPhone: body.customerPhone?.replace(/\D/g, "") ?? "",
@@ -109,6 +88,7 @@ export async function POST(
         },
         include: { service: true, bookingPage: true },
       });
+
       await tx.slotHold.create({
         data: {
           bookingPageId: page.id,
@@ -119,6 +99,7 @@ export async function POST(
           expiresAt: holdExpiresAt,
         },
       });
+
       return b;
     });
 
@@ -130,6 +111,9 @@ export async function POST(
       caktoOfferId: service.caktoOfferId,
     });
   } catch (e) {
+    if (e instanceof SlotUnavailableError) {
+      return NextResponse.json({ error: e.message, code: "SLOT_UNAVAILABLE" }, { status: 409 });
+    }
     if (e instanceof z.ZodError) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }

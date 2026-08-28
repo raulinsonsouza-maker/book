@@ -11,30 +11,28 @@ import {
   assertHoldValid,
   HoldExpiredError,
 } from "@/lib/payments/create-payment";
-import { confirmBooking, SlotUnavailableError } from "@/lib/payments/confirm-booking";
+import { confirmCheckoutOrder } from "@/lib/payments/confirm-checkout-order";
 import { isDemoPaymentId } from "@/lib/payments/demo";
 import { resolvePaymentProvider } from "@/lib/payments/resolve-provider";
 import { isValidCpf } from "@/lib/utils";
 
-async function loadBooking(bookingId: string, slug: string) {
-  return prisma.booking.findFirst({
+async function loadOrder(orderId: string, slug: string) {
+  return prisma.checkoutOrder.findFirst({
     where: {
-      id: bookingId,
-      bookingPage: { slug, isActive: true },
+      id: orderId,
       status: "PENDING_PAYMENT",
+      checkoutLink: { slug, isActive: true },
     },
     include: {
-      service: true,
-      bookingPage: {
-        include: { organization: true },
-      },
+      product: { include: { organization: true } },
+      checkoutLink: true,
       payment: true,
     },
   });
 }
 
 const pixSchema = z.object({
-  bookingId: z.string(),
+  orderId: z.string(),
   fingerprint: z.string().min(1),
 });
 
@@ -49,44 +47,48 @@ export async function POST(
   try {
     if (method === "pix") {
       const body = pixSchema.parse(await req.json());
-      const booking = await loadBooking(body.bookingId, slug);
-      if (!booking) {
+      const order = await loadOrder(body.orderId, slug);
+      if (!order) {
         return NextResponse.json(
-          { error: "Agendamento inválido ou expirado" },
+          { error: "Pedido inválido ou expirado" },
           { status: 404 },
         );
       }
 
       try {
-        assertHoldValid(booking);
+        assertHoldValid(order);
       } catch {
-        await prisma.booking.update({
-          where: { id: booking.id },
+        await prisma.checkoutOrder.update({
+          where: { id: order.id },
           data: { status: "EXPIRED" },
         });
-        return NextResponse.json({ error: "Hold expirado" }, { status: 410 });
+        return NextResponse.json({ error: "Tempo expirado" }, { status: 410 });
       }
 
-      const org = booking.bookingPage.organization;
+      const org = order.product.organization;
       const provider = resolvePaymentProvider(org);
       const idempotencyKey = uuidv4();
       const result = await createPixForProvider({
         provider,
         org,
-        customer: booking,
-        item: booking.service,
+        customer: order,
+        item: {
+          title: order.product.title,
+          priceCents: order.product.priceCents,
+          caktoOfferId: order.product.caktoOfferId,
+        },
         idempotencyKey,
         fingerprint: body.fingerprint,
-        metadata: { bookingId: booking.id },
+        metadata: { checkoutOrderId: order.id },
       });
 
       const payment = await prisma.payment.upsert({
-        where: { bookingId: booking.id },
+        where: { checkoutOrderId: order.id },
         create: {
-          bookingId: booking.id,
+          checkoutOrderId: order.id,
           method: "PIX",
           status: "PENDING",
-          amountCents: booking.service.priceCents,
+          amountCents: order.product.priceCents,
           provider: dbProvider(provider),
           caktoPaymentId: result.id,
           idempotencyKey,
@@ -120,22 +122,22 @@ export async function POST(
 
     if (method === "card") {
       const cardSchema = z.object({
-        bookingId: z.string(),
+        orderId: z.string(),
         fingerprint: z.string().min(1),
         cardToken: z.string().min(1),
       });
       const body = cardSchema.parse(await req.json());
-      const booking = await loadBooking(body.bookingId, slug);
-      if (!booking) {
+      const order = await loadOrder(body.orderId, slug);
+      if (!order) {
         return NextResponse.json(
-          { error: "Agendamento inválido ou expirado" },
+          { error: "Pedido inválido ou expirado" },
           { status: 404 },
         );
       }
 
-      const org = booking.bookingPage.organization;
+      const org = order.product.organization;
       const provider = resolvePaymentProvider(org);
-      const cpf = booking.customerCpf;
+      const cpf = order.customerCpf;
       if (
         provider !== "DEMO" &&
         !body.cardToken.startsWith("demo_") &&
@@ -151,37 +153,31 @@ export async function POST(
       const result = await createCardForProvider({
         provider,
         org,
-        customer: booking,
-        item: booking.service,
+        customer: order,
+        item: {
+          title: order.product.title,
+          priceCents: order.product.priceCents,
+          caktoOfferId: order.product.caktoOfferId,
+        },
         idempotencyKey,
         fingerprint: body.fingerprint,
         cardToken: body.cardToken,
-        metadata: { bookingId: booking.id },
+        metadata: { checkoutOrderId: order.id },
       });
 
       const paid = isPaidResult(provider, result);
 
       if (paid) {
-        try {
-          await confirmBooking(booking.id);
-        } catch (e) {
-          if (e instanceof SlotUnavailableError) {
-            return NextResponse.json(
-              { error: e.message, code: "SLOT_UNAVAILABLE" },
-              { status: 409 },
-            );
-          }
-          throw e;
-        }
+        await confirmCheckoutOrder(order.id);
       }
 
       await prisma.payment.upsert({
-        where: { bookingId: booking.id },
+        where: { checkoutOrderId: order.id },
         create: {
-          bookingId: booking.id,
+          checkoutOrderId: order.id,
           method: "CARD",
           status: paid ? "PAID" : "PENDING",
-          amountCents: booking.service.priceCents,
+          amountCents: order.product.priceCents,
           provider: dbProvider(provider),
           caktoPaymentId: result.id,
           idempotencyKey,
@@ -200,7 +196,7 @@ export async function POST(
       });
 
       if (paid) {
-        return NextResponse.json({ ok: true, status: "CONFIRMED", demo: result.demo, provider });
+        return NextResponse.json({ ok: true, status: "PAID", demo: result.demo, provider });
       }
 
       return NextResponse.json({
@@ -212,27 +208,13 @@ export async function POST(
     }
 
     if (method === "demo-confirm") {
-      const body = z.object({ bookingId: z.string() }).parse(await req.json());
-      const booking = await loadBooking(body.bookingId, slug);
-      if (!isDemoPaymentId(booking?.payment?.caktoPaymentId)) {
+      const body = z.object({ orderId: z.string() }).parse(await req.json());
+      const order = await loadOrder(body.orderId, slug);
+      if (!isDemoPaymentId(order?.payment?.caktoPaymentId)) {
         return NextResponse.json({ error: "Só para demo" }, { status: 400 });
       }
-      try {
-        await confirmBooking(booking!.id);
-      } catch (e) {
-        if (e instanceof SlotUnavailableError) {
-          return NextResponse.json(
-            { error: e.message, code: "SLOT_UNAVAILABLE" },
-            { status: 409 },
-          );
-        }
-        throw e;
-      }
-      await prisma.payment.update({
-        where: { bookingId: booking!.id },
-        data: { status: "PAID", paidAt: new Date() },
-      });
-      return NextResponse.json({ ok: true, status: "CONFIRMED" });
+      await confirmCheckoutOrder(order!.id);
+      return NextResponse.json({ ok: true, status: "PAID" });
     }
 
     return NextResponse.json({ error: "Método inválido" }, { status: 400 });

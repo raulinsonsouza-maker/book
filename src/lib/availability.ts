@@ -32,8 +32,23 @@ export function filterSlotsByBusy<T extends { startAt: string; endAt: string }>(
   return slots.filter((slot) => {
     const s = new Date(slot.startAt);
     const e = new Date(slot.endAt);
-    return !busy.some((b) => isBefore(s, b.end) && isAfter(e, b.start));
+    return !intervalsOverlap(s, e, busy);
   });
+}
+
+export function intervalsOverlap(
+  start: Date,
+  end: Date,
+  busy: { start: Date; end: Date }[],
+) {
+  return busy.some((b) => isBefore(start, b.end) && isAfter(end, b.start));
+}
+
+export class SlotUnavailableError extends Error {
+  constructor(message = "Horário indisponível. Escolha outro.") {
+    super(message);
+    this.name = "SlotUnavailableError";
+  }
 }
 
 export async function getBusyIntervals(params: {
@@ -42,6 +57,7 @@ export async function getBusyIntervals(params: {
   timezone: string;
   bufferBefore: number;
   bufferAfter: number;
+  excludeBookingId?: string;
 }) {
   const dayStart = parseTimeOnDate(params.date, "00:00", params.timezone);
   const dayEnd = parseTimeOnDate(params.date, "23:59", params.timezone);
@@ -56,6 +72,7 @@ export async function getBusyIntervals(params: {
     where: {
       bookingPageId: params.bookingPageId,
       startAt: { gte: dayStart, lte: dayEnd },
+      ...(params.excludeBookingId ? { id: { not: params.excludeBookingId } } : {}),
       OR: [
         { status: "CONFIRMED" },
         { status: "PENDING_PAYMENT", holdExpiresAt: { gt: now } },
@@ -68,7 +85,11 @@ export async function getBusyIntervals(params: {
       bookingPageId: params.bookingPageId,
       startAt: { gte: dayStart, lte: dayEnd },
       expiresAt: { gt: now },
-      bookingId: null,
+      ...(params.excludeBookingId
+        ? {
+            OR: [{ bookingId: null }, { bookingId: { not: params.excludeBookingId } }],
+          }
+        : { bookingId: null }),
     },
   });
 
@@ -213,6 +234,86 @@ export async function getAvailableSlots(params: {
   return available.map(({ startAt, endAt, label }) => ({ startAt, endAt, label }));
 }
 
+export async function assertSlotAvailable(params: {
+  bookingPageId: string;
+  serviceId: string;
+  startAt: Date;
+  endAt: Date;
+  timezone: string;
+  durationMinutes: number;
+  bufferBefore?: number;
+  bufferAfter?: number;
+  excludeBookingId?: string;
+}) {
+  const bufferBefore = params.bufferBefore || 0;
+  const bufferAfter = params.bufferAfter || 0;
+  const date = format(toZonedTime(params.startAt, params.timezone), "yyyy-MM-dd");
+
+  const page = await prisma.bookingPage.findUnique({
+    where: { id: params.bookingPageId },
+  });
+  const slotStepMinutes =
+    page?.slotStepMinutes && page.slotStepMinutes > 0
+      ? page.slotStepMinutes
+      : params.durationMinutes + bufferBefore + bufferAfter;
+
+  const { slots } = await getTheoreticalSlots({
+    bookingPageId: params.bookingPageId,
+    date,
+    timezone: params.timezone,
+    durationMinutes: params.durationMinutes,
+    bufferBefore,
+    bufferAfter,
+    slotStepMinutes,
+  });
+
+  const matchesTheoretical = slots.some(
+    (slot) =>
+      Math.abs(new Date(slot.startAt).getTime() - params.startAt.getTime()) < 60_000 &&
+      Math.abs(new Date(slot.endAt).getTime() - params.endAt.getTime()) < 60_000,
+  );
+
+  if (!matchesTheoretical) {
+    throw new SlotUnavailableError(
+      "Este horário não está mais disponível. Escolha outro.",
+    );
+  }
+
+  const busy = await getBusyIntervals({
+    bookingPageId: params.bookingPageId,
+    date,
+    timezone: params.timezone,
+    bufferBefore,
+    bufferAfter,
+    excludeBookingId: params.excludeBookingId,
+  });
+
+  if (intervalsOverlap(params.startAt, params.endAt, busy)) {
+    throw new SlotUnavailableError(
+      "Este horário acabou de ser reservado. Escolha outro.",
+    );
+  }
+
+  const overlap = await prisma.booking.findFirst({
+    where: {
+      bookingPageId: params.bookingPageId,
+      ...(params.excludeBookingId ? { id: { not: params.excludeBookingId } } : {}),
+      startAt: { lt: params.endAt },
+      endAt: { gt: params.startAt },
+      OR: [
+        { status: "CONFIRMED" },
+        { status: "PENDING_PAYMENT", holdExpiresAt: { gt: new Date() } },
+      ],
+    },
+  });
+
+  if (overlap) {
+    throw new SlotUnavailableError(
+      "Este horário acabou de ser reservado. Escolha outro.",
+    );
+  }
+}
+
 export async function isSlotAvailable(params: {
   bookingPageId: string;
   serviceId: string;
@@ -222,18 +323,15 @@ export async function isSlotAvailable(params: {
   durationMinutes: number;
   bufferBefore?: number;
   bufferAfter?: number;
+  excludeBookingId?: string;
 }) {
-  const date = format(toZonedTime(params.startAt, params.timezone), "yyyy-MM-dd");
-  const slots = await getAvailableSlots({
-    bookingPageId: params.bookingPageId,
-    serviceId: params.serviceId,
-    date,
-    timezone: params.timezone,
-    durationMinutes: params.durationMinutes,
-    bufferBefore: params.bufferBefore,
-    bufferAfter: params.bufferAfter,
-  });
-  return slots.some((s) => s.startAt === params.startAt.toISOString());
+  try {
+    await assertSlotAvailable(params);
+    return true;
+  } catch (e) {
+    if (e instanceof SlotUnavailableError) return false;
+    throw e;
+  }
 }
 
 export function defaultWeekRules(): Rule[] {

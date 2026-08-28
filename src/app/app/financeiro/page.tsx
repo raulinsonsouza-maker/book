@@ -9,17 +9,24 @@ type PageOption = { id: string; title: string };
 
 type PaymentRow = {
   id: string;
+  type: "booking" | "checkout";
   status: string;
   method: string;
   amountCents: number;
   paidAt: string | null;
-  booking: {
+  booking?: {
     id: string;
     customerName: string;
     customerEmail: string;
     startAt: string;
     serviceTitle: string;
     pageTitle: string;
+  };
+  checkout?: {
+    id: string;
+    customerName: string;
+    customerEmail: string;
+    productTitle: string;
   };
 };
 
@@ -45,6 +52,7 @@ export default function FinanceiroPage() {
   const [status, setStatus] = useState("");
   const [method, setMethod] = useState("");
   const [pageId, setPageId] = useState("");
+  const [type, setType] = useState("");
   const [pages, setPages] = useState<PageOption[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
@@ -62,6 +70,7 @@ export default function FinanceiroPage() {
     if (status) params.set("status", status);
     if (method) params.set("method", method);
     if (pageId) params.set("bookingPageId", pageId);
+    if (type) params.set("type", type);
     fetch(`/api/financeiro?${params}`)
       .then((r) => r.json())
       .then((data) => {
@@ -69,7 +78,7 @@ export default function FinanceiroPage() {
         setPayments(data.payments || []);
       })
       .finally(() => setLoading(false));
-  }, [from, to, status, method, pageId]);
+  }, [from, to, status, method, pageId, type]);
 
   useEffect(() => {
     load();
@@ -80,6 +89,7 @@ export default function FinanceiroPage() {
     if (status) params.set("status", status);
     if (method) params.set("method", method);
     if (pageId) params.set("bookingPageId", pageId);
+    if (type) params.set("type", type);
     window.location.href = `/api/financeiro/export?${params}`;
   }
 
@@ -90,7 +100,7 @@ export default function FinanceiroPage() {
           <p className="eyebrow">Financeiro</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">Receitas</h1>
           <p className="mt-2 text-sm text-muted">
-            Pagamentos recebidos via Cakto no período selecionado.
+            Pagamentos de agendamentos e checkout no período selecionado.
           </p>
         </div>
         <button type="button" onClick={exportCsv} className="btn-secondary">
@@ -140,6 +150,18 @@ export default function FinanceiroPage() {
             <option value="">Todos</option>
             <option value="PIX">PIX</option>
             <option value="CARD">Cartão</option>
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block text-muted">Tipo</span>
+          <select
+            className="input-field !w-auto"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          >
+            <option value="">Todos</option>
+            <option value="booking">Agendamento</option>
+            <option value="checkout">Checkout</option>
           </select>
         </label>
         <label className="text-sm">
@@ -202,15 +224,21 @@ export default function FinanceiroPage() {
             <thead className="border-b border-border bg-muted-bg text-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">Data</th>
+                <th className="px-4 py-3 font-medium">Tipo</th>
                 <th className="px-4 py-3 font-medium">Cliente</th>
-                <th className="px-4 py-3 font-medium">Serviço</th>
+                <th className="px-4 py-3 font-medium">Referência</th>
                 <th className="px-4 py-3 font-medium">Valor</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {payments.map((p) => (
+              {payments.map((p) => {
+                const customerName = p.booking?.customerName || p.checkout?.customerName || "—";
+                const customerEmail = p.booking?.customerEmail || p.checkout?.customerEmail || "";
+                const refTitle = p.booking?.serviceTitle || p.checkout?.productTitle || "—";
+                const refSub = p.booking?.pageTitle || (p.type === "checkout" ? "Checkout" : "");
+                return (
                 <tr key={p.id}>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {p.paidAt
@@ -218,12 +246,15 @@ export default function FinanceiroPage() {
                       : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="font-medium">{p.booking.customerName}</p>
-                    <p className="text-xs text-muted">{p.booking.customerEmail}</p>
+                    <span className="tag">{p.type === "checkout" ? "Checkout" : "Agendamento"}</span>
                   </td>
                   <td className="px-4 py-3">
-                    {p.booking.serviceTitle}
-                    <p className="text-xs text-muted">{p.booking.pageTitle}</p>
+                    <p className="font-medium">{customerName}</p>
+                    <p className="text-xs text-muted">{customerEmail}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    {refTitle}
+                    {refSub && <p className="text-xs text-muted">{refSub}</p>}
                   </td>
                   <td className="px-4 py-3">
                     <span className="tag tag-money">{formatBRL(p.amountCents)}</span>
@@ -234,14 +265,15 @@ export default function FinanceiroPage() {
                   </td>
                   <td className="px-4 py-3">
                     <Link
-                      href="/app/agenda/listagem"
+                      href={p.type === "checkout" ? "/app/checkout/vendas" : "/app/agenda/listagem"}
                       className="text-xs text-muted hover:text-foreground hover:underline"
                     >
-                      Ver agenda
+                      {p.type === "checkout" ? "Ver vendas" : "Ver agenda"}
                     </Link>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

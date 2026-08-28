@@ -26,17 +26,48 @@ export async function GET(req: Request) {
   const status = searchParams.get("status") as PaymentStatus | null;
   const method = searchParams.get("method") as PaymentMethod | null;
   const bookingPageId = searchParams.get("bookingPageId");
+  const type = searchParams.get("type");
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const pageSize = 50;
+  const orgId = session.user.organizationId;
 
   const periodFilter = parsePeriodFilter(from, to);
+  const orgFilter =
+    type === "booking"
+      ? {
+          booking: {
+            bookingPage: {
+              organizationId: orgId,
+              ...(bookingPageId ? { id: bookingPageId } : {}),
+            },
+          },
+        }
+      : type === "checkout"
+        ? {
+            checkoutOrder: {
+              product: { organizationId: orgId },
+            },
+          }
+        : {
+            OR: [
+              {
+                booking: {
+                  bookingPage: {
+                    organizationId: orgId,
+                    ...(bookingPageId ? { id: bookingPageId } : {}),
+                  },
+                },
+              },
+              {
+                checkoutOrder: {
+                  product: { organizationId: orgId },
+                },
+              },
+            ],
+          };
+
   const where = {
-    booking: {
-      bookingPage: {
-        organizationId: session.user.organizationId,
-        ...(bookingPageId ? { id: bookingPageId } : {}),
-      },
-    },
+    ...orgFilter,
     ...(status ? { status } : {}),
     ...(method ? { method } : {}),
     ...(periodFilter || {}),
@@ -50,6 +81,11 @@ export async function GET(req: Request) {
           include: {
             service: true,
             bookingPage: { select: { title: true } },
+          },
+        },
+        checkoutOrder: {
+          include: {
+            product: { select: { title: true } },
           },
         },
       },
@@ -80,22 +116,42 @@ export async function GET(req: Request) {
       confirmados: paidCount,
       ticketMedio,
     },
-    payments: payments.map((p) => ({
-      id: p.id,
-      status: p.status,
-      method: p.method,
-      amountCents: p.amountCents,
-      paidAt: p.paidAt?.toISOString() || null,
-      createdAt: p.createdAt.toISOString(),
-      booking: {
-        id: p.booking.id,
-        customerName: p.booking.customerName,
-        customerEmail: p.booking.customerEmail,
-        startAt: p.booking.startAt.toISOString(),
-        serviceTitle: p.booking.service.title,
-        pageTitle: p.booking.bookingPage.title,
-      },
-    })),
+    payments: payments.map((p) => {
+      if (p.checkoutOrder) {
+        return {
+          id: p.id,
+          type: "checkout" as const,
+          status: p.status,
+          method: p.method,
+          amountCents: p.amountCents,
+          paidAt: p.paidAt?.toISOString() || null,
+          createdAt: p.createdAt.toISOString(),
+          checkout: {
+            id: p.checkoutOrder.id,
+            customerName: p.checkoutOrder.customerName,
+            customerEmail: p.checkoutOrder.customerEmail,
+            productTitle: p.checkoutOrder.product.title,
+          },
+        };
+      }
+      return {
+        id: p.id,
+        type: "booking" as const,
+        status: p.status,
+        method: p.method,
+        amountCents: p.amountCents,
+        paidAt: p.paidAt?.toISOString() || null,
+        createdAt: p.createdAt.toISOString(),
+        booking: {
+          id: p.booking!.id,
+          customerName: p.booking!.customerName,
+          customerEmail: p.booking!.customerEmail,
+          startAt: p.booking!.startAt.toISOString(),
+          serviceTitle: p.booking!.service.title,
+          pageTitle: p.booking!.bookingPage.title,
+        },
+      };
+    }),
     pagination: {
       page,
       pageSize,
