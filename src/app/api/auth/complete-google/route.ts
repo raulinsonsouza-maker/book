@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     });
     if (existing) {
       return NextResponse.json(
-        { error: "Organização já configurada" },
+        { error: "Empresa já configurada" },
         { status: 400 },
       );
     }

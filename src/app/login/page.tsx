@@ -40,7 +40,7 @@ export default function LoginPage() {
         <p className="eyebrow mt-6">Acesso</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Entrar</h1>
         <p className="mt-1 text-sm text-muted">
-          Acesse o painel da sua organização
+          Acesse o painel da sua empresa
         </p>
 
         <div className="mt-6">

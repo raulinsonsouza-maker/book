@@ -2,21 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { addMinutes } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { isValidCpf } from "@/lib/utils";
 import { isSlotAvailable } from "@/lib/availability";
+import { parseBookBody } from "@/lib/book-validation";
+import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
 
 const HOLD_MINUTES = 15;
-
-const schema = z.object({
-  serviceId: z.string(),
-  startAt: z.string().datetime(),
-  timezone: z.string(),
-  customerName: z.string().min(2),
-  customerEmail: z.string().email(),
-  customerPhone: z.string().min(8),
-  customerCpf: z.string().optional(),
-  customAnswers: z.record(z.string(), z.string()).optional(),
-});
 
 export async function POST(
   req: Request,
@@ -24,20 +14,26 @@ export async function POST(
 ) {
   const { slug } = await params;
   try {
-    const body = schema.parse(await req.json());
-    if (body.customerCpf && !isValidCpf(body.customerCpf)) {
-      return NextResponse.json({ error: "CPF inválido" }, { status: 400 });
-    }
+    const raw = await req.json();
+    const serviceId = raw.serviceId as string;
 
     const page = await prisma.bookingPage.findFirst({
       where: { slug, isActive: true },
       include: {
-        services: { where: { id: body.serviceId, isActive: true } },
+        services: { where: { id: serviceId, isActive: true } },
       },
     });
     if (!page || !page.services[0]) {
       return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
     }
+
+    const funnelConfig = mergeFunnelConfig(parseFunnelConfig(page.funnelConfig), {
+      title: page.title,
+      description: page.description,
+      accentColor: page.accentColor,
+      logoUrl: page.logoUrl,
+    });
+    const body = parseBookBody(funnelConfig, raw);
     const service = page.services[0];
     const startAt = new Date(body.startAt);
     const endAt = addMinutes(startAt, service.durationMinutes);
@@ -103,9 +99,9 @@ export async function POST(
           endAt,
           timezone: body.timezone || page.timezone,
           customerName: body.customerName,
-          customerEmail: body.customerEmail.toLowerCase(),
-          customerPhone: body.customerPhone.replace(/\D/g, ""),
-          customerCpf: body.customerCpf?.replace(/\D/g, ""),
+          customerEmail: body.customerEmail?.toLowerCase() ?? "",
+          customerPhone: body.customerPhone?.replace(/\D/g, "") ?? "",
+          customerCpf: body.customerCpf?.replace(/\D/g, "") || null,
           customAnswers: body.customAnswers
             ? JSON.stringify(body.customAnswers)
             : null,

@@ -55,7 +55,7 @@ export default function SignupPage() {
         <p className="eyebrow mt-6">Começar</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Criar conta</h1>
         <p className="mt-1 text-sm text-muted">
-          Sua organização já nasce com uma página de exemplo
+          Sua empresa já nasce com uma página de exemplo
         </p>
 
         <div className="mt-6">
@@ -67,7 +67,7 @@ export default function SignupPage() {
           {(
             [
               ["name", "Seu nome", "text"],
-              ["organizationName", "Nome da organização", "text"],
+              ["organizationName", "Nome da empresa", "text"],
               ["email", "E-mail", "email"],
               ["password", "Senha (mín. 6)", "password"],
             ] as const

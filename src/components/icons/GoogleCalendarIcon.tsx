@@ -12,11 +12,10 @@ export function GoogleCalendarIcon({
   return (
     <Image
       src="/google-calendar-logo.png"
-      alt=""
+      alt="Google Calendar"
       width={size}
       height={size}
-      className={`mix-blend-lighten ${className}`.trim()}
-      aria-hidden
+      className={className}
     />
   );
 }

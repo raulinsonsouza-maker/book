@@ -58,17 +58,17 @@ export default function CompleteGoogleSignupPage() {
       <div className="surface w-full max-w-md p-8">
         <p className="eyebrow">Quase lá</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">
-          Sua organização
+          Sua empresa
         </h1>
         <p className="mt-1 text-sm text-muted">
           Olá{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}!
-          Escolha um nome para sua organização. Criamos uma página de exemplo
+          Escolha um nome para sua empresa. Criamos uma página de exemplo
           automaticamente.
         </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <label className="block text-sm">
-            <span className="mb-1.5 block font-medium">Nome da organização</span>
+            <span className="mb-1.5 block font-medium">Nome da empresa</span>
             <input
               type="text"
               required

@@ -145,13 +145,27 @@ export default function PageEditor() {
             {page.title}
           </h1>
         </div>
-        <Link
-          href={`/p/${page.slug}`}
-          target="_blank"
-          className="btn-primary"
-        >
-          Ver funil público
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/app/pages/${page.id}/builder`}
+            className="btn-secondary"
+          >
+            Personalizar página
+          </Link>
+          <Link
+            href={`/app/pages/${page.id}/availability`}
+            className="btn-secondary"
+          >
+            Horários
+          </Link>
+          <Link
+            href={`/p/${page.slug}`}
+            target="_blank"
+            className="btn-primary"
+          >
+            Ver funil público
+          </Link>
+        </div>
       </div>
 
       {msg && (
@@ -298,7 +312,7 @@ export default function PageEditor() {
                 </button>
               </div>
               <p className="mt-3 text-xs text-muted">
-                Oferta Cakto: usa a oferta padrão da organização. Opcional
+                Oferta Cakto: usa a oferta padrão da empresa. Opcional
                 abaixo para sobrescrever.
               </p>
               <label className="mt-2 block text-sm">

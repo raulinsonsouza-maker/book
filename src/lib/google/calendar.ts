@@ -210,6 +210,55 @@ export async function getGoogleBusyIntervals(params: {
   }
 }
 
+export type GoogleCalendarEventItem = {
+  id: string;
+  summary: string;
+  start: Date;
+  end: Date;
+  htmlLink: string | null;
+};
+
+export async function getGoogleCalendarEvents(params: {
+  org: OrgGoogle;
+  timeMin: Date;
+  timeMax: Date;
+}): Promise<GoogleCalendarEventItem[]> {
+  if (!params.org.googleRefreshToken && !params.org.googleAccessToken) {
+    return [];
+  }
+
+  try {
+    const auth = await getAuthedClient(params.org);
+    const calendar = google.calendar({ version: "v3", auth });
+    const calendarId = params.org.googleCalendarId || "primary";
+
+    const res = await calendar.events.list({
+      calendarId,
+      timeMin: params.timeMin.toISOString(),
+      timeMax: params.timeMax.toISOString(),
+      singleEvents: true,
+      orderBy: "startTime",
+      maxResults: 250,
+    });
+
+    const items: GoogleCalendarEventItem[] = [];
+    for (const ev of res.data.items || []) {
+      if (!ev.start?.dateTime || !ev.end?.dateTime || !ev.id) continue;
+      items.push({
+        id: ev.id,
+        summary: ev.summary || "(Sem título)",
+        start: new Date(ev.start.dateTime),
+        end: new Date(ev.end.dateTime),
+        htmlLink: ev.htmlLink || null,
+      });
+    }
+    return items;
+  } catch (e) {
+    console.warn("[google] events.list failed", e);
+    return [];
+  }
+}
+
 function formatBookingDescription(booking: {
   id: string;
   customerName: string;

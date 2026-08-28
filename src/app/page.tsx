@@ -14,7 +14,7 @@ const features = [
   {
     n: "03",
     title: "Multi-tenant",
-    body: "Cada organização com páginas, serviços, disponibilidade e chaves próprias.",
+    body: "Cada empresa com páginas, serviços, disponibilidade e chaves próprias.",
   },
 ];
 

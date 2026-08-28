@@ -14,7 +14,11 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
-import { formatBRL, formatCpf, formatPhone, isValidCpf } from "@/lib/utils";
+import { formatBRL, isValidCpf } from "@/lib/utils";
+import { enabledFormFields } from "@/lib/funnel-config";
+import type { FunnelConfig } from "@/types/funnel-config";
+import { FunnelLandingBlocks } from "@/components/booking/FunnelLandingBlocks";
+import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 
 type CustomField = {
   id: string;
@@ -75,6 +79,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState<PageInfo | null>(null);
+  const [funnelConfig, setFunnelConfig] = useState<FunnelConfig | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [availableDays, setAvailableDays] = useState<string[]>([]);
   const [demoPayments, setDemoPayments] = useState(true);
@@ -113,9 +118,15 @@ export function BookingFunnel({ slug }: { slug: string }) {
   const [paying, setPaying] = useState(false);
 
   const accent =
-    page?.accentColor && page.accentColor !== "#E87722"
+    funnelConfig?.theme.accentColor ||
+    (page?.accentColor && page.accentColor !== "#E87722"
       ? page.accentColor
-      : "#0a0a0a";
+      : "#0a0a0a");
+
+  const formFields = enabledFormFields(funnelConfig);
+  const heroTitle = funnelConfig?.theme.heroTitle || page?.title;
+  const heroSubtitle = funnelConfig?.theme.heroSubtitle || page?.description;
+  const logoUrl = funnelConfig?.theme.logoUrl || page?.logoUrl;
 
   useEffect(() => {
     try {
@@ -134,6 +145,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
       })
       .then((data) => {
         setPage(data.page);
+        setFunnelConfig(data.funnelConfig || null);
         setServices(data.services);
         setAvailableDays(data.availableDays || []);
         setDemoPayments(data.demoPayments);
@@ -253,24 +265,52 @@ export function BookingFunnel({ slug }: { slug: string }) {
   async function submitDetails(e: React.FormEvent) {
     e.preventDefault();
     if (!service || !selectedSlot) return;
-    if (!isValidCpf(details.customerCpf)) {
+
+    const cpfField = formFields.find((f) => f.preset === "customerCpf" && f.enabled);
+    if (cpfField?.required && !isValidCpf(details.customerCpf)) {
       setError("Informe um CPF válido");
       return;
     }
+    if (cpfField?.required && !details.customerCpf) {
+      setError("Informe o CPF");
+      return;
+    }
+
+    for (const field of formFields) {
+      if (!field.preset && field.required && !answers[field.id]?.trim()) {
+        setError(`Preencha: ${field.label}`);
+        return;
+      }
+    }
+
     setError("");
     setPaying(true);
+    const customAnswers: Record<string, string> = {};
+    for (const field of formFields) {
+      if (!field.preset && answers[field.id]?.trim()) {
+        customAnswers[field.id] = answers[field.id].trim();
+      }
+    }
+
+    const payload: Record<string, unknown> = {
+      serviceId: service.id,
+      startAt: selectedSlot.startAt,
+      timezone,
+      customerName: details.customerName,
+      customAnswers: Object.keys(customAnswers).length ? customAnswers : undefined,
+    };
+    for (const field of formFields) {
+      if (field.preset === "customerEmail") payload.customerEmail = details.customerEmail;
+      if (field.preset === "customerPhone") payload.customerPhone = details.customerPhone.replace(/\D/g, "");
+      if (field.preset === "customerCpf" && details.customerCpf) {
+        payload.customerCpf = details.customerCpf.replace(/\D/g, "");
+      }
+    }
+
     const res = await fetch(`/api/public/${slug}/book`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        serviceId: service.id,
-        startAt: selectedSlot.startAt,
-        timezone,
-        ...details,
-        customerPhone: details.customerPhone.replace(/\D/g, ""),
-        customerCpf: details.customerCpf.replace(/\D/g, ""),
-        customAnswers: answers,
-      }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     setPaying(false);
@@ -435,19 +475,33 @@ export function BookingFunnel({ slug }: { slug: string }) {
           <div className="grid md:grid-cols-[240px_1fr]">
             {/* Summary sidebar */}
             <aside className="border-b border-border bg-muted-bg/40 p-5 md:border-b-0 md:border-r">
-              <div
-                className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg text-xs font-bold text-white"
-                style={{ background: accent }}
-              >
-                {page.title.slice(0, 2).toUpperCase()}
-              </div>
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt=""
+                  className="mb-3 h-11 w-11 rounded-lg object-cover"
+                />
+              ) : (
+                <div
+                  className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg text-xs font-bold text-white"
+                  style={{ background: accent }}
+                >
+                  {(heroTitle || "BS").slice(0, 2).toUpperCase()}
+                </div>
+              )}
               <h1 className="text-lg font-bold tracking-tight leading-snug">
-                {page.title}
+                {heroTitle}
               </h1>
-              {page.description && !service && (
+              {heroSubtitle && !service && (
                 <p className="mt-2 text-xs leading-relaxed text-muted line-clamp-4">
-                  {page.description}
+                  {heroSubtitle}
                 </p>
+              )}
+              {funnelConfig?.blocks && funnelConfig.blocks.length > 0 && (
+                <div className="mt-4">
+                  <FunnelLandingBlocks blocks={funnelConfig.blocks} />
+                </div>
               )}
 
               <div className="mt-5 space-y-3 text-sm">
@@ -695,95 +749,14 @@ export function BookingFunnel({ slug }: { slug: string }) {
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="block text-sm sm:col-span-2">
-                      <span className="mb-1.5 block font-medium">Nome completo</span>
-                      <input
-                        required
-                        autoFocus
-                        className="input-field"
-                        value={details.customerName}
-                        onChange={(e) =>
-                          setDetails({ ...details, customerName: e.target.value })
-                        }
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="mb-1.5 block font-medium">E-mail</span>
-                      <input
-                        required
-                        type="email"
-                        className="input-field"
-                        value={details.customerEmail}
-                        onChange={(e) =>
-                          setDetails({
-                            ...details,
-                            customerEmail: e.target.value,
-                          })
-                        }
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="mb-1.5 block font-medium">Celular</span>
-                      <input
-                        required
-                        inputMode="tel"
-                        placeholder="(11) 99999-9999"
-                        className="input-field"
-                        value={details.customerPhone}
-                        onChange={(e) =>
-                          setDetails({
-                            ...details,
-                            customerPhone: formatPhone(e.target.value),
-                          })
-                        }
-                      />
-                    </label>
-                    <label className="block text-sm sm:col-span-2">
-                      <span className="mb-1.5 block font-medium">CPF</span>
-                      <input
-                        required
-                        inputMode="numeric"
-                        placeholder="000.000.000-00"
-                        className="input-field"
-                        value={details.customerCpf}
-                        onChange={(e) =>
-                          setDetails({
-                            ...details,
-                            customerCpf: formatCpf(e.target.value),
-                          })
-                        }
-                      />
-                    </label>
+                    <FunnelFormFields
+                      fields={formFields}
+                      values={answers}
+                      onChange={(id, v) => setAnswers({ ...answers, [id]: v })}
+                      details={details}
+                      onDetailsChange={(patch) => setDetails({ ...details, ...patch })}
+                    />
                   </div>
-
-                  {service.customFields.map((f) => (
-                    <label key={f.id} className="block text-sm">
-                      <span className="mb-1.5 block font-medium">
-                        {f.label}
-                        {f.required ? "" : " (opcional)"}
-                      </span>
-                      {f.type === "TEXTAREA" ? (
-                        <textarea
-                          required={f.required}
-                          rows={3}
-                          className="input-field"
-                          value={answers[f.id] || ""}
-                          onChange={(e) =>
-                            setAnswers({ ...answers, [f.id]: e.target.value })
-                          }
-                        />
-                      ) : (
-                        <input
-                          required={f.required}
-                          className="input-field"
-                          value={answers[f.id] || ""}
-                          onChange={(e) =>
-                            setAnswers({ ...answers, [f.id]: e.target.value })
-                          }
-                        />
-                      )}
-                    </label>
-                  ))}
 
                   <button
                     type="submit"

@@ -6,7 +6,7 @@ import { LegalDocument } from "@/components/marketing/LegalDocument";
 export const metadata: Metadata = {
   title: "Termos de Serviço — Book Symbius",
   description:
-    "Termos de uso da plataforma Book Symbius para organizações e usuários do serviço de agendamento.",
+    "Termos de uso da plataforma Book Symbius para empresas e usuários do serviço de agendamento.",
 };
 
 const UPDATED = "28 de agosto de 2026";
@@ -39,12 +39,12 @@ export default function TermosPage() {
             content: (
               <>
                 <p>
-                  <strong>Organização:</strong> pessoa jurídica ou física que contrata o
+                  <strong>Empresa:</strong> pessoa jurídica ou física que contrata o
                   serviço e configura páginas de agendamento.
                 </p>
                 <p>
                   <strong>Cliente final:</strong> pessoa que agenda um serviço pela página
-                  pública de uma organização.
+                  pública de uma empresa.
                 </p>
                 <p>
                   <strong>Plataforma:</strong> o software Book Symbius, incluindo painel
@@ -96,17 +96,17 @@ export default function TermosPage() {
             ),
           },
           {
-            title: "5. Responsabilidade da organização",
+            title: "5. Responsabilidade da empresa",
             content: (
               <>
                 <p>
-                  A organização é responsável pelo conteúdo publicado em suas páginas de
+                  A empresa é responsável pelo conteúdo publicado em suas páginas de
                   agendamento, pelos preços praticados, pelo cumprimento de compromissos
                   com clientes finais e pelo tratamento de dados pessoais coletados no
                   funil, incluindo informar seus clientes sobre finalidades e bases legais.
                 </p>
                 <p>
-                  Credenciais de integração (Cakto, Google) configuradas pela organização
+                  Credenciais de integração (Cakto, Google) configuradas pela empresa
                   são de sua exclusiva responsabilidade.
                 </p>
               </>
@@ -141,7 +141,7 @@ export default function TermosPage() {
                 O software, marca, layout e documentação do Book Symbius pertencem à
                 Symbius ou a seus licenciadores. É concedida licença limitada, não
                 exclusiva e revogável de uso durante a vigência da conta. Conteúdos
-                inseridos pela organização permanecem de sua propriedade.
+                inseridos pela empresa permanecem de sua propriedade.
               </p>
             ),
           },
@@ -163,9 +163,9 @@ export default function TermosPage() {
                 Na máxima extensão permitida pela lei, a Symbius não se responsabiliza por
                 lucros cessantes, perda de dados causada por uso inadequado, falhas de
                 terceiros (Cakto, Google, provedores de internet) ou descumprimento de
-                obrigações da organização perante seus clientes finais. A responsabilidade
+                obrigações da empresa perante seus clientes finais. A responsabilidade
                 total da Symbius, quando aplicável, limita-se ao valor pago pela
-                organização nos últimos 12 meses pelo serviço, quando houver contratação
+                empresa nos últimos 12 meses pelo serviço, quando houver contratação
                 paga.
               </p>
             ),

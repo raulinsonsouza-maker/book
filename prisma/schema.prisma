@@ -96,6 +96,7 @@ model BookingPage {
   instagram      String?
   timezone       String              @default("America/Sao_Paulo")
   slotStepMinutes Int                @default(0)
+  funnelConfig    String?
   isActive       Boolean             @default(true)
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt

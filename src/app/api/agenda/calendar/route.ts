@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTheoreticalSlots, getBusyIntervals } from "@/lib/availability";
-import { getGoogleBusyIntervals } from "@/lib/google/calendar";
+import { getGoogleCalendarEvents } from "@/lib/google/calendar";
 import { addDays, parseISO, startOfDay, endOfDay } from "date-fns";
 
 export async function GET(req: Request) {
@@ -93,17 +93,37 @@ export async function GET(req: Request) {
     d = addDays(d, 1);
   }
 
-  let googleBusy: { start: string; end: string }[] = [];
-  if (page.organization.googleRefreshToken || page.organization.googleAccessToken) {
-    const intervals = await getGoogleBusyIntervals({
+  const googleConnected = Boolean(
+    page.organization.googleRefreshToken || page.organization.googleAccessToken,
+  );
+
+  const syncedGoogleIds = new Set(
+    bookings.map((b) => b.googleEventId).filter(Boolean) as string[],
+  );
+
+  let googleEvents: {
+    id: string;
+    summary: string;
+    startAt: string;
+    endAt: string;
+    htmlLink: string | null;
+  }[] = [];
+
+  if (googleConnected) {
+    const events = await getGoogleCalendarEvents({
       org: page.organization,
       timeMin: startOfDay(fromDate),
       timeMax: endOfDay(toDate),
     });
-    googleBusy = intervals.map((i) => ({
-      start: i.start.toISOString(),
-      end: i.end.toISOString(),
-    }));
+    googleEvents = events
+      .filter((ev) => !syncedGoogleIds.has(ev.id))
+      .map((ev) => ({
+        id: ev.id,
+        summary: ev.summary,
+        startAt: ev.start.toISOString(),
+        endAt: ev.end.toISOString(),
+        htmlLink: ev.htmlLink,
+      }));
   }
 
   return NextResponse.json({
@@ -119,7 +139,8 @@ export async function GET(req: Request) {
       paymentStatus: b.payment?.status,
     })),
     availableSlots,
-    googleBusy,
+    googleEvents,
+    googleConnected,
     timezone: page.timezone,
   });
 }

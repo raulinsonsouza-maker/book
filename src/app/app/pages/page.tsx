@@ -104,6 +104,12 @@ export default function PagesAdminPage() {
                   Abrir
                 </Link>
                 <Link
+                  href={`/app/pages/${p.id}/builder`}
+                  className="btn-secondary !py-1.5 !text-xs"
+                >
+                  Personalizar
+                </Link>
+                <Link
                   href={`/app/pages/${p.id}`}
                   className="btn-primary !py-1.5 !text-xs"
                 >

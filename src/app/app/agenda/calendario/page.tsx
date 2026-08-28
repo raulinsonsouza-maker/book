@@ -29,7 +29,7 @@ export default async function AgendaCalendarioPage() {
         <p className="eyebrow">Agenda</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Calendário</h1>
         <p className="mt-2 text-sm text-muted">
-          Reservas confirmadas, aguardando pagamento, slots livres e ocupação Google.
+          Reservas do Book Symbius, slots livres e eventos da sua Google Agenda.
         </p>
       </div>
       <WeekCalendar

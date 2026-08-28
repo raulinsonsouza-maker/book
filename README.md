@@ -31,11 +31,15 @@ Abra [http://localhost:3000](http://localhost:3000), crie uma conta e use a pág
 
 Sem credenciais, o checkout roda em **modo demo**.
 
-## Google Agenda
+## Google (login + Agenda)
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), ative **Google Calendar API**
 2. Crie credenciais **OAuth 2.0** (aplicativo Web)
-3. Authorized redirect URI: `http://localhost:3000/api/google/callback`
+3. Em **Authorized redirect URIs**, cadastre **os dois** (mesmo Client ID):
+   - Login NextAuth: `{NEXTAUTH_URL}/api/auth/callback/google`
+   - Google Agenda: `{NEXTAUTH_URL}/api/google/callback`
+   - Ex. produção: `https://book.symbius.com.br/api/auth/callback/google` e `https://book.symbius.com.br/api/google/callback`
+   - Ex. local: `http://localhost:3000/api/auth/callback/google` e `http://localhost:3000/api/google/callback`
 4. Cole `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` no `.env` e reinicie
 5. Em **Configurações** → **Conectar Google Agenda**
 

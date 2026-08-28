@@ -21,6 +21,41 @@
   --warn: #d97706;
   --warn-bg: #fffbeb;
   --warn-border: #fde68a;
+  --admin-bg: #f5f6f8;
+}
+
+.admin-shell {
+  background: var(--admin-bg);
+}
+
+.admin-main {
+  background: var(--admin-bg);
+}
+
+.admin-sidebar {
+  background: #ffffff;
+}
+
+.sidebar-link-active {
+  box-shadow: inset 3px 0 0 0 #0a0a0a;
+}
+
+.integration-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.15s ease;
+}
+
+.integration-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.builder-panel {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
 @theme inline {

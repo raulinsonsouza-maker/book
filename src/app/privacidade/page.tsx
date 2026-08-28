@@ -6,7 +6,7 @@ import { LegalDocument } from "@/components/marketing/LegalDocument";
 export const metadata: Metadata = {
   title: "Política de Privacidade — Book Symbius",
   description:
-    "Como o Book Symbius coleta, usa e protege dados pessoais de organizações e clientes finais.",
+    "Como o Book Symbius coleta, usa e protege dados pessoais de empresas e clientes finais.",
 };
 
 const UPDATED = "28 de agosto de 2026";
@@ -48,7 +48,7 @@ export default function PrivacidadePage() {
                 <Link href="/" className="text-foreground underline-offset-2 hover:underline">
                   book.symbius.com.br
                 </Link>
-                . Organizações cadastradas criam páginas públicas de agendamento; clientes
+                . Empresas cadastradas criam páginas públicas de agendamento; clientes
                 finais utilizam essas páginas para marcar horários e, quando aplicável,
                 efetuar pagamentos.
               </p>
@@ -59,8 +59,8 @@ export default function PrivacidadePage() {
             content: (
               <>
                 <p>
-                  <strong>Conta da organização:</strong> nome, e-mail, senha (armazenada
-                  de forma criptografada), nome da organização e configurações do painel.
+                  <strong>Conta da empresa:</strong> nome, e-mail, senha (armazenada
+                  de forma criptografada), nome da empresa e configurações do painel.
                 </p>
                 <p>
                   <strong>Agendamentos:</strong> nome, e-mail, telefone, CPF (quando
@@ -73,7 +73,7 @@ export default function PrivacidadePage() {
                   de crédito.
                 </p>
                 <p>
-                  <strong>Google Calendar (opcional):</strong> quando a organização conecta
+                  <strong>Google Calendar (opcional):</strong> quando a empresa conecta
                   o Google, recebemos tokens OAuth e metadados da conta Google autorizada
                   (como e-mail) para sincronizar eventos e consultar disponibilidade.
                 </p>
@@ -90,7 +90,7 @@ export default function PrivacidadePage() {
               <>
                 <p>Utilizamos os dados para:</p>
                 <ul className="list-disc space-y-2 pl-5">
-                  <li>criar e gerenciar contas e organizações;</li>
+                  <li>criar e gerenciar contas e empresas;</li>
                   <li>operar o fluxo de agendamento e confirmações;</li>
                   <li>processar pagamentos via integração com a Cakto;</li>
                   <li>sincronizar eventos com Google Calendar, quando autorizado;</li>
@@ -139,7 +139,7 @@ export default function PrivacidadePage() {
                 Mantemos os dados enquanto a conta estiver ativa ou conforme exigido por
                 lei. Aplicamos medidas técnicas e organizacionais razoáveis para proteger
                 informações, incluindo criptografia de senhas, HTTPS e controle de acesso
-                por organização.
+                por empresa.
               </p>
             ),
           },

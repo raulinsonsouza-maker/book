@@ -28,6 +28,14 @@ type SlotItem = {
   label: string;
 };
 
+type GoogleEventItem = {
+  id: string;
+  summary: string;
+  startAt: string;
+  endAt: string;
+  htmlLink: string | null;
+};
+
 type PageOption = { id: string; title: string; slug: string };
 type ServiceOption = { id: string; title: string; durationMinutes: number };
 
@@ -69,7 +77,8 @@ export function WeekCalendar({
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [slots, setSlots] = useState<SlotItem[]>([]);
-  const [googleBusy, setGoogleBusy] = useState<{ start: string; end: string }[]>([]);
+  const [googleEvents, setGoogleEvents] = useState<GoogleEventItem[]>([]);
+  const [googleConnected, setGoogleConnected] = useState(false);
   const [showGoogle, setShowGoogle] = useState(true);
   const [showSlots, setShowSlots] = useState(true);
 
@@ -97,7 +106,8 @@ export function WeekCalendar({
       .then((data) => {
         setBookings(data.bookings || []);
         setSlots(data.availableSlots || []);
-        setGoogleBusy(data.googleBusy || []);
+        setGoogleEvents(data.googleEvents || []);
+        setGoogleConnected(Boolean(data.googleConnected));
       });
   }, [from, to, pageId, serviceId]);
 
@@ -173,8 +183,32 @@ export function WeekCalendar({
             checked={showGoogle}
             onChange={(e) => setShowGoogle(e.target.checked)}
           />
-          Google ocupado
+          Google Agenda
         </label>
+        {!googleConnected && (
+          <a href="/app/settings" className="text-xs text-muted underline-offset-2 hover:underline">
+            Conectar Google
+          </a>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-3 text-[10px] text-muted">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded bg-foreground" />
+          Confirmado
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded border-2 border-dashed border-foreground bg-white" />
+          Aguardando pagamento
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded border-l-2 border-[#4285F4] bg-[#e8f0fe]" />
+          Google Agenda
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded border border-dashed border-time-border bg-time-bg/60" />
+          Slot livre
+        </span>
       </div>
 
       <div className="surface overflow-x-auto">
@@ -207,20 +241,57 @@ export function WeekCalendar({
                 <div key={h} className="h-12 border-b border-border bg-white/50" />
               ))}
               {showGoogle &&
-                googleBusy.map((g, i) => {
-                  const { dayIndex, top } = topPx(g.start, weekStart);
-                  if (dayIndex !== colIdx) return null;
-                  return (
-                    <div
-                      key={`g-${i}`}
-                      className="pointer-events-none absolute inset-x-0.5 rounded bg-muted/40"
-                      style={{
-                        top: `${top}px`,
-                        height: `${heightPx(g.start, g.end)}px`,
-                      }}
-                    />
-                  );
-                })}
+                googleEvents
+                  .filter(
+                    (ev) =>
+                      format(parseISO(ev.startAt), "yyyy-MM-dd") ===
+                      format(day, "yyyy-MM-dd"),
+                  )
+                  .map((ev) => {
+                    const { top } = topPx(ev.startAt, weekStart);
+                    const inner = (
+                      <>
+                        <span className="line-clamp-2 font-medium">{ev.summary}</span>
+                        <span className="text-[9px] opacity-80">
+                          {format(parseISO(ev.startAt), "HH:mm")}–
+                          {format(parseISO(ev.endAt), "HH:mm")}
+                        </span>
+                      </>
+                    );
+                    const style = {
+                      top: `${top}px`,
+                      height: `${heightPx(ev.startAt, ev.endAt)}px`,
+                    };
+                    const className =
+                      "absolute inset-x-0.5 overflow-hidden rounded border-l-2 border-[#4285F4] bg-[#e8f0fe] px-1 py-0.5 text-[10px] leading-tight text-[#1967d2]";
+
+                    if (ev.htmlLink) {
+                      return (
+                        <a
+                          key={ev.id}
+                          href={ev.htmlLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`${className} z-[2] hover:bg-[#d2e3fc]`}
+                          style={style}
+                          title={ev.summary}
+                        >
+                          {inner}
+                        </a>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={ev.id}
+                        className={`${className} pointer-events-none z-[2]`}
+                        style={style}
+                        title={ev.summary}
+                      >
+                        {inner}
+                      </div>
+                    );
+                  })}
               {showSlots &&
                 slots
                   .filter((s) => s.date === format(day, "yyyy-MM-dd"))
@@ -247,7 +318,7 @@ export function WeekCalendar({
                   return (
                     <div
                       key={b.id}
-                      className={`absolute inset-x-0.5 overflow-hidden rounded px-1 py-0.5 text-[10px] leading-tight text-white ${
+                      className={`absolute inset-x-0.5 overflow-hidden rounded px-1 py-0.5 text-[10px] leading-tight text-white z-[3] ${
                         confirmed ? "bg-foreground" : "border-2 border-dashed border-foreground bg-white text-foreground"
                       }`}
                       style={{

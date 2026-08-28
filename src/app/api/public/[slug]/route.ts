@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAvailableDays, getAvailableSlots } from "@/lib/availability";
+import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
 
 export async function GET(
   req: Request,
@@ -51,6 +52,12 @@ export async function GET(
         instagram: page.instagram,
         timezone: page.timezone,
       },
+      funnelConfig: mergeFunnelConfig(parseFunnelConfig(page.funnelConfig), {
+        title: page.title,
+        description: page.description,
+        accentColor: page.accentColor,
+        logoUrl: page.logoUrl,
+      }),
       services: page.services,
       availableDays: days,
       caktoSdkClientId: page.organization.caktoSdkClientId || null,
