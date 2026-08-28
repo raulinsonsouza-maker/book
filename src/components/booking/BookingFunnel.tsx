@@ -14,7 +14,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
-import { formatBRL, isValidCpf } from "@/lib/utils";
+import { formatBRL, DEFAULT_TIMEZONE, isValidCpf } from "@/lib/utils";
 import { enabledFormFields } from "@/lib/funnel-config";
 import type { FunnelConfig } from "@/types/funnel-config";
 import { FunnelLandingBlocks } from "@/components/booking/FunnelLandingBlocks";
@@ -95,7 +95,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-  const [timezone, setTimezone] = useState("America/Sao_Paulo");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
 
   const [details, setDetails] = useState({
     customerName: "",
@@ -156,7 +156,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
         setPaymentProviderLabel(data.paymentProviderLabel || "Demo");
         setCaktoSdkClientId(data.caktoSdkClientId);
         setMercadoPagoPublicKey(data.mercadoPagoPublicKey);
-        if (!Intl?.DateTimeFormat) setTimezone(data.page.timezone);
+        setTimezone(data.page.timezone || DEFAULT_TIMEZONE);
 
         // Auto-skip serviço único
         if (data.services?.length === 1) {

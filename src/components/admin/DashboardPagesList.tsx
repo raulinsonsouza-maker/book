@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
+import { DeletePageButton } from "@/components/admin/DeletePageButton";
 
 type PageItem = {
   id: string;
@@ -69,6 +70,12 @@ export function DashboardPagesList({ pages, appUrl }: Props) {
                 >
                   Editar
                 </Link>
+                <DeletePageButton
+                  pageId={p.id}
+                  pageTitle={p.title}
+                  bookingsCount={p._count.bookings}
+                  compact
+                />
               </div>
             </li>
           ))}

@@ -3,16 +3,15 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { slugify } from "@/lib/utils";
+import { uniqueBookingPageSlug } from "@/lib/booking-page-slug";
+import { DEFAULT_TIMEZONE } from "@/lib/utils";
 
 const schema = z.object({
   title: z.string().min(2),
-  slug: z.string().min(2).optional(),
   description: z.string().optional(),
   accentColor: z.string().optional(),
   websiteUrl: z.string().optional(),
   instagram: z.string().optional(),
-  timezone: z.string().optional(),
 });
 
 export async function GET() {
@@ -38,9 +37,11 @@ export async function POST(req: Request) {
   }
   try {
     const body = schema.parse(await req.json());
-    let slug = slugify(body.slug || body.title);
-    const taken = await prisma.bookingPage.findUnique({ where: { slug } });
-    if (taken) slug = `${slug}-${Date.now().toString(36)}`;
+    const org = await prisma.organization.findUnique({
+      where: { id: session.user.organizationId },
+      select: { timezone: true },
+    });
+    const slug = await uniqueBookingPageSlug(body.title);
 
     const page = await prisma.bookingPage.create({
       data: {
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
         accentColor: body.accentColor || "#0a0a0a",
         websiteUrl: body.websiteUrl,
         instagram: body.instagram,
-        timezone: body.timezone || "America/Sao_Paulo",
+        timezone: org?.timezone || DEFAULT_TIMEZONE,
         availability: {
           create: [
             { dayOfWeek: 1, startTime: "09:00", endTime: "18:00" },

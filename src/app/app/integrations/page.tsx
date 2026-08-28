@@ -84,10 +84,14 @@ export default function IntegrationsPage() {
                   Desconectar
                 </button>
               </div>
-            ) : (
+            ) : google?.configured ? (
               <a href="/api/google/connect" className="btn-primary w-full">
                 Conectar
               </a>
+            ) : (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Conexão com Google temporariamente indisponível.
+              </p>
             )
           }
         />
@@ -131,12 +135,6 @@ export default function IntegrationsPage() {
             </Link>
           }
         />
-      </div>
-
-      <div className="rounded-lg border border-time-border bg-time-bg/50 px-4 py-3 text-sm text-muted">
-        Documentação OAuth: cadastre{" "}
-        <code className="text-xs">/api/auth/callback/google</code> e{" "}
-        <code className="text-xs">/api/google/callback</code> no Google Cloud Console.
       </div>
     </div>
   );

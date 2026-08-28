@@ -21,6 +21,23 @@ export function slugify(text: string) {
     .slice(0, 60);
 }
 
+export const DEFAULT_TIMEZONE = "America/Sao_Paulo";
+
+export function timezoneLabel(timezone: string) {
+  if (timezone === DEFAULT_TIMEZONE) return "Horário de Brasília";
+  try {
+    const name = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: timezone,
+      timeZoneName: "long",
+    })
+      .formatToParts(new Date())
+      .find((part) => part.type === "timeZoneName")?.value;
+    return name || timezone;
+  } catch {
+    return timezone;
+  }
+}
+
 export function isValidCpf(cpf: string) {
   const digits = cpf.replace(/\D/g, "");
   if (digits.length !== 11 || /^(\d)\1+$/.test(digits)) return false;

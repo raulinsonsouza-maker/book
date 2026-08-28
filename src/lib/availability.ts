@@ -2,16 +2,22 @@ import {
   addDays,
   addMinutes,
   format,
-  parse,
   startOfDay,
   isBefore,
   isAfter,
-  getDay,
 } from "date-fns";
-import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { toZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/prisma";
+import {
+  computeTheoreticalSlots,
+  getDayWindows,
+  normalizeRules,
+  parseTimeOnDate,
+  type Rule,
+} from "@/lib/availability-core";
 
-export type Rule = { dayOfWeek: number; startTime: string; endTime: string };
+export type { Rule } from "@/lib/availability-core";
+
 type Exception = {
   date: string;
   isBlocked: boolean;
@@ -19,89 +25,15 @@ type Exception = {
   endTime: string | null;
 };
 
-export type SlotWindow = { start: string; end: string; label?: string };
-
-function parseTimeOnDate(dateStr: string, time: string, tz: string) {
-  const local = parse(`${dateStr} ${time}`, "yyyy-MM-dd HH:mm", new Date());
-  return fromZonedTime(local, tz);
-}
-
-function getDayWindows(
-  rules: Rule[],
-  exceptions: Exception[],
-  date: string,
-): SlotWindow[] {
-  const dayLocal = parse(date, "yyyy-MM-dd", new Date());
-  const dow = getDay(dayLocal);
-
-  const blockedFull = exceptions.find((e) => e.isBlocked && !e.startTime);
-  if (blockedFull) return [];
-
-  const openEx = exceptions.find((e) => !e.isBlocked && e.startTime && e.endTime);
-  if (openEx?.startTime && openEx?.endTime) {
-    return [{ start: openEx.startTime, end: openEx.endTime }];
-  }
-
-  return rules
-    .filter((r) => r.dayOfWeek === dow)
-    .map((r) => ({ start: r.startTime, end: r.endTime }))
-    .sort((a, b) => a.start.localeCompare(b.start));
-}
-
-function generateSlotsForWindows(params: {
-  date: string;
-  timezone: string;
-  windows: SlotWindow[];
-  durationMinutes: number;
-  bufferBefore: number;
-  bufferAfter: number;
-  stepMinutes: number;
-  partialBlocks: Exception[];
-  skipPast?: boolean;
-}) {
-  const {
-    date,
-    timezone,
-    windows,
-    durationMinutes,
-    bufferBefore,
-    bufferAfter,
-    stepMinutes,
-    partialBlocks,
-    skipPast = true,
-  } = params;
-
-  const now = new Date();
-  const slots: { startAt: string; endAt: string; label: string; windowIndex: number }[] = [];
-
-  windows.forEach((win, windowIndex) => {
-    let cursor = parseTimeOnDate(date, win.start, timezone);
-    const windowEnd = parseTimeOnDate(date, win.end, timezone);
-
-    while (isBefore(cursor, windowEnd)) {
-      const slotStart = cursor;
-      const slotEnd = addMinutes(slotStart, durationMinutes);
-      if (isAfter(slotEnd, windowEnd)) break;
-
-      const blocked = partialBlocks.some((b) => {
-        const bStart = parseTimeOnDate(date, b.startTime!, timezone);
-        const bEnd = parseTimeOnDate(date, b.endTime!, timezone);
-        return isBefore(slotStart, bEnd) && isAfter(slotEnd, bStart);
-      });
-
-      if (!blocked && (!skipPast || isAfter(slotStart, now))) {
-        slots.push({
-          startAt: slotStart.toISOString(),
-          endAt: slotEnd.toISOString(),
-          label: format(toZonedTime(slotStart, timezone), "HH:mm"),
-          windowIndex,
-        });
-      }
-      cursor = addMinutes(cursor, stepMinutes);
-    }
+export function filterSlotsByBusy<T extends { startAt: string; endAt: string }>(
+  slots: T[],
+  busy: { start: Date; end: Date }[],
+): T[] {
+  return slots.filter((slot) => {
+    const s = new Date(slot.startAt);
+    const e = new Date(slot.endAt);
+    return !busy.some((b) => isBefore(s, b.end) && isAfter(e, b.start));
   });
-
-  return slots;
 }
 
 export async function getBusyIntervals(params: {
@@ -169,17 +101,6 @@ export async function getBusyIntervals(params: {
   return intervals;
 }
 
-export function filterSlotsByBusy<T extends { startAt: string; endAt: string }>(
-  slots: T[],
-  busy: { start: Date; end: Date }[],
-): T[] {
-  return slots.filter((slot) => {
-    const s = new Date(slot.startAt);
-    const e = new Date(slot.endAt);
-    return !busy.some((b) => isBefore(s, b.end) && isAfter(e, b.start));
-  });
-}
-
 export async function getTheoreticalSlots(params: {
   bookingPageId: string;
   date: string;
@@ -196,35 +117,17 @@ export async function getTheoreticalSlots(params: {
     where: { bookingPageId: params.bookingPageId, date: params.date },
   });
 
-  const windows = getDayWindows(rules, exceptions, params.date);
-  const partialBlocks = exceptions.filter(
-    (e) => e.isBlocked && e.startTime && e.endTime,
-  ) as Exception[];
-
-  const stepMinutes =
-    params.slotStepMinutes && params.slotStepMinutes > 0
-      ? params.slotStepMinutes
-      : params.durationMinutes + (params.bufferBefore || 0) + (params.bufferAfter || 0);
-
-  const slots = generateSlotsForWindows({
+  return computeTheoreticalSlots({
+    rules,
+    exceptions,
     date: params.date,
     timezone: params.timezone,
-    windows,
     durationMinutes: params.durationMinutes,
-    bufferBefore: params.bufferBefore || 0,
-    bufferAfter: params.bufferAfter || 0,
-    stepMinutes,
-    partialBlocks,
+    bufferBefore: params.bufferBefore,
+    bufferAfter: params.bufferAfter,
+    slotStepMinutes: params.slotStepMinutes,
     skipPast: false,
   });
-
-  const byWindow = windows.map((win, i) => ({
-    ...win,
-    slots: slots.filter((s) => s.windowIndex === i).map((s) => s.label),
-    count: slots.filter((s) => s.windowIndex === i).length,
-  }));
-
-  return { windows: byWindow, slots, total: slots.length };
 }
 
 export async function getAvailableDays(params: {
@@ -334,9 +237,11 @@ export async function isSlotAvailable(params: {
 }
 
 export function defaultWeekRules(): Rule[] {
-  return [2, 3, 4].map((dayOfWeek) => ({
+  return [1, 2, 3, 4, 5].map((dayOfWeek) => ({
     dayOfWeek,
     startTime: "08:00",
-    endTime: "17:00",
+    endTime: "18:00",
   }));
 }
+
+export { computeTheoreticalSlots, normalizeRules };

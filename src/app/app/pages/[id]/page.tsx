@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { DeletePageButton } from "@/components/admin/DeletePageButton";
 import {
   formatBRL,
   maskBRLFromDigits,
   maskMinutes,
   parseBRLMaskToCents,
+  slugify,
 } from "@/lib/utils";
 
 type CustomField = {
@@ -70,19 +72,20 @@ export default function PageEditor() {
     e.preventDefault();
     if (!page) return;
     setSaving(true);
-    await fetch(`/api/pages/${id}`, {
+    const res = await fetch(`/api/pages/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: page.title,
-        slug: page.slug,
         description: page.description,
         accentColor: page.accentColor,
         websiteUrl: page.websiteUrl,
         instagram: page.instagram,
-        timezone: page.timezone,
       }),
     });
+    if (res.ok) {
+      setPage(await res.json());
+    }
     setSaving(false);
     setMsg("Página salva");
     setTimeout(() => setMsg(""), 2000);
@@ -165,6 +168,11 @@ export default function PageEditor() {
           >
             Ver funil público
           </Link>
+          <DeletePageButton
+            pageId={page.id}
+            pageTitle={page.title}
+            redirectTo="/app/pages"
+          />
         </div>
       </div>
 
@@ -180,21 +188,19 @@ export default function PageEditor() {
       >
         <h2 className="font-semibold">Branding e dados</h2>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="text-sm">
+          <label className="text-sm md:col-span-2">
             <span className="mb-1 block font-medium">Título</span>
             <input
               className="input-field"
               value={page.title}
               onChange={(e) => setPage({ ...page, title: e.target.value })}
             />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium">Slug</span>
-            <input
-              className="input-field"
-              value={page.slug}
-              onChange={(e) => setPage({ ...page, slug: e.target.value })}
-            />
+            <p className="mt-1.5 text-xs text-muted">
+              Link público:{" "}
+              <code className="rounded bg-muted-bg px-1.5 py-0.5 text-foreground">
+                /p/{slugify(page.title) || page.slug}
+              </code>
+            </p>
           </label>
           <label className="text-sm md:col-span-2">
             <span className="mb-1 block font-medium">Descrição</span>
@@ -216,14 +222,6 @@ export default function PageEditor() {
               onChange={(e) =>
                 setPage({ ...page, accentColor: e.target.value })
               }
-            />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium">Timezone</span>
-            <input
-              className="input-field"
-              value={page.timezone}
-              onChange={(e) => setPage({ ...page, timezone: e.target.value })}
             />
           </label>
           <label className="text-sm">

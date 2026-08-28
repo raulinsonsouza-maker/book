@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizeRules } from "@/lib/availability-core";
 
 const schema = z.object({
   bookingPageId: z.string(),
@@ -35,7 +36,7 @@ export async function PUT(req: Request) {
         where: { bookingPageId: body.bookingPageId },
       }),
       prisma.availabilityRule.createMany({
-        data: body.rules.map((r) => ({
+        data: normalizeRules(body.rules).map((r) => ({
           bookingPageId: body.bookingPageId,
           dayOfWeek: r.dayOfWeek,
           startTime: r.startTime,

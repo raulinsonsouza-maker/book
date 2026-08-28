@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
+import { DeletePageButton } from "@/components/admin/DeletePageButton";
 
 type PageItem = {
   id: string;
@@ -115,6 +116,13 @@ export default function PagesAdminPage() {
                 >
                   Editar
                 </Link>
+                <DeletePageButton
+                  pageId={p.id}
+                  pageTitle={p.title}
+                  bookingsCount={p._count.bookings}
+                  onDeleted={load}
+                  compact
+                />
               </div>
             </li>
           ))}

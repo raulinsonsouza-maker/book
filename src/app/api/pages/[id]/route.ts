@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { uniqueBookingPageSlug } from "@/lib/booking-page-slug";
 import { slugify } from "@/lib/utils";
 
 async function getOwnedPage(id: string, organizationId: string) {
@@ -37,12 +38,10 @@ export async function GET(
 
 const updateSchema = z.object({
   title: z.string().min(2).optional(),
-  slug: z.string().min(2).optional(),
   description: z.string().nullable().optional(),
   accentColor: z.string().optional(),
   websiteUrl: z.string().nullable().optional(),
   instagram: z.string().nullable().optional(),
-  timezone: z.string().optional(),
   logoUrl: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
 });
@@ -61,14 +60,18 @@ export async function PATCH(
 
   try {
     const body = updateSchema.parse(await req.json());
-    let slug = body.slug ? slugify(body.slug) : undefined;
-    if (slug && slug !== owned.slug) {
-      const taken = await prisma.bookingPage.findUnique({ where: { slug } });
-      if (taken) slug = `${slug}-${Date.now().toString(36)}`;
+    const data: Record<string, unknown> = { ...body };
+
+    if (body.title !== undefined) {
+      const nextSlug = slugify(body.title);
+      if (nextSlug && nextSlug !== owned.slug) {
+        data.slug = await uniqueBookingPageSlug(body.title, id);
+      }
     }
+
     const page = await prisma.bookingPage.update({
       where: { id },
-      data: { ...body, slug },
+      data,
     });
     return NextResponse.json(page);
   } catch {

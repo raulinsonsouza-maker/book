@@ -16,7 +16,17 @@ export default async function PageAvailabilityPage({
     include: {
       availability: { orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] },
       exceptions: { orderBy: { date: "asc" } },
-      services: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
+      services: {
+        where: { isActive: true },
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          title: true,
+          durationMinutes: true,
+          bufferBefore: true,
+          bufferAfter: true,
+        },
+      },
     },
   });
 
@@ -35,6 +45,7 @@ export default async function PageAvailabilityPage({
       pageId={page.id}
       pageTitle={page.title}
       timezone={page.timezone}
+      slotStepMinutes={page.slotStepMinutes}
       initialRules={page.availability}
       initialExceptions={page.exceptions}
       services={page.services}
