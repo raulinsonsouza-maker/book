@@ -12,24 +12,25 @@ export async function provisionOrganization(
   });
   if (slugTaken) orgSlug = `${orgSlug}-${Date.now().toString(36)}`;
 
-  const membership = await prisma.membership.create({
+  const organization = await prisma.organization.create({
+    data: {
+      name: organizationName,
+      slug: orgSlug,
+    },
+  });
+
+  await prisma.membership.create({
     data: {
       role: "OWNER",
       userId,
-      organization: {
-        create: {
-          name: organizationName,
-          slug: orgSlug,
-        },
-      },
+      organizationId: organization.id,
     },
-    include: { organization: true },
   });
 
   const pageSlug = `${orgSlug}-consulta`;
   const page = await prisma.bookingPage.create({
     data: {
-      organizationId: membership.organizationId,
+      organizationId: organization.id,
       title: "Consultas",
       slug: pageSlug,
       description:
@@ -63,9 +64,9 @@ export async function provisionOrganization(
   });
 
   return {
-    organizationId: membership.organizationId,
-    organizationName: membership.organization.name,
-    role: membership.role,
+    organizationId: organization.id,
+    organizationName: organization.name,
+    role: "OWNER" as const,
     bookingPageSlug: page.slug,
   };
 }
