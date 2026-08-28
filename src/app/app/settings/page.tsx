@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  GoogleCalendarIcon,
-  GoogleGIcon,
-} from "@/components/icons/GoogleCalendarIcon";
+import { GoogleCalendarIcon } from "@/components/icons/GoogleCalendarIcon";
 
 type Org = {
   name: string;
@@ -246,7 +243,7 @@ export default function SettingsPage() {
                 href="/api/google/connect"
                 className="inline-flex items-center gap-2.5 rounded-lg border border-[#dadce0] bg-white px-4 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm transition hover:bg-[#f8f9fa] hover:shadow"
               >
-                <GoogleGIcon size={20} />
+                <GoogleCalendarIcon size={22} />
                 Conectar Google Agenda
               </a>
             </>
