@@ -17,6 +17,7 @@ export default async function AppLayout({
 }) {
   const session = await getSession();
   if (!session?.user) redirect("/login");
+  if (!session.user.organizationId) redirect("/signup/complete");
 
   return (
     <div className="dot-grid-soft min-h-screen">

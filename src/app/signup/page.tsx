@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -57,7 +58,12 @@ export default function SignupPage() {
           Sua organização já nasce com uma página de exemplo
         </p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        <div className="mt-6">
+          <GoogleSignInButton label="Cadastrar com Google" />
+        </div>
+        <AuthDivider />
+
+        <form onSubmit={onSubmit} className="space-y-4">
           {(
             [
               ["name", "Seu nome", "text"],
