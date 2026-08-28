@@ -8,6 +8,7 @@ import {
   parseProductFormConfig,
   serializeProductFormConfig,
 } from "@/lib/product-form-config";
+import { ensureProductCheckoutLink } from "@/lib/checkout-slug";
 
 const schema = z.object({
   title: z.string().min(2),
@@ -27,10 +28,22 @@ export async function GET() {
   const products = await prisma.product.findMany({
     where: { organizationId: session.user.organizationId! },
     include: {
-      _count: { select: { checkoutLinks: true, orders: true } },
+      checkoutLinks: {
+        take: 1,
+        orderBy: { createdAt: "asc" },
+        select: { slug: true },
+      },
+      _count: { select: { orders: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  for (const product of products) {
+    if (product.checkoutLinks.length === 0) {
+      const link = await ensureProductCheckoutLink(product.id, product.title);
+      product.checkoutLinks = [{ slug: link.slug }];
+    }
+  }
 
   return NextResponse.json(products);
 }
@@ -61,7 +74,9 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json(product);
+    const link = await ensureProductCheckoutLink(product.id, product.title);
+
+    return NextResponse.json({ ...product, checkoutLinks: [{ slug: link.slug }] });
   } catch (e) {
     if (e instanceof z.ZodError) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });

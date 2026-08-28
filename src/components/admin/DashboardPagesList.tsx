@@ -52,8 +52,7 @@ export function DashboardPagesList({ pages, appUrl }: Props) {
                   <p className="truncate font-medium">{p.title}</p>
                 </div>
                 <p className="mt-1 text-xs text-muted">
-                  /p/{p.slug} · {p._count.services} serviços · {p._count.bookings}{" "}
-                  agendamentos
+                  {p._count.services} serviços · {p._count.bookings} agendamentos
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

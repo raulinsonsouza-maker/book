@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { FIELD_PRESETS } from "@/types/funnel-config";
 import type { FormFieldConfig } from "@/types/funnel-config";
 import { defaultProductFormConfig, parseProductFormConfig } from "@/lib/product-form-config";
+import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
 
 type Product = {
@@ -16,6 +17,7 @@ type Product = {
   caktoOfferId: string | null;
   formConfig: string | null;
   isActive: boolean;
+  checkoutLinks: { slug: string }[];
 };
 
 function centsToInput(cents: number) {
@@ -40,6 +42,11 @@ export default function EditProductPage() {
   );
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [linkSlug, setLinkSlug] = useState<string | null>(null);
+  const appUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || "";
 
   useEffect(() => {
     fetch(`/api/checkout/products/${id}`)
@@ -52,6 +59,7 @@ export default function EditProductPage() {
         setCaktoOfferId(data.caktoOfferId || "");
         setIsActive(data.isActive);
         setFormFields(parseProductFormConfig(data.formConfig).formFields);
+        setLinkSlug(data.checkoutLinks?.[0]?.slug ?? null);
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -99,6 +107,12 @@ export default function EditProductPage() {
       </div>
 
       <CheckoutSubnav />
+
+      {linkSlug && (
+        <div className="flex flex-wrap items-center gap-2">
+          <CopyLinkButton url={`${appUrl}/pay/${linkSlug}`} />
+        </div>
+      )}
 
       <form onSubmit={save} className="surface max-w-2xl space-y-4 p-6">
         <label className="block text-sm">

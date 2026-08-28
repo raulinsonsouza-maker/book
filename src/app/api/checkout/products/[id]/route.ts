@@ -7,6 +7,7 @@ import {
   parseProductFormConfig,
   serializeProductFormConfig,
 } from "@/lib/product-form-config";
+import { ensureProductCheckoutLink } from "@/lib/checkout-slug";
 
 const schema = z.object({
   title: z.string().min(2).optional(),
@@ -37,6 +38,11 @@ export async function GET(
 
   if (!product) {
     return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  }
+
+  if (product.checkoutLinks.length === 0) {
+    const link = await ensureProductCheckoutLink(product.id, product.title);
+    product.checkoutLinks = [link];
   }
 
   return NextResponse.json(product);

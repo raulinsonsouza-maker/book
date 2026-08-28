@@ -91,8 +91,7 @@ export default function PagesAdminPage() {
                   <h2 className="font-semibold tracking-tight">{p.title}</h2>
                 </div>
                 <p className="mt-1 text-sm text-muted">
-                  /p/{p.slug} · {p._count.services} serviços ·{" "}
-                  {p._count.bookings} bookings
+                  {p._count.services} serviços · {p._count.bookings} agendamentos
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatBRL } from "@/lib/utils";
+import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
 
 type Product = {
@@ -11,7 +12,8 @@ type Product = {
   description: string | null;
   priceCents: number;
   isActive: boolean;
-  _count: { checkoutLinks: number; orders: number };
+  checkoutLinks: { slug: string }[];
+  _count: { orders: number };
 };
 
 export default function CheckoutProductsPage() {
@@ -20,6 +22,10 @@ export default function CheckoutProductsPage() {
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const appUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || "";
 
   async function load() {
     const res = await fetch("/api/checkout/products");
@@ -54,7 +60,7 @@ export default function CheckoutProductsPage() {
         <p className="eyebrow">Checkout</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Produtos</h1>
         <p className="mt-2 text-sm text-muted">
-          Cadastre produtos reutilizáveis para links de pagamento instantâneo.
+          Cadastre produtos e copie o link de pagamento para enviar ao cliente.
         </p>
       </div>
 
@@ -92,28 +98,35 @@ export default function CheckoutProductsPage() {
         <p className="text-sm text-muted">Nenhum produto cadastrado.</p>
       ) : (
         <ul className="space-y-3">
-          {products.map((p) => (
-            <li
-              key={p.id}
-              className="surface flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${p.isActive ? "bg-success" : "bg-muted"}`}
-                  />
-                  <h2 className="font-semibold tracking-tight">{p.title}</h2>
+          {products.map((p) => {
+            const slug = p.checkoutLinks[0]?.slug;
+            return (
+              <li
+                key={p.id}
+                className="surface flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${p.isActive ? "bg-success" : "bg-muted"}`}
+                    />
+                    <h2 className="font-semibold tracking-tight">{p.title}</h2>
+                  </div>
+                  <p className="mt-1 text-sm text-muted">
+                    {formatBRL(p.priceCents)} · {p._count.orders} vendas
+                  </p>
                 </div>
-                <p className="mt-1 text-sm text-muted">
-                  {formatBRL(p.priceCents)} · {p._count.checkoutLinks} links ·{" "}
-                  {p._count.orders} vendas
-                </p>
-              </div>
-              <Link href={`/app/checkout/produtos/${p.id}`} className="btn-secondary">
-                Editar
-              </Link>
-            </li>
-          ))}
+                <div className="flex flex-wrap gap-2">
+                  {slug && (
+                    <CopyLinkButton url={`${appUrl}/pay/${slug}`} />
+                  )}
+                  <Link href={`/app/checkout/produtos/${p.id}`} className="btn-secondary">
+                    Editar
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

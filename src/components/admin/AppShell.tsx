@@ -96,7 +96,6 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith("/app/pages") && p.includes("/builder"), title: "Construtor de página" },
   { match: (p) => p.startsWith("/app/pages"), title: "Páginas" },
   { match: (p) => p.startsWith("/app/checkout/vendas"), title: "Vendas" },
-  { match: (p) => p.startsWith("/app/checkout/links"), title: "Links de checkout" },
   { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Produtos" },
   { match: (p) => p.startsWith("/app/checkout"), title: "Checkout" },
   { match: (p) => p.startsWith("/app/financeiro"), title: "Financeiro" },
