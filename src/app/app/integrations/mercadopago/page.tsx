@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
 
 type Org = {
   mercadoPagoPublicKey: string | null;
@@ -156,7 +157,10 @@ export default function MercadoPagoIntegrationPage() {
       )}
 
       <div className="surface space-y-4 p-6">
-        <h2 className="text-lg font-semibold">Mercado Pago</h2>
+        <div className="flex items-center gap-3">
+          <MercadoPagoIcon size={36} />
+          <h2 className="text-lg font-semibold">Mercado Pago</h2>
+        </div>
         <p className="text-sm text-muted">
           Checkout transparente (Pix + cartão) dentro do funil de agendamento. Cada empresa
           conecta a própria conta Mercado Pago — o pagamento cai direto para você.

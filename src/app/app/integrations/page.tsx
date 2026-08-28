@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { GoogleCalendarIcon } from "@/components/icons/GoogleCalendarIcon";
+import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
 import { IntegrationCard } from "@/components/integrations/IntegrationCard";
 
 type Org = {
@@ -92,9 +93,7 @@ export default function IntegrationsPage() {
         />
 
         <IntegrationCard
-          icon={
-            <span className="text-lg font-bold tracking-tight text-sky-600">MP</span>
-          }
+          icon={<MercadoPagoIcon size={28} />}
           title="Mercado Pago"
           status={
             org?.mercadoPagoConnected
