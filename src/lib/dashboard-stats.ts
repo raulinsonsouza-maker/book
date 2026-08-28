@@ -10,6 +10,7 @@ import {
 import { ptBR } from "date-fns/locale";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/prisma";
+import { buildPaymentWhere } from "@/lib/payments/org-filter";
 import {
   isCaktoReady,
   isMercadoPagoReady,
@@ -91,9 +92,13 @@ export async function getDashboardStats(organizationId: string, timezone: string
     }),
     prisma.payment.aggregate({
       where: {
-        status: "PAID",
-        paidAt: { gte: thisMonth.start, lte: thisMonth.end },
-        booking: orgFilter,
+        AND: [
+          buildPaymentWhere(organizationId, {}),
+          {
+            status: "PAID",
+            paidAt: { gte: thisMonth.start, lte: thisMonth.end },
+          },
+        ],
       },
       _sum: { amountCents: true },
     }),

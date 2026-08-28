@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { buildPaymentWhere } from "@/lib/payments/org-filter";
+import { getAuthorizedOrganizationId } from "@/lib/session";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
+  const orgId = await getAuthorizedOrganizationId();
+  if (!orgId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -18,49 +18,16 @@ export async function GET(req: Request) {
   const method = searchParams.get("method") as PaymentMethod | null;
   const bookingPageId = searchParams.get("bookingPageId");
   const type = searchParams.get("type");
-  const orgId = session.user.organizationId;
-
-  const paidAtRange: { gte?: Date; lte?: Date } = {};
-  if (from) paidAtRange.gte = new Date(from);
-  if (to) paidAtRange.lte = new Date(`${to}T23:59:59.999Z`);
-  const periodFilter =
-    Object.keys(paidAtRange).length > 0
-      ? { OR: [{ paidAt: paidAtRange }, { paidAt: null, createdAt: paidAtRange }] }
-      : {};
-
-  const orgFilter =
-    type === "booking"
-      ? {
-          booking: {
-            bookingPage: {
-              organizationId: orgId,
-              ...(bookingPageId ? { id: bookingPageId } : {}),
-            },
-          },
-        }
-      : type === "checkout"
-        ? { checkoutOrder: { product: { organizationId: orgId } } }
-        : {
-            OR: [
-              {
-                booking: {
-                  bookingPage: {
-                    organizationId: orgId,
-                    ...(bookingPageId ? { id: bookingPageId } : {}),
-                  },
-                },
-              },
-              { checkoutOrder: { product: { organizationId: orgId } } },
-            ],
-          };
 
   const payments = await prisma.payment.findMany({
-    where: {
-      ...orgFilter,
-      ...(status ? { status } : {}),
-      ...(method ? { method } : {}),
-      ...periodFilter,
-    },
+    where: buildPaymentWhere(orgId, {
+      from,
+      to,
+      status,
+      method,
+      bookingPageId,
+      type,
+    }),
     include: {
       booking: {
         include: {

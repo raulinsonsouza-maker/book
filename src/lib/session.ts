@@ -23,3 +23,17 @@ export async function requireOrg() {
   if (!org) redirect("/login");
   return { session, org };
 }
+
+/** Resolve org from DB membership (never trust stale JWT alone on sensitive APIs). */
+export async function getAuthorizedOrganizationId(): Promise<string | null> {
+  const session = await getSession();
+  if (!session?.user?.id) return null;
+
+  const membership = await prisma.membership.findFirst({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "asc" },
+    select: { organizationId: true },
+  });
+
+  return membership?.organizationId ?? null;
+}
