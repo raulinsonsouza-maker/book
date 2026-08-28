@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const features = [
   {
@@ -8,7 +9,7 @@ const features = [
   },
   {
     n: "02",
-    title: "Checkout Cakto",
+    title: "Checkout integrado",
     body: "Pix e cartão na última tela, sem redirecionar. Slot em hold até confirmar.",
   },
   {
@@ -23,12 +24,7 @@ export default function HomePage() {
     <div className="dot-grid min-h-screen">
       <header className="sticky top-0 z-20 border-b border-border bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-foreground text-[10px] font-bold text-white">
-              B
-            </span>
-            Book Symbius
-          </Link>
+          <BrandLogo href="/" size="sm" showText />
           <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
             <a href="#produto" className="hover:text-foreground">
               Produto
@@ -55,7 +51,7 @@ export default function HomePage() {
             Agende. Cobre. Confirme — tudo na mesma tela.
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-muted md:text-lg">
-            Infraestrutura de scheduling com checkout transparente Cakto.
+            Infraestrutura de scheduling com checkout transparente Mercado Pago.
             Visual limpo, fluxo curto, cobrança sem sair da página.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -68,7 +64,7 @@ export default function HomePage() {
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
             <span className="tag">Next.js</span>
-            <span className="tag">Cakto</span>
+            <span className="tag">Mercado Pago</span>
             <span className="tag">Pix + Cartão</span>
             <span className="tag">Multi-tenant</span>
           </div>
@@ -95,7 +91,7 @@ export default function HomePage() {
                   <p className="text-xs font-medium uppercase tracking-wider text-muted">
                     Passos
                   </p>
-                  {["Serviço", "Data e hora", "Dados", "Pagamento Cakto"].map(
+                  {["Serviço", "Data e hora", "Dados", "Pagamento"].map(
                     (s, i) => (
                       <div
                         key={s}
@@ -134,7 +130,7 @@ export default function HomePage() {
 
         <footer className="border-t border-border bg-white">
           <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center">
-            <span className="font-medium text-foreground">Book Symbius</span>
+            <BrandLogo size="sm" showText />
             <nav className="flex flex-wrap gap-x-5 gap-y-2">
               <Link href="/privacidade" className="hover:text-foreground">
                 Privacidade
@@ -143,7 +139,7 @@ export default function HomePage() {
                 Termos
               </Link>
             </nav>
-            <span>Um produto Symbius · Checkout via Cakto</span>
+            <span>Um produto Symbius · Pagamentos via Mercado Pago</span>
           </div>
         </footer>
       </main>

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { FIELD_PRESETS } from "@/types/funnel-config";
 import type { FormFieldConfig } from "@/types/funnel-config";
 import { defaultProductFormConfig, parseProductFormConfig } from "@/lib/product-form-config";
+import { CAKTO_ENABLED } from "@/lib/feature-flags";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
 
@@ -43,12 +44,17 @@ export default function EditProductPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [linkSlug, setLinkSlug] = useState<string | null>(null);
+  const [paymentProvider, setPaymentProvider] = useState<"CAKTO" | "MERCADO_PAGO">("CAKTO");
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
       : process.env.NEXT_PUBLIC_APP_URL || "";
 
   useEffect(() => {
+    fetch("/api/organization")
+      .then((r) => r.json())
+      .then((data) => setPaymentProvider(data.paymentProvider || "CAKTO"));
+
     fetch(`/api/checkout/products/${id}`)
       .then((r) => r.json())
       .then((data: Product) => {
@@ -80,7 +86,7 @@ export default function EditProductPage() {
         title,
         description: description || null,
         priceCents: inputToCents(price),
-        caktoOfferId: caktoOfferId || null,
+        ...(paymentProvider === "CAKTO" ? { caktoOfferId: caktoOfferId || null } : {}),
         isActive,
         formConfig: { formFields },
       }),
@@ -127,10 +133,20 @@ export default function EditProductPage() {
           <span className="mb-1.5 block font-medium">Preço (R$)</span>
           <input required className="input-field max-w-xs" value={price} onChange={(e) => setPrice(e.target.value)} />
         </label>
-        <label className="block text-sm">
-          <span className="mb-1.5 block font-medium">Cakto Offer ID (opcional)</span>
-          <input className="input-field" value={caktoOfferId} onChange={(e) => setCaktoOfferId(e.target.value)} />
-        </label>
+        {CAKTO_ENABLED && paymentProvider === "CAKTO" ? (
+          <label className="block text-sm">
+            <span className="mb-1.5 block font-medium">Cakto Offer ID (opcional)</span>
+            <p className="mb-1.5 text-xs text-muted">
+              Sobrescreve a oferta padrão da integração Cakto para este produto.
+            </p>
+            <input className="input-field" value={caktoOfferId} onChange={(e) => setCaktoOfferId(e.target.value)} />
+          </label>
+        ) : (
+          <p className="text-sm text-muted">
+            Pagamentos deste produto usam o{" "}
+            <strong className="text-foreground">Mercado Pago</strong> definido em Integrações.
+          </p>
+        )}
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           Produto ativo

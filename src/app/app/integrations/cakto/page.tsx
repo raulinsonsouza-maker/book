@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CAKTO_ENABLED } from "@/lib/feature-flags";
 
 type Org = {
   caktoClientId: string | null;
   caktoOfferId: string | null;
   hasCaktoSecret: boolean;
   caktoConnected: boolean;
+  mercadoPagoConnected?: boolean;
 };
 
 export default function CaktoIntegrationPage() {
+  const router = useRouter();
   const [org, setOrg] = useState<Org | null>(null);
   const [clientId, setClientId] = useState("");
   const [secret, setSecret] = useState("");
@@ -19,6 +23,10 @@ export default function CaktoIntegrationPage() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
+    if (!CAKTO_ENABLED) {
+      router.replace("/app/integrations");
+      return;
+    }
     fetch("/api/organization")
       .then((r) => r.json())
       .then((data: Org) => {
@@ -26,7 +34,9 @@ export default function CaktoIntegrationPage() {
         setClientId(data.caktoClientId || "");
         setOfferId(data.caktoOfferId || "");
       });
-  }, []);
+  }, [router]);
+
+  if (!CAKTO_ENABLED) return null;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -46,7 +56,7 @@ export default function CaktoIntegrationPage() {
         caktoClientId: clientId.trim(),
         caktoOfferId: offerId.trim(),
         caktoSdkClientId: clientId.trim(),
-        paymentProvider: "CAKTO",
+        ...(!org?.mercadoPagoConnected ? { paymentProvider: "CAKTO" } : {}),
         ...(secret ? { caktoClientSecret: secret.trim() } : {}),
       }),
     });

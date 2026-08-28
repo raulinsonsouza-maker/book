@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 export default function SignupPage() {
@@ -49,10 +50,13 @@ export default function SignupPage() {
   return (
     <div className="dot-grid flex min-h-screen items-center justify-center px-4 py-10">
       <div className="surface w-full max-w-md p-8">
-        <Link href="/" className="text-sm text-muted hover:text-foreground">
-          ← Voltar
-        </Link>
-        <p className="eyebrow mt-6">Começar</p>
+        <div className="mb-6 flex flex-col items-center gap-4 text-center">
+          <BrandLogo href="/" size="lg" showText />
+          <Link href="/" className="text-sm text-muted hover:text-foreground">
+            ← Voltar
+          </Link>
+        </div>
+        <p className="eyebrow">Começar</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Criar conta</h1>
         <p className="mt-1 text-sm text-muted">
           Sua empresa já nasce com uma página de exemplo

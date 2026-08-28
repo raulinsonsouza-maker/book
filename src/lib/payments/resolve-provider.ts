@@ -1,4 +1,5 @@
 import type { Organization, PaymentProvider } from "@prisma/client";
+import { CAKTO_ENABLED } from "@/lib/feature-flags";
 
 export type ResolvedPaymentProvider = PaymentProvider | "DEMO";
 
@@ -23,15 +24,10 @@ export function isMercadoPagoReady(
 }
 
 export function resolvePaymentProvider(org: OrgPaymentConfig): ResolvedPaymentProvider {
-  if (org.paymentProvider === "MERCADO_PAGO" && isMercadoPagoReady(org)) {
-    return "MERCADO_PAGO";
+  if (org.paymentProvider === "MERCADO_PAGO" || !CAKTO_ENABLED) {
+    return isMercadoPagoReady(org) ? "MERCADO_PAGO" : "DEMO";
   }
-  if (org.paymentProvider === "CAKTO" && isCaktoReady(org)) {
-    return "CAKTO";
-  }
-  if (isMercadoPagoReady(org)) return "MERCADO_PAGO";
-  if (isCaktoReady(org)) return "CAKTO";
-  return "DEMO";
+  return isCaktoReady(org) ? "CAKTO" : "DEMO";
 }
 
 export function paymentProviderLabel(provider: ResolvedPaymentProvider) {

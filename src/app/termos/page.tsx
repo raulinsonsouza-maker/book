@@ -59,7 +59,7 @@ export default function TermosPage() {
               <p>
                 O Book Symbius disponibiliza ferramentas para criar páginas de agendamento,
                 gerenciar serviços e disponibilidade, registrar reservas, integrar
-                pagamentos (via Cakto) e, opcionalmente, sincronizar eventos com Google
+                pagamentos (via Mercado Pago) e, opcionalmente, sincronizar eventos com Google
                 Calendar. Funcionalidades podem evoluir ao longo do tempo.
               </p>
             ),
@@ -106,7 +106,7 @@ export default function TermosPage() {
                   funil, incluindo informar seus clientes sobre finalidades e bases legais.
                 </p>
                 <p>
-                  Credenciais de integração (Cakto, Google) configuradas pela empresa
+                  Credenciais de integração (Mercado Pago, Google) configuradas pela empresa
                   são de sua exclusiva responsabilidade.
                 </p>
               </>
@@ -116,10 +116,10 @@ export default function TermosPage() {
             title: "6. Pagamentos",
             content: (
               <p>
-                Pagamentos de clientes finais são processados pela Cakto, conforme termos
-                e políticas da própria Cakto. O Book Symbius não é instituição financeira
-                e não garante aprovação de transações. Taxas e condições comerciais da
-                Cakto aplicam-se independentemente destes Termos.
+                Pagamentos de clientes finais são processados pelo Mercado Pago, conforme termos
+                e políticas do próprio Mercado Pago. O Book Symbius não é instituição financeira
+                e não garante aprovação de transações. Taxas e condições comerciais do
+                Mercado Pago aplicam-se independentemente destes Termos.
               </p>
             ),
           },
@@ -162,7 +162,7 @@ export default function TermosPage() {
               <p>
                 Na máxima extensão permitida pela lei, a Symbius não se responsabiliza por
                 lucros cessantes, perda de dados causada por uso inadequado, falhas de
-                terceiros (Cakto, Google, provedores de internet) ou descumprimento de
+                terceiros (Mercado Pago, Google, provedores de internet) ou descumprimento de
                 obrigações da empresa perante seus clientes finais. A responsabilidade
                 total da Symbius, quando aplicável, limita-se ao valor pago pela
                 empresa nos últimos 12 meses pelo serviço, quando houver contratação

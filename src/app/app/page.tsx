@@ -35,7 +35,7 @@ export default async function AppHomePage() {
               Conecte um provedor de pagamento
             </p>
             <p className="mt-1 text-sm text-muted">
-              Mercado Pago ou Cakto — sem isso, o checkout fica em modo demo.
+              Conecte o Mercado Pago — sem isso, o checkout fica em modo demo.
             </p>
           </div>
           <Link href="/app/integrations" className="btn-primary shrink-0">

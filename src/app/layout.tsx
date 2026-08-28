@@ -11,7 +11,11 @@ const geist = Geist({
 export const metadata: Metadata = {
   title: "Book Symbius — Agende e cobre sem fricção",
   description:
-    "Produto Symbius de agendamento com checkout transparente Cakto. Pix e cartão na última tela.",
+    "Produto Symbius de agendamento com checkout transparente Mercado Pago. Pix e cartão na última tela.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

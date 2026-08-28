@@ -9,6 +9,7 @@ import {
   webhookUrl,
 } from "@/lib/payments/resolve-provider";
 import { mercadoPagoOAuthConfigured } from "@/lib/mercadopago/oauth";
+import { CAKTO_ENABLED } from "@/lib/feature-flags";
 
 const schema = z.object({
   name: z.string().min(2).optional(),
@@ -82,11 +83,42 @@ export async function PATCH(req: Request) {
   try {
     const raw = await req.json();
     const body = schema.parse(raw);
+
+    const current = await prisma.organization.findUnique({
+      where: { id: session.user.organizationId },
+    });
+    if (!current) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
     const data: Record<string, unknown> = {};
 
     if (body.name !== undefined) data.name = body.name;
     if (body.timezone !== undefined) data.timezone = body.timezone;
-    if (body.paymentProvider !== undefined) data.paymentProvider = body.paymentProvider;
+
+    if (body.paymentProvider !== undefined) {
+      if (body.paymentProvider === "CAKTO") {
+        if (!CAKTO_ENABLED) {
+          return NextResponse.json(
+            { error: "Integração Cakto indisponível no momento" },
+            { status: 400 },
+          );
+        }
+        if (!isCaktoReady(current)) {
+          return NextResponse.json(
+            { error: "Conecte a Cakto antes de defini-la como padrão" },
+            { status: 400 },
+          );
+        }
+      }
+      if (body.paymentProvider === "MERCADO_PAGO" && !isMercadoPagoReady(current)) {
+        return NextResponse.json(
+          { error: "Conecte o Mercado Pago antes de defini-lo como padrão" },
+          { status: 400 },
+        );
+      }
+      data.paymentProvider = body.paymentProvider;
+    }
 
     if ("caktoClientId" in raw) {
       const id =

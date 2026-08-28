@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function CompleteGoogleSignupPage() {
   const router = useRouter();
@@ -56,6 +57,9 @@ export default function CompleteGoogleSignupPage() {
   return (
     <div className="dot-grid flex min-h-screen items-center justify-center px-4 py-10">
       <div className="surface w-full max-w-md p-8">
+        <div className="mb-6 flex justify-center">
+          <BrandLogo size="lg" showText />
+        </div>
         <p className="eyebrow">Quase lá</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">
           Sua empresa

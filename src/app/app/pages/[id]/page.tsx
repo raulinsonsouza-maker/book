@@ -11,6 +11,7 @@ import {
   parseBRLMaskToCents,
   slugify,
 } from "@/lib/utils";
+import { CAKTO_ENABLED } from "@/lib/feature-flags";
 
 type CustomField = {
   id?: string;
@@ -46,6 +47,7 @@ export default function PageEditor() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [page, setPage] = useState<PageData | null>(null);
+  const [paymentProvider, setPaymentProvider] = useState<"CAKTO" | "MERCADO_PAGO">("CAKTO");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [svcForm, setSvcForm] = useState({
@@ -66,6 +68,9 @@ export default function PageEditor() {
 
   useEffect(() => {
     load();
+    fetch("/api/organization")
+      .then((r) => r.json())
+      .then((data) => setPaymentProvider(data.paymentProvider || "CAKTO"));
   }, [id]);
 
   async function savePage(e: React.FormEvent) {
@@ -309,25 +314,29 @@ export default function PageEditor() {
                   {svc.isActive ? "Desativar" : "Ativar"}
                 </button>
               </div>
-              <p className="mt-3 text-xs text-muted">
-                Oferta Cakto: usa a oferta padrão da empresa. Opcional
-                abaixo para sobrescrever.
-              </p>
-              <label className="mt-2 block text-sm">
-                <span className="mb-1 block text-muted">
-                  Oferta específica (opcional)
-                </span>
-                <input
-                  className="input-field"
-                  defaultValue={svc.caktoOfferId || ""}
-                  placeholder="Deixe vazio para usar a padrão"
-                  onBlur={(e) =>
-                    updateService(svc, {
-                      caktoOfferId: e.target.value || null,
-                    } as Partial<Service>)
-                  }
-                />
-              </label>
+              {CAKTO_ENABLED && paymentProvider === "CAKTO" && (
+                <>
+                  <p className="mt-3 text-xs text-muted">
+                    Oferta Cakto: usa a oferta padrão da integração. Opcional
+                    abaixo para sobrescrever neste serviço.
+                  </p>
+                  <label className="mt-2 block text-sm">
+                    <span className="mb-1 block text-muted">
+                      Oferta específica (opcional)
+                    </span>
+                    <input
+                      className="input-field"
+                      defaultValue={svc.caktoOfferId || ""}
+                      placeholder="Deixe vazio para usar a padrão"
+                      onBlur={(e) =>
+                        updateService(svc, {
+                          caktoOfferId: e.target.value || null,
+                        } as Partial<Service>)
+                      }
+                    />
+                  </label>
+                </>
+              )}
             </li>
           ))}
         </ul>

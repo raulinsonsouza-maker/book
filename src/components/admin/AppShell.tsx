@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { SignOutButton } from "@/components/admin/SignOutButton";
 import {
   NavIconAccount,
@@ -157,19 +158,14 @@ export function AppShell({ organizationName, userName, children }: Props) {
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link
+      <BrandLogo
         href="/app"
-        className="sidebar-brand"
+        size="sm"
+        showText
+        subtitle="Agendamento"
+        className="sidebar-brand admin-topbar"
         onClick={closeMobile}
-      >
-        <span className="sidebar-brand-mark">B</span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold tracking-tight text-foreground">
-            Book Symbius
-          </span>
-          <span className="block truncate text-[11px] text-muted">Agendamento</span>
-        </span>
-      </Link>
+      />
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
         {NAV_SECTIONS.map((section) => (
@@ -205,7 +201,7 @@ export function AppShell({ organizationName, userName, children }: Props) {
 
   return (
     <div className="admin-shell flex min-h-screen">
-      <aside className="admin-sidebar hidden w-[15.5rem] shrink-0 lg:block">
+      <aside className="admin-sidebar hidden w-[15.5rem] shrink-0 lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-col">
         {sidebar}
       </aside>
 
@@ -224,8 +220,8 @@ export function AppShell({ organizationName, userName, children }: Props) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="admin-header sticky top-0 z-30 flex h-14 items-center justify-between gap-4 px-4 md:px-6">
-          <div className="flex items-center gap-3">
+        <header className="admin-header admin-topbar sticky top-0 z-30 flex items-center justify-between gap-4 px-4 md:px-6">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               className="rounded-lg border border-border bg-white p-2 text-muted transition hover:bg-muted-bg hover:text-foreground lg:hidden"
@@ -234,9 +230,11 @@ export function AppShell({ organizationName, userName, children }: Props) {
             >
               <NavIconMenu />
             </button>
-            <h1 className="text-base font-semibold tracking-tight">{pageTitle(pathname)}</h1>
+            <h1 className="truncate text-sm font-semibold tracking-tight md:text-base">
+              {pageTitle(pathname)}
+            </h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             <span className="hidden max-w-[12rem] truncate text-xs text-muted sm:inline">
               {displayName}
             </span>

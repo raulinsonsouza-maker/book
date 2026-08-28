@@ -1,5 +1,6 @@
 import { addSeconds } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import { CAKTO_ENABLED } from "@/lib/feature-flags";
 
 export type MercadoPagoOAuthTokens = {
   accessToken: string;
@@ -108,6 +109,21 @@ export async function saveMercadoPagoTokens(
 }
 
 export async function clearMercadoPagoConnection(organizationId: string) {
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: {
+      paymentProvider: true,
+      caktoClientId: true,
+      caktoClientSecret: true,
+      caktoOfferId: true,
+    },
+  });
+
+  const switchToCakto =
+    CAKTO_ENABLED &&
+    org?.paymentProvider === "MERCADO_PAGO" &&
+    Boolean(org.caktoClientId && org.caktoClientSecret && org.caktoOfferId);
+
   await prisma.organization.update({
     where: { id: organizationId },
     data: {
@@ -117,6 +133,7 @@ export async function clearMercadoPagoConnection(organizationId: string) {
       mercadoPagoTokenExpiry: null,
       mercadoPagoUserId: null,
       mercadoPagoConnectedAt: null,
+      ...(switchToCakto ? { paymentProvider: "CAKTO" } : {}),
     },
   });
 }

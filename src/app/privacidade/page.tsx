@@ -26,7 +26,7 @@ export default function PrivacidadePage() {
               (&quot;nós&quot;, &quot;plataforma&quot;), produto da Symbius, trata dados
               pessoais quando você utiliza nosso serviço de agendamento online, painel
               administrativo e integrações (incluindo Google Calendar e pagamentos via
-              Cakto).
+              Mercado Pago).
             </p>
             <p>
               Ao usar o Book Symbius, você declara ter lido e compreendido esta política.
@@ -69,7 +69,7 @@ export default function PrivacidadePage() {
                 </p>
                 <p>
                   <strong>Pagamentos:</strong> informações de transação processadas pela
-                  Cakto (valor, método, status). Não armazenamos dados completos de cartão
+                  Mercado Pago (valor, método, status). Não armazenamos dados completos de cartão
                   de crédito.
                 </p>
                 <p>
@@ -92,7 +92,7 @@ export default function PrivacidadePage() {
                 <ul className="list-disc space-y-2 pl-5">
                   <li>criar e gerenciar contas e empresas;</li>
                   <li>operar o fluxo de agendamento e confirmações;</li>
-                  <li>processar pagamentos via integração com a Cakto;</li>
+                  <li>processar pagamentos via integração com o Mercado Pago;</li>
                   <li>sincronizar eventos com Google Calendar, quando autorizado;</li>
                   <li>enviar comunicações transacionais (confirmações, lembretes);</li>
                   <li>garantir segurança, prevenir fraudes e cumprir obrigações legais.</li>
@@ -110,7 +110,7 @@ export default function PrivacidadePage() {
                     <strong>Google</strong> — autenticação OAuth e API do Google Calendar;
                   </li>
                   <li>
-                    <strong>Cakto</strong> — processamento de pagamentos Pix e cartão;
+                    <strong>Mercado Pago</strong> — processamento de pagamentos Pix e cartão;
                   </li>
                   <li>
                     <strong>Provedores de infraestrutura</strong> — hospedagem, e-mail e
