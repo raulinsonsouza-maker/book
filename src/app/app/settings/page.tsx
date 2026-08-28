@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  GoogleCalendarIcon,
+  GoogleGIcon,
+} from "@/components/icons/GoogleCalendarIcon";
 
 type Org = {
   name: string;
@@ -159,38 +163,61 @@ export default function SettingsPage() {
       )}
 
       <section className="surface overflow-hidden">
-        <div className="flex items-start justify-between gap-4 border-b border-border bg-muted-bg/50 px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold tracking-tight">
-              Google Agenda
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              Reservas confirmadas entram na sua agenda. Horários ocupados no
-              Google ficam bloqueados no funil.
-            </p>
+        <div className="border-b border-[#4285F4]/20 bg-gradient-to-r from-[#4285F4]/10 via-[#34A853]/5 to-[#FBBC04]/10 px-5 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/80 bg-white shadow-sm">
+                <GoogleCalendarIcon size={32} />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold tracking-tight text-[#1a73e8]">
+                  Google Agenda
+                </h2>
+                <p className="mt-1 text-sm text-muted">
+                  Reservas confirmadas entram na sua agenda. Horários ocupados no
+                  Google ficam bloqueados no funil.
+                </p>
+              </div>
+            </div>
+            <span
+              className={`tag shrink-0 ${
+                google?.connected
+                  ? "!border !border-[#34A853]/30 !bg-[#e8f5e9] !text-[#1e8e3e]"
+                  : "!border !border-[#FBBC04]/40 !bg-[#fef7e0] !text-[#b06000]"
+              }`}
+            >
+              {google?.connected ? "Conectada" : "Desconectada"}
+            </span>
           </div>
-          <span
-            className={`tag shrink-0 ${
-              google?.connected
-                ? "!bg-emerald-50 !text-emerald-700"
-                : "!bg-amber-50 !text-amber-800"
-            }`}
-          >
-            {google?.connected ? "Conectada" : "Desconectada"}
-          </span>
         </div>
 
         <div className="space-y-4 p-5">
           {google?.connected ? (
             <>
-              <div className="rounded-lg border border-money-border bg-money-bg/50 px-3 py-2 text-sm">
-                <p className="font-medium text-money">Conta vinculada</p>
-                <p className="mt-0.5 text-muted">{google.email}</p>
+              <div className="flex items-center gap-3 rounded-xl border border-[#4285F4]/25 bg-gradient-to-br from-[#4285F4]/5 to-[#34A853]/5 px-4 py-3">
+                <GoogleCalendarIcon size={36} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[#1a73e8]">
+                    Conta vinculada
+                  </p>
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {google.email}
+                  </p>
+                </div>
               </div>
-              <ul className="space-y-1 text-xs text-muted">
-                <li>• Novo agendamento pago → evento criado no Google</li>
-                <li>• Cancelamento → evento removido</li>
-                <li>• Free/busy do Google bloqueia slots no funil</li>
+              <ul className="space-y-2 text-xs text-muted">
+                <li className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#4285F4]" />
+                  Novo agendamento pago → evento criado no Google
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#34A853]" />
+                  Cancelamento → evento removido
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#FBBC04]" />
+                  Free/busy do Google bloqueia slots no funil
+                </li>
               </ul>
               <button
                 type="button"
@@ -209,11 +236,17 @@ export default function SettingsPage() {
                   <strong>GOOGLE_CLIENT_SECRET</strong> (Google Cloud Console →
                   OAuth). Redirect:{" "}
                   <code className="break-all">
-                    http://localhost:3000/api/google/callback
+                    {typeof window !== "undefined"
+                      ? `${window.location.origin}/api/google/callback`
+                      : "/api/google/callback"}
                   </code>
                 </p>
               )}
-              <a href="/api/google/connect" className="btn-primary inline-flex">
+              <a
+                href="/api/google/connect"
+                className="inline-flex items-center gap-2.5 rounded-lg border border-[#dadce0] bg-white px-4 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm transition hover:bg-[#f8f9fa] hover:shadow"
+              >
+                <GoogleGIcon size={20} />
                 Conectar Google Agenda
               </a>
             </>
