@@ -6,7 +6,9 @@ import { SignOutButton } from "@/components/admin/SignOutButton";
 const nav = [
   { href: "/app", label: "Início" },
   { href: "/app/pages", label: "Páginas" },
-  { href: "/app/bookings", label: "Agendamentos" },
+  { href: "/app/agenda/calendario", label: "Calendário" },
+  { href: "/app/agenda/listagem", label: "Listagem" },
+  { href: "/app/financeiro", label: "Financeiro" },
   { href: "/app/settings", label: "Configurações" },
 ];
 

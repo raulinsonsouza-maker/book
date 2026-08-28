@@ -10,16 +10,6 @@ import {
   parseBRLMaskToCents,
 } from "@/lib/utils";
 
-const DAYS = [
-  "Domingo",
-  "Segunda",
-  "Terça",
-  "Quarta",
-  "Quinta",
-  "Sexta",
-  "Sábado",
-];
-
 type CustomField = {
   id?: string;
   label: string;
@@ -38,8 +28,6 @@ type Service = {
   customFields: CustomField[];
 };
 
-type Rule = { dayOfWeek: number; startTime: string; endTime: string };
-
 type PageData = {
   id: string;
   title: string;
@@ -50,7 +38,6 @@ type PageData = {
   instagram: string | null;
   timezone: string;
   services: Service[];
-  availability: Rule[];
 };
 
 export default function PageEditor() {
@@ -101,22 +88,6 @@ export default function PageEditor() {
     setTimeout(() => setMsg(""), 2000);
   }
 
-  async function saveAvailability() {
-    if (!page) return;
-    setSaving(true);
-    await fetch("/api/availability", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bookingPageId: page.id,
-        rules: page.availability,
-      }),
-    });
-    setSaving(false);
-    setMsg("Disponibilidade salva");
-    setTimeout(() => setMsg(""), 2000);
-  }
-
   async function addService(e: React.FormEvent) {
     e.preventDefault();
     if (!page) return;
@@ -157,39 +128,6 @@ export default function PageEditor() {
       body: JSON.stringify(patch),
     });
     await load();
-  }
-
-  function toggleDay(dayOfWeek: number) {
-    if (!page) return;
-    const exists = page.availability.find((r) => r.dayOfWeek === dayOfWeek);
-    if (exists) {
-      setPage({
-        ...page,
-        availability: page.availability.filter((r) => r.dayOfWeek !== dayOfWeek),
-      });
-    } else {
-      setPage({
-        ...page,
-        availability: [
-          ...page.availability,
-          { dayOfWeek, startTime: "09:00", endTime: "18:00" },
-        ].sort((a, b) => a.dayOfWeek - b.dayOfWeek),
-      });
-    }
-  }
-
-  function updateRule(
-    dayOfWeek: number,
-    field: "startTime" | "endTime",
-    value: string,
-  ) {
-    if (!page) return;
-    setPage({
-      ...page,
-      availability: page.availability.map((r) =>
-        r.dayOfWeek === dayOfWeek ? { ...r, [field]: value } : r,
-      ),
-    });
   }
 
   if (!page) {
@@ -302,56 +240,16 @@ export default function PageEditor() {
         </button>
       </form>
 
-      <section className="surface space-y-4 p-6">
-        <h2 className="font-semibold tracking-tight">Disponibilidade semanal</h2>
-        <div className="space-y-2">
-          {DAYS.map((label, dayOfWeek) => {
-            const rule = page.availability.find((r) => r.dayOfWeek === dayOfWeek);
-            return (
-              <div
-                key={dayOfWeek}
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-border px-3 py-2"
-              >
-                <label className="flex w-32 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(rule)}
-                    onChange={() => toggleDay(dayOfWeek)}
-                  />
-                  {label}
-                </label>
-                {rule && (
-                  <>
-                    <input
-                      type="time"
-                      value={rule.startTime}
-                      onChange={(e) =>
-                        updateRule(dayOfWeek, "startTime", e.target.value)
-                      }
-                      className="rounded-lg border border-border px-2 py-1 text-sm"
-                    />
-                    <span className="text-muted">até</span>
-                    <input
-                      type="time"
-                      value={rule.endTime}
-                      onChange={(e) =>
-                        updateRule(dayOfWeek, "endTime", e.target.value)
-                      }
-                      className="rounded-lg border border-border px-2 py-1 text-sm"
-                    />
-                  </>
-                )}
-              </div>
-            );
-          })}
+      <section className="surface flex flex-wrap items-center justify-between gap-4 p-6">
+        <div>
+          <h2 className="font-semibold tracking-tight">Disponibilidade</h2>
+          <p className="mt-1 text-sm text-muted">
+            Configure períodos (manhã/tarde), preview de slots e exceções.
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={saveAvailability}
-          className="btn-primary"
-        >
-          Salvar disponibilidade
-        </button>
+        <Link href={`/app/pages/${page.id}/availability`} className="btn-primary">
+          Configurar horários
+        </Link>
       </section>
 
       <section className="surface space-y-4 p-6">

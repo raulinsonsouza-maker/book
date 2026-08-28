@@ -3,7 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function CancelBookingButton({ id }: { id: string }) {
+export function CancelBookingButton({
+  id,
+  onDone,
+}: {
+  id: string;
+  onDone?: () => void;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -20,7 +26,8 @@ export function CancelBookingButton({ id }: { id: string }) {
           body: JSON.stringify({ id }),
         });
         setLoading(false);
-        router.refresh();
+        if (onDone) onDone();
+        else router.refresh();
       }}
       className="text-xs text-danger hover:underline"
     >

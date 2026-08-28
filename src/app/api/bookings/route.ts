@@ -12,19 +12,42 @@ export async function GET(req: Request) {
   }
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
+  const q = searchParams.get("q")?.trim();
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  const bookingPageId = searchParams.get("bookingPageId");
 
   const bookings = await prisma.booking.findMany({
     where: {
-      bookingPage: { organizationId: session.user.organizationId },
-      ...(status ? { status: status as "CONFIRMED" } : {}),
+      bookingPage: {
+        organizationId: session.user.organizationId,
+        ...(bookingPageId ? { id: bookingPageId } : {}),
+      },
+      ...(status ? { status: status as "CONFIRMED" | "PENDING_PAYMENT" | "CANCELLED" | "EXPIRED" } : {}),
+      ...(from || to
+        ? {
+            startAt: {
+              ...(from ? { gte: new Date(from) } : {}),
+              ...(to ? { lte: new Date(`${to}T23:59:59.999Z`) } : {}),
+            },
+          }
+        : {}),
+      ...(q
+        ? {
+            OR: [
+              { customerName: { contains: q } },
+              { customerEmail: { contains: q } },
+            ],
+          }
+        : {}),
     },
     include: {
       service: true,
       bookingPage: { select: { title: true, slug: true } },
       payment: true,
     },
-    orderBy: { startAt: "asc" },
-    take: 100,
+    orderBy: { startAt: "desc" },
+    take: 200,
   });
   return NextResponse.json(bookings);
 }

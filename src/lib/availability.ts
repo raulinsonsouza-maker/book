@@ -11,7 +11,7 @@ import {
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/prisma";
 
-type Rule = { dayOfWeek: number; startTime: string; endTime: string };
+export type Rule = { dayOfWeek: number; startTime: string; endTime: string };
 type Exception = {
   date: string;
   isBlocked: boolean;
@@ -19,98 +19,66 @@ type Exception = {
   endTime: string | null;
 };
 
+export type SlotWindow = { start: string; end: string; label?: string };
+
 function parseTimeOnDate(dateStr: string, time: string, tz: string) {
   const local = parse(`${dateStr} ${time}`, "yyyy-MM-dd HH:mm", new Date());
   return fromZonedTime(local, tz);
 }
 
-export async function getAvailableDays(params: {
-  bookingPageId: string;
-  from: Date;
-  days?: number;
-  timezone: string;
-}) {
-  const { bookingPageId, from, timezone, days = 60 } = params;
-  const rules = await prisma.availabilityRule.findMany({
-    where: { bookingPageId },
-  });
-  const exceptions = await prisma.availabilityException.findMany({
-    where: { bookingPageId },
-  });
-
-  const available: string[] = [];
-  const start = startOfDay(toZonedTime(from, timezone));
-
-  for (let i = 0; i < days; i++) {
-    const day = addDays(start, i);
-    const dateStr = format(day, "yyyy-MM-dd");
-    const dow = getDay(day);
-    const ex = exceptions.find((e) => e.date === dateStr);
-    if (ex?.isBlocked && !ex.startTime) continue;
-    const hasRule = rules.some((r) => r.dayOfWeek === dow);
-    if (!hasRule && !(ex && !ex.isBlocked && ex.startTime)) continue;
-    available.push(dateStr);
-  }
-  return available;
-}
-
-export async function getAvailableSlots(params: {
-  bookingPageId: string;
-  serviceId: string;
-  date: string;
-  timezone: string;
-  durationMinutes: number;
-  bufferBefore?: number;
-  bufferAfter?: number;
-}) {
-  const {
-    bookingPageId,
-    serviceId,
-    date,
-    timezone,
-    durationMinutes,
-    bufferBefore = 0,
-    bufferAfter = 0,
-  } = params;
-
-  const rules = await prisma.availabilityRule.findMany({
-    where: { bookingPageId },
-  });
-  const exceptions = await prisma.availabilityException.findMany({
-    where: { bookingPageId, date },
-  });
-
+function getDayWindows(
+  rules: Rule[],
+  exceptions: Exception[],
+  date: string,
+): SlotWindow[] {
   const dayLocal = parse(date, "yyyy-MM-dd", new Date());
   const dow = getDay(dayLocal);
 
-  let windows: { start: string; end: string }[] = [];
   const blockedFull = exceptions.find((e) => e.isBlocked && !e.startTime);
   if (blockedFull) return [];
 
   const openEx = exceptions.find((e) => !e.isBlocked && e.startTime && e.endTime);
   if (openEx?.startTime && openEx?.endTime) {
-    windows = [{ start: openEx.startTime, end: openEx.endTime }];
-  } else {
-    windows = rules
-      .filter((r) => r.dayOfWeek === dow)
-      .map((r) => ({ start: r.startTime, end: r.endTime }));
+    return [{ start: openEx.startTime, end: openEx.endTime }];
   }
 
-  const partialBlocks = exceptions.filter(
-    (e) => e.isBlocked && e.startTime && e.endTime,
-  ) as Exception[];
+  return rules
+    .filter((r) => r.dayOfWeek === dow)
+    .map((r) => ({ start: r.startTime, end: r.endTime }))
+    .sort((a, b) => a.start.localeCompare(b.start));
+}
+
+function generateSlotsForWindows(params: {
+  date: string;
+  timezone: string;
+  windows: SlotWindow[];
+  durationMinutes: number;
+  bufferBefore: number;
+  bufferAfter: number;
+  stepMinutes: number;
+  partialBlocks: Exception[];
+  skipPast?: boolean;
+}) {
+  const {
+    date,
+    timezone,
+    windows,
+    durationMinutes,
+    bufferBefore,
+    bufferAfter,
+    stepMinutes,
+    partialBlocks,
+    skipPast = true,
+  } = params;
 
   const now = new Date();
-  const slots: { startAt: string; endAt: string; label: string }[] = [];
+  const slots: { startAt: string; endAt: string; label: string; windowIndex: number }[] = [];
 
-  for (const win of windows) {
+  windows.forEach((win, windowIndex) => {
     let cursor = parseTimeOnDate(date, win.start, timezone);
     const windowEnd = parseTimeOnDate(date, win.end, timezone);
 
-    while (
-      isBefore(addMinutes(cursor, durationMinutes + bufferAfter), windowEnd) ||
-      +addMinutes(cursor, durationMinutes) === +windowEnd
-    ) {
+    while (isBefore(cursor, windowEnd)) {
       const slotStart = cursor;
       const slotEnd = addMinutes(slotStart, durationMinutes);
       if (isAfter(slotEnd, windowEnd)) break;
@@ -121,38 +89,23 @@ export async function getAvailableSlots(params: {
         return isBefore(slotStart, bEnd) && isAfter(slotEnd, bStart);
       });
 
-      if (!blocked && isAfter(slotStart, now)) {
+      if (!blocked && (!skipPast || isAfter(slotStart, now))) {
         slots.push({
           startAt: slotStart.toISOString(),
           endAt: slotEnd.toISOString(),
           label: format(toZonedTime(slotStart, timezone), "HH:mm"),
+          windowIndex,
         });
       }
-      cursor = addMinutes(cursor, 30);
+      cursor = addMinutes(cursor, stepMinutes);
     }
-  }
-
-  const busy = await getBusyIntervals({
-    bookingPageId,
-    serviceId,
-    date,
-    timezone,
-    bufferBefore,
-    bufferAfter,
   });
 
-  return slots.filter((slot) => {
-    const s = new Date(slot.startAt);
-    const e = new Date(slot.endAt);
-    return !busy.some(
-      (b) => isBefore(s, b.end) && isAfter(e, b.start),
-    );
-  });
+  return slots;
 }
 
-async function getBusyIntervals(params: {
+export async function getBusyIntervals(params: {
   bookingPageId: string;
-  serviceId: string;
   date: string;
   timezone: string;
   bufferBefore: number;
@@ -173,10 +126,7 @@ async function getBusyIntervals(params: {
       startAt: { gte: dayStart, lte: dayEnd },
       OR: [
         { status: "CONFIRMED" },
-        {
-          status: "PENDING_PAYMENT",
-          holdExpiresAt: { gt: now },
-        },
+        { status: "PENDING_PAYMENT", holdExpiresAt: { gt: now } },
       ],
     },
   });
@@ -219,8 +169,171 @@ async function getBusyIntervals(params: {
   return intervals;
 }
 
+export function filterSlotsByBusy<T extends { startAt: string; endAt: string }>(
+  slots: T[],
+  busy: { start: Date; end: Date }[],
+): T[] {
+  return slots.filter((slot) => {
+    const s = new Date(slot.startAt);
+    const e = new Date(slot.endAt);
+    return !busy.some((b) => isBefore(s, b.end) && isAfter(e, b.start));
+  });
+}
+
+export async function getTheoreticalSlots(params: {
+  bookingPageId: string;
+  date: string;
+  timezone: string;
+  durationMinutes: number;
+  bufferBefore?: number;
+  bufferAfter?: number;
+  slotStepMinutes?: number;
+}) {
+  const rules = await prisma.availabilityRule.findMany({
+    where: { bookingPageId: params.bookingPageId },
+  });
+  const exceptions = await prisma.availabilityException.findMany({
+    where: { bookingPageId: params.bookingPageId, date: params.date },
+  });
+
+  const windows = getDayWindows(rules, exceptions, params.date);
+  const partialBlocks = exceptions.filter(
+    (e) => e.isBlocked && e.startTime && e.endTime,
+  ) as Exception[];
+
+  const stepMinutes =
+    params.slotStepMinutes && params.slotStepMinutes > 0
+      ? params.slotStepMinutes
+      : params.durationMinutes + (params.bufferBefore || 0) + (params.bufferAfter || 0);
+
+  const slots = generateSlotsForWindows({
+    date: params.date,
+    timezone: params.timezone,
+    windows,
+    durationMinutes: params.durationMinutes,
+    bufferBefore: params.bufferBefore || 0,
+    bufferAfter: params.bufferAfter || 0,
+    stepMinutes,
+    partialBlocks,
+    skipPast: false,
+  });
+
+  const byWindow = windows.map((win, i) => ({
+    ...win,
+    slots: slots.filter((s) => s.windowIndex === i).map((s) => s.label),
+    count: slots.filter((s) => s.windowIndex === i).length,
+  }));
+
+  return { windows: byWindow, slots, total: slots.length };
+}
+
+export async function getAvailableDays(params: {
+  bookingPageId: string;
+  from: Date;
+  days?: number;
+  timezone: string;
+}) {
+  const { bookingPageId, from, timezone, days = 60 } = params;
+  const rules = await prisma.availabilityRule.findMany({
+    where: { bookingPageId },
+  });
+  const exceptions = await prisma.availabilityException.findMany({
+    where: { bookingPageId },
+  });
+
+  const available: string[] = [];
+  const start = startOfDay(toZonedTime(from, timezone));
+
+  for (let i = 0; i < days; i++) {
+    const day = addDays(start, i);
+    const dateStr = format(day, "yyyy-MM-dd");
+    const windows = getDayWindows(rules, exceptions, dateStr);
+    if (windows.length > 0) available.push(dateStr);
+  }
+  return available;
+}
+
+export async function getAvailableSlots(params: {
+  bookingPageId: string;
+  serviceId: string;
+  date: string;
+  timezone: string;
+  durationMinutes: number;
+  bufferBefore?: number;
+  bufferAfter?: number;
+  slotStepMinutes?: number;
+}) {
+  const {
+    bookingPageId,
+    serviceId,
+    date,
+    timezone,
+    durationMinutes,
+    bufferBefore = 0,
+    bufferAfter = 0,
+    slotStepMinutes = 0,
+  } = params;
+
+  const page = await prisma.bookingPage.findUnique({
+    where: { id: bookingPageId },
+  });
+  const step =
+    slotStepMinutes > 0
+      ? slotStepMinutes
+      : page?.slotStepMinutes && page.slotStepMinutes > 0
+        ? page.slotStepMinutes
+        : durationMinutes + bufferBefore + bufferAfter;
+
+  const { slots } = await getTheoreticalSlots({
+    bookingPageId,
+    date,
+    timezone,
+    durationMinutes,
+    bufferBefore,
+    bufferAfter,
+    slotStepMinutes: step,
+  });
+
+  const busy = await getBusyIntervals({
+    bookingPageId,
+    date,
+    timezone,
+    bufferBefore,
+    bufferAfter,
+  });
+
+  const available = filterSlotsByBusy(
+    slots.filter((s) => isAfter(new Date(s.startAt), new Date())),
+    busy,
+  );
+
+  return available.map(({ startAt, endAt, label }) => ({ startAt, endAt, label }));
+}
+
+export async function isSlotAvailable(params: {
+  bookingPageId: string;
+  serviceId: string;
+  startAt: Date;
+  endAt: Date;
+  timezone: string;
+  durationMinutes: number;
+  bufferBefore?: number;
+  bufferAfter?: number;
+}) {
+  const date = format(toZonedTime(params.startAt, params.timezone), "yyyy-MM-dd");
+  const slots = await getAvailableSlots({
+    bookingPageId: params.bookingPageId,
+    serviceId: params.serviceId,
+    date,
+    timezone: params.timezone,
+    durationMinutes: params.durationMinutes,
+    bufferBefore: params.bufferBefore,
+    bufferAfter: params.bufferAfter,
+  });
+  return slots.some((s) => s.startAt === params.startAt.toISOString());
+}
+
 export function defaultWeekRules(): Rule[] {
-  // Tue, Wed, Thu — 08:00–17:00 (like Lion Tax example)
   return [2, 3, 4].map((dayOfWeek) => ({
     dayOfWeek,
     startTime: "08:00",

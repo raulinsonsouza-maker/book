@@ -205,7 +205,7 @@ export default function SettingsPage() {
               <ul className="space-y-2 text-xs text-muted">
                 <li className="flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#4285F4]" />
-                  Novo agendamento pago → evento criado no Google
+                  Eventos são criados no Google quando o pagamento é confirmado
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#34A853]" />

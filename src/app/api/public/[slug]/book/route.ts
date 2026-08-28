@@ -3,6 +3,7 @@ import { z } from "zod";
 import { addMinutes } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { isValidCpf } from "@/lib/utils";
+import { isSlotAvailable } from "@/lib/availability";
 
 const HOLD_MINUTES = 15;
 
@@ -71,6 +72,23 @@ export async function POST(
     if (holdConflict) {
       return NextResponse.json(
         { error: "Horário temporariamente reservado. Tente outro." },
+        { status: 409 },
+      );
+    }
+
+    const slotOk = await isSlotAvailable({
+      bookingPageId: page.id,
+      serviceId: service.id,
+      startAt,
+      endAt,
+      timezone: body.timezone || page.timezone,
+      durationMinutes: service.durationMinutes,
+      bufferBefore: service.bufferBefore,
+      bufferAfter: service.bufferAfter,
+    });
+    if (!slotOk) {
+      return NextResponse.json(
+        { error: "Horário indisponível (conflito com agenda). Escolha outro." },
         { status: 409 },
       );
     }

@@ -53,7 +53,7 @@ export async function exchangeGoogleCode(code: string) {
   };
 }
 
-type OrgGoogle = {
+export type OrgGoogle = {
   id: string;
   googleAccessToken: string | null;
   googleRefreshToken: string | null;
@@ -89,7 +89,7 @@ async function getAuthedClient(org: OrgGoogle) {
   return client;
 }
 
-export async function createCalendarEvent(params: {
+type EventPayload = {
   org: OrgGoogle;
   summary: string;
   description: string;
@@ -98,40 +98,58 @@ export async function createCalendarEvent(params: {
   timezone: string;
   attendeeEmail?: string;
   attendeeName?: string;
-}) {
+};
+
+function buildEventBody(params: EventPayload) {
+  return {
+    summary: params.summary,
+    description: params.description,
+    start: {
+      dateTime: params.startAt.toISOString(),
+      timeZone: params.timezone,
+    },
+    end: {
+      dateTime: params.endAt.toISOString(),
+      timeZone: params.timezone,
+    },
+    attendees: params.attendeeEmail
+      ? [{ email: params.attendeeEmail, displayName: params.attendeeName }]
+      : undefined,
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: "email", minutes: 60 },
+        { method: "popup", minutes: 30 },
+      ],
+    },
+  };
+}
+
+export async function createCalendarEvent(params: EventPayload) {
   const auth = await getAuthedClient(params.org);
   const calendar = google.calendar({ version: "v3", auth });
   const calendarId = params.org.googleCalendarId || "primary";
 
   const event = await calendar.events.insert({
     calendarId,
-    requestBody: {
-      summary: params.summary,
-      description: params.description,
-      start: {
-        dateTime: params.startAt.toISOString(),
-        timeZone: params.timezone,
-      },
-      end: {
-        dateTime: params.endAt.toISOString(),
-        timeZone: params.timezone,
-      },
-      attendees: params.attendeeEmail
-        ? [
-            {
-              email: params.attendeeEmail,
-              displayName: params.attendeeName,
-            },
-          ]
-        : undefined,
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: "email", minutes: 60 },
-          { method: "popup", minutes: 30 },
-        ],
-      },
-    },
+    requestBody: buildEventBody(params),
+    sendUpdates: params.attendeeEmail ? "all" : "none",
+  });
+
+  return event.data.id || null;
+}
+
+export async function updateCalendarEvent(
+  params: EventPayload & { eventId: string },
+) {
+  const auth = await getAuthedClient(params.org);
+  const calendar = google.calendar({ version: "v3", auth });
+  const calendarId = params.org.googleCalendarId || "primary";
+
+  const event = await calendar.events.update({
+    calendarId,
+    eventId: params.eventId,
+    requestBody: buildEventBody(params),
     sendUpdates: params.attendeeEmail ? "all" : "none",
   });
 
@@ -192,6 +210,46 @@ export async function getGoogleBusyIntervals(params: {
   }
 }
 
+function formatBookingDescription(booking: {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerCpf: string | null;
+  customAnswers: string | null;
+  service: { title: string };
+  bookingPage: { title: string };
+}) {
+  const lines = [
+    `Cliente: ${booking.customerName}`,
+    `E-mail: ${booking.customerEmail}`,
+    `Telefone: ${booking.customerPhone}`,
+  ];
+  if (booking.customerCpf) lines.push(`CPF: ${booking.customerCpf}`);
+  lines.push(`Serviço: ${booking.service.title}`);
+  lines.push(`Página: ${booking.bookingPage.title}`);
+
+  if (booking.customAnswers) {
+    try {
+      const answers = JSON.parse(booking.customAnswers) as Record<string, string>;
+      lines.push("---");
+      for (const [k, v] of Object.entries(answers)) {
+        lines.push(`${k}: ${v}`);
+      }
+    } catch {
+      lines.push(`Respostas: ${booking.customAnswers}`);
+    }
+  }
+
+  const base =
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://book.symbius.com.br";
+  lines.push(`---`, `Booking ID: ${booking.id}`, `Admin: ${base}/app/agenda/listagem`);
+
+  return lines.join("\n");
+}
+
 export async function syncBookingToGoogle(bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -204,32 +262,30 @@ export async function syncBookingToGoogle(bookingId: string) {
 
   const org = booking.bookingPage.organization;
   if (!org.googleRefreshToken && !org.googleAccessToken) return null;
-  if (booking.googleEventId) return booking.googleEventId;
+
+  const payload = {
+    org,
+    summary: `${booking.service.title} — ${booking.customerName}`,
+    description: formatBookingDescription(booking),
+    startAt: booking.startAt,
+    endAt: booking.endAt,
+    timezone: booking.timezone,
+    attendeeEmail: booking.customerEmail,
+    attendeeName: booking.customerName,
+  };
 
   try {
-    const eventId = await createCalendarEvent({
-      org,
-      summary: `${booking.service.title} — ${booking.customerName}`,
-      description: [
-        `Cliente: ${booking.customerName}`,
-        `E-mail: ${booking.customerEmail}`,
-        `Telefone: ${booking.customerPhone}`,
-        `Serviço: ${booking.service.title}`,
-        `Página: ${booking.bookingPage.title}`,
-        `ID: ${booking.id}`,
-      ].join("\n"),
-      startAt: booking.startAt,
-      endAt: booking.endAt,
-      timezone: booking.timezone,
-      attendeeEmail: booking.customerEmail,
-      attendeeName: booking.customerName,
-    });
-
+    let eventId = booking.googleEventId;
     if (eventId) {
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { googleEventId: eventId },
-      });
+      await updateCalendarEvent({ ...payload, eventId });
+    } else {
+      eventId = await createCalendarEvent(payload);
+      if (eventId) {
+        await prisma.booking.update({
+          where: { id: booking.id },
+          data: { googleEventId: eventId },
+        });
+      }
     }
     return eventId;
   } catch (e) {
