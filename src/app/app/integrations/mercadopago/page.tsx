@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type Org = {
   mercadoPagoPublicKey: string | null;
@@ -10,8 +10,6 @@ type Org = {
   mercadoPagoViaOAuth: boolean;
   mercadoPagoUserId: string | null;
   mercadoPagoOAuthConfigured: boolean;
-  mercadoPagoWebhookUrl: string;
-  mercadoPagoRedirectUri: string;
   paymentProvider: "CAKTO" | "MERCADO_PAGO";
 };
 
@@ -20,8 +18,11 @@ const MP_MSG: Record<string, string> = {
   error: "Não foi possível conectar. Tente novamente.",
   forbidden: "Sessão inválida. Faça login e tente de novo.",
   missing_env:
-    "OAuth não configurado no servidor. Adicione MERCADOPAGO_CLIENT_ID e MERCADOPAGO_CLIENT_SECRET no .env.",
+    "OAuth não configurado no servidor. Use a configuração avançada ou contate o suporte.",
 };
+
+const POPUP_FEATURES =
+  "popup=yes,width=520,height=720,left=100,top=100,scrollbars=yes,resizable=yes";
 
 export default function MercadoPagoIntegrationPage() {
   const [org, setOrg] = useState<Org | null>(null);
@@ -29,25 +30,73 @@ export default function MercadoPagoIntegrationPage() {
   const [publicKey, setPublicKey] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [msg, setMsg] = useState("");
 
-  function loadOrg() {
+  const loadOrg = useCallback(() => {
     fetch("/api/organization")
       .then((r) => r.json())
       .then((data: Org) => {
         setOrg(data);
         setPublicKey(data.mercadoPagoPublicKey || "");
       });
-  }
+  }, []);
+
+  const handleOAuthResult = useCallback(
+    (status: string) => {
+      setConnecting(false);
+      setMsg(MP_MSG[status] || MP_MSG.error);
+      if (status === "connected") loadOrg();
+    },
+    [loadOrg],
+  );
 
   useEffect(() => {
     loadOrg();
     const mp = new URLSearchParams(window.location.search).get("mp");
     if (mp && MP_MSG[mp]) {
-      setMsg(MP_MSG[mp]);
-      if (mp === "connected") loadOrg();
+      handleOAuthResult(mp);
+      window.history.replaceState({}, "", "/app/integrations/mercadopago");
     }
-  }, []);
+  }, [loadOrg, handleOAuthResult]);
+
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== "mercadopago-oauth") return;
+      handleOAuthResult(String(event.data.status || "error"));
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [handleOAuthResult]);
+
+  function connectMercadoPago() {
+    setMsg("");
+    setConnecting(true);
+
+    const popup = window.open(
+      "/api/mercadopago/connect?popup=1",
+      "mercadopago-oauth",
+      POPUP_FEATURES,
+    );
+
+    if (!popup) {
+      window.open("/api/mercadopago/connect?popup=1", "_blank", "noopener,noreferrer");
+      setConnecting(false);
+      setMsg("Autorização aberta em nova guia. Volte aqui após concluir.");
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      if (popup.closed) {
+        window.clearInterval(timer);
+        setConnecting((active) => {
+          if (active) loadOrg();
+          return false;
+        });
+      }
+    }, 500);
+  }
 
   async function saveManual(e: React.FormEvent) {
     e.preventDefault();
@@ -124,15 +173,24 @@ export default function MercadoPagoIntegrationPage() {
             )}
           </div>
         ) : org.mercadoPagoOAuthConfigured ? (
-          <a href="/api/mercadopago/connect" className="btn-primary inline-block w-full text-center">
-            Conectar com Mercado Pago
-          </a>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={connectMercadoPago}
+              disabled={connecting}
+              className="btn-primary w-full"
+            >
+              {connecting ? "Aguardando autorização…" : "Conectar com Mercado Pago"}
+            </button>
+            {connecting && (
+              <p className="text-center text-xs text-muted">
+                Uma janela do Mercado Pago foi aberta. Conclua a autorização e volte aqui.
+              </p>
+            )}
+          </div>
         ) : (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            OAuth da plataforma ainda não configurado no servidor. Use a configuração
-            avançada abaixo ou peça ao administrador para adicionar{" "}
-            <code className="text-[10px]">MERCADOPAGO_CLIENT_ID</code> e{" "}
-            <code className="text-[10px]">MERCADOPAGO_CLIENT_SECRET</code> no .env.
+            Conexão automática indisponível no momento. Use a configuração avançada abaixo.
           </p>
         )}
 
@@ -146,27 +204,6 @@ export default function MercadoPagoIntegrationPage() {
             Desconectar
           </button>
         )}
-      </div>
-
-      <div className="surface space-y-3 p-6 text-xs text-muted">
-        <p className="font-semibold text-foreground">Configuração única (Symbius / admin)</p>
-        <p>No painel do app <strong>Book Symbius</strong> no Mercado Pago:</p>
-        <ol className="list-decimal space-y-1 pl-4">
-          <li>
-            <strong>Redirect URL:</strong>{" "}
-            <code className="break-all">{org.mercadoPagoRedirectUri}</code>
-          </li>
-          <li>
-            <strong>Webhook:</strong>{" "}
-            <code className="break-all">{org.mercadoPagoWebhookUrl}</code> (eventos: pagamentos)
-          </li>
-        </ol>
-        <p className="pt-1">
-          Use o <strong>Número da aplicação</strong> e o <strong>Client Secret</strong> (não
-          confundir com Public Key / Access Token de produção) em{" "}
-          <code>MERCADOPAGO_CLIENT_ID</code> e <code>MERCADOPAGO_CLIENT_SECRET</code> no .env
-          da VPS.
-        </p>
       </div>
 
       <div className="surface p-6">

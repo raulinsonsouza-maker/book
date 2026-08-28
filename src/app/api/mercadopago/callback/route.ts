@@ -19,33 +19,48 @@ export async function GET(req: Request) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
+  function parsePopup(stateParam: string | null) {
+    if (!stateParam) return false;
+    try {
+      const parsed = JSON.parse(
+        Buffer.from(stateParam, "base64url").toString("utf8"),
+      ) as { popup?: boolean };
+      return Boolean(parsed.popup);
+    } catch {
+      return false;
+    }
+  }
+
+  function done(status: string, popup = false) {
+    const path = popup
+      ? `/app/integrations/mercadopago/oauth-done?mp=${status}`
+      : `/app/integrations/mercadopago?mp=${status}`;
+    return NextResponse.redirect(new URL(path, base));
+  }
+
+  let popup = parsePopup(state);
+
   if (error || !code || !state) {
-    return NextResponse.redirect(
-      new URL("/app/integrations/mercadopago?mp=error", base),
-    );
+    return done("error", popup);
   }
 
   try {
     const parsed = JSON.parse(
       Buffer.from(state, "base64url").toString("utf8"),
-    ) as { organizationId?: string };
+    ) as { organizationId?: string; popup?: boolean };
+
+    popup = Boolean(parsed.popup);
 
     if (parsed.organizationId !== session.user.organizationId) {
-      return NextResponse.redirect(
-        new URL("/app/integrations/mercadopago?mp=forbidden", base),
-      );
+      return done("forbidden", popup);
     }
 
     const tokens = await exchangeMercadoPagoCode(code);
     await saveMercadoPagoTokens(session.user.organizationId, tokens);
 
-    return NextResponse.redirect(
-      new URL("/app/integrations/mercadopago?mp=connected", base),
-    );
+    return done("connected", popup);
   } catch (e) {
     console.error("[mercadopago:callback]", e);
-    return NextResponse.redirect(
-      new URL("/app/integrations/mercadopago?mp=error", base),
-    );
+    return done("error", popup);
   }
 }
