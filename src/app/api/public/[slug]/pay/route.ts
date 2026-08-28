@@ -2,15 +2,25 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { addSeconds } from "date-fns";
+import type { Organization, PaymentProvider } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   createPixPayment,
-  createDemoPixPayment,
   createCardPayment,
-  createDemoCardPayment,
 } from "@/lib/cakto/client";
-import { sendBookingConfirmation } from "@/lib/email";
-import { syncBookingToGoogle } from "@/lib/google/calendar";
+import {
+  createMercadoPagoPixPayment,
+  createMercadoPagoCardPayment,
+  isMercadoPagoPaidStatus,
+} from "@/lib/mercadopago/client";
+import { ensureMercadoPagoAccessToken } from "@/lib/mercadopago/oauth";
+import { confirmBooking } from "@/lib/payments/confirm-booking";
+import {
+  createDemoPixPayment,
+  createDemoCardPayment,
+  isDemoPaymentId,
+} from "@/lib/payments/demo";
+import { resolvePaymentProvider, type ResolvedPaymentProvider } from "@/lib/payments/resolve-provider";
 import { isValidCpf } from "@/lib/utils";
 
 async function loadBooking(bookingId: string, slug: string) {
@@ -30,34 +40,164 @@ async function loadBooking(bookingId: string, slug: string) {
   });
 }
 
-async function confirmBooking(bookingId: string) {
-  const booking = await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      status: "CONFIRMED",
-      confirmedAt: new Date(),
-      holdExpiresAt: null,
-    },
-    include: {
-      service: true,
-      bookingPage: true,
-    },
-  });
-  await prisma.slotHold.deleteMany({ where: { bookingId } });
-  await sendBookingConfirmation({
-    to: booking.customerEmail,
-    customerName: booking.customerName,
-    serviceTitle: booking.service.title,
-    pageTitle: booking.bookingPage.title,
-    startAt: booking.startAt,
-    endAt: booking.endAt,
-    timezone: booking.timezone,
-    priceCents: booking.service.priceCents,
-    bookingId: booking.id,
-  });
-  // Fire-and-forget sync to Google Calendar
-  void syncBookingToGoogle(booking.id);
-  return booking;
+function assertHoldValid(booking: { id: string; holdExpiresAt: Date | null }) {
+  if (booking.holdExpiresAt && booking.holdExpiresAt.getTime() < Date.now()) {
+    throw new HoldExpiredError();
+  }
+}
+
+class HoldExpiredError extends Error {
+  constructor() {
+    super("Hold expirado");
+    this.name = "HoldExpiredError";
+  }
+}
+
+function buildCustomer(booking: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerCpf: string | null;
+}, fingerprint: string) {
+  const cpf = booking.customerCpf || "00000000000";
+  return {
+    name: booking.customerName,
+    email: booking.customerEmail,
+    phone: booking.customerPhone.startsWith("55")
+      ? booking.customerPhone
+      : `55${booking.customerPhone}`,
+    fingerprint,
+    docType: "cpf" as const,
+    docNumber: cpf,
+  };
+}
+
+function dbProvider(provider: ResolvedPaymentProvider): PaymentProvider {
+  return provider === "MERCADO_PAGO" ? "MERCADO_PAGO" : "CAKTO";
+}
+
+async function createPixForProvider(params: {
+  provider: ResolvedPaymentProvider;
+  org: Organization;
+  booking: {
+    id: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    customerCpf: string | null;
+    service: { title: string; priceCents: number; caktoOfferId: string | null };
+  };
+  idempotencyKey: string;
+  fingerprint: string;
+}) {
+  const { provider, org, booking, idempotencyKey, fingerprint } = params;
+
+  if (provider === "MERCADO_PAGO" && org.mercadoPagoAccessToken) {
+    const accessToken =
+      (await ensureMercadoPagoAccessToken(org.id)) || org.mercadoPagoAccessToken;
+    const result = await createMercadoPagoPixPayment({
+      accessToken,
+      amountCents: booking.service.priceCents,
+      description: booking.service.title,
+      bookingId: booking.id,
+      idempotencyKey,
+      payer: {
+        email: booking.customerEmail,
+        name: booking.customerName,
+        cpf: booking.customerCpf || undefined,
+      },
+    });
+    return { ...result, demo: false as const };
+  }
+
+  const offerId = booking.service.caktoOfferId || org.caktoOfferId;
+  if (provider === "CAKTO" && org.caktoClientId && org.caktoClientSecret && offerId) {
+    const result = await createPixPayment({
+      creds: {
+        clientId: org.caktoClientId,
+        clientSecret: org.caktoClientSecret,
+      },
+      offerId,
+      customer: buildCustomer(booking, fingerprint),
+      idempotencyKey,
+      metadata: { bookingId: booking.id },
+    });
+    return { ...result, demo: false as const };
+  }
+
+  return createDemoPixPayment(idempotencyKey);
+}
+
+async function createCardForProvider(params: {
+  provider: ResolvedPaymentProvider;
+  org: Organization;
+  booking: {
+    id: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    customerCpf: string | null;
+    service: { title: string; priceCents: number; caktoOfferId: string | null };
+  };
+  idempotencyKey: string;
+  fingerprint: string;
+  cardToken: string;
+}) {
+  const { provider, org, booking, idempotencyKey, fingerprint, cardToken } = params;
+
+  if (cardToken.startsWith("demo_")) {
+    return createDemoCardPayment(idempotencyKey);
+  }
+
+  if (provider === "MERCADO_PAGO" && org.mercadoPagoAccessToken) {
+    const accessToken =
+      (await ensureMercadoPagoAccessToken(org.id)) || org.mercadoPagoAccessToken;
+    const result = await createMercadoPagoCardPayment({
+      accessToken,
+      amountCents: booking.service.priceCents,
+      description: booking.service.title,
+      bookingId: booking.id,
+      idempotencyKey,
+      cardToken,
+      payer: {
+        email: booking.customerEmail,
+        name: booking.customerName,
+        cpf: booking.customerCpf || undefined,
+      },
+    });
+    return { ...result, demo: false as const };
+  }
+
+  const offerId = booking.service.caktoOfferId || org.caktoOfferId;
+  if (provider === "CAKTO" && org.caktoClientId && org.caktoClientSecret && offerId) {
+    const result = await createCardPayment({
+      creds: {
+        clientId: org.caktoClientId,
+        clientSecret: org.caktoClientSecret,
+      },
+      offerId,
+      customer: buildCustomer(booking, fingerprint),
+      cardToken,
+      idempotencyKey,
+      metadata: { bookingId: booking.id },
+    });
+    return { ...result, demo: false as const };
+  }
+
+  return createDemoCardPayment(idempotencyKey);
+}
+
+function isPaidResult(
+  provider: ResolvedPaymentProvider,
+  result: { status: string; demo?: boolean },
+) {
+  if (result.demo) return true;
+  if (provider === "MERCADO_PAGO") {
+    return isMercadoPagoPaidStatus(result.status);
+  }
+  return ["paid", "approved", "captured", "success"].includes(
+    String(result.status).toLowerCase(),
+  );
 }
 
 const pixSchema = z.object({
@@ -83,10 +223,10 @@ export async function POST(
           { status: 404 },
         );
       }
-      if (
-        booking.holdExpiresAt &&
-        booking.holdExpiresAt.getTime() < Date.now()
-      ) {
+
+      try {
+        assertHoldValid(booking);
+      } catch {
         await prisma.booking.update({
           where: { id: booking.id },
           data: { status: "EXPIRED" },
@@ -95,42 +235,15 @@ export async function POST(
       }
 
       const org = booking.bookingPage.organization;
+      const provider = resolvePaymentProvider(org);
       const idempotencyKey = uuidv4();
-      const cpf = booking.customerCpf || "00000000000";
-      const customer = {
-        name: booking.customerName,
-        email: booking.customerEmail,
-        phone: booking.customerPhone.startsWith("55")
-          ? booking.customerPhone
-          : `55${booking.customerPhone}`,
+      const result = await createPixForProvider({
+        provider,
+        org,
+        booking,
+        idempotencyKey,
         fingerprint: body.fingerprint,
-        docType: "cpf" as const,
-        docNumber: cpf,
-      };
-
-      let result: {
-        id: string;
-        status: string;
-        qrCode?: string;
-        qrCodeBase64?: string;
-        demo?: boolean;
-      };
-
-      const offerId = booking.service.caktoOfferId || org.caktoOfferId;
-      if (org.caktoClientId && org.caktoClientSecret && offerId) {
-        result = await createPixPayment({
-          creds: {
-            clientId: org.caktoClientId,
-            clientSecret: org.caktoClientSecret,
-          },
-          offerId,
-          customer,
-          idempotencyKey,
-          metadata: { bookingId: booking.id },
-        });
-      } else {
-        result = createDemoPixPayment(idempotencyKey);
-      }
+      });
 
       const payment = await prisma.payment.upsert({
         where: { bookingId: booking.id },
@@ -139,6 +252,7 @@ export async function POST(
           method: "PIX",
           status: "PENDING",
           amountCents: booking.service.priceCents,
+          provider: dbProvider(provider),
           caktoPaymentId: result.id,
           idempotencyKey,
           pixQrCode: result.qrCode,
@@ -149,6 +263,7 @@ export async function POST(
         update: {
           method: "PIX",
           status: "PENDING",
+          provider: dbProvider(provider),
           caktoPaymentId: result.id,
           idempotencyKey,
           pixQrCode: result.qrCode,
@@ -164,6 +279,7 @@ export async function POST(
         qrCodeBase64: result.qrCodeBase64,
         demo: Boolean(result.demo),
         expiresAt: payment.pixExpiresAt,
+        provider,
       });
     }
 
@@ -183,55 +299,30 @@ export async function POST(
       }
 
       const org = booking.bookingPage.organization;
-      const idempotencyKey = uuidv4();
+      const provider = resolvePaymentProvider(org);
       const cpf = booking.customerCpf;
-      if (!cpf || !isValidCpf(cpf)) {
+      if (
+        provider !== "DEMO" &&
+        !body.cardToken.startsWith("demo_") &&
+        (!cpf || !isValidCpf(cpf))
+      ) {
         return NextResponse.json(
           { error: "CPF obrigatório para cartão" },
           { status: 400 },
         );
       }
 
-      const customer = {
-        name: booking.customerName,
-        email: booking.customerEmail,
-        phone: booking.customerPhone.startsWith("55")
-          ? booking.customerPhone
-          : `55${booking.customerPhone}`,
+      const idempotencyKey = uuidv4();
+      const result = await createCardForProvider({
+        provider,
+        org,
+        booking,
+        idempotencyKey,
         fingerprint: body.fingerprint,
-        docType: "cpf" as const,
-        docNumber: cpf,
-      };
+        cardToken: body.cardToken,
+      });
 
-      let result: { id: string; status: string; demo?: boolean };
-
-      const offerId = booking.service.caktoOfferId || org.caktoOfferId;
-      if (
-        org.caktoClientId &&
-        org.caktoClientSecret &&
-        offerId &&
-        !body.cardToken.startsWith("demo_")
-      ) {
-        result = await createCardPayment({
-          creds: {
-            clientId: org.caktoClientId,
-            clientSecret: org.caktoClientSecret,
-          },
-          offerId,
-          customer,
-          cardToken: body.cardToken,
-          idempotencyKey,
-          metadata: { bookingId: booking.id },
-        });
-      } else {
-        result = createDemoCardPayment(idempotencyKey);
-      }
-
-      const paid =
-        result.demo ||
-        ["paid", "approved", "captured", "success"].includes(
-          String(result.status).toLowerCase(),
-        );
+      const paid = isPaidResult(provider, result);
 
       await prisma.payment.upsert({
         where: { bookingId: booking.id },
@@ -240,6 +331,7 @@ export async function POST(
           method: "CARD",
           status: paid ? "PAID" : "PENDING",
           amountCents: booking.service.priceCents,
+          provider: dbProvider(provider),
           caktoPaymentId: result.id,
           idempotencyKey,
           paidAt: paid ? new Date() : null,
@@ -248,6 +340,7 @@ export async function POST(
         update: {
           method: "CARD",
           status: paid ? "PAID" : "PENDING",
+          provider: dbProvider(provider),
           caktoPaymentId: result.id,
           idempotencyKey,
           paidAt: paid ? new Date() : null,
@@ -257,28 +350,28 @@ export async function POST(
 
       if (paid) {
         await confirmBooking(booking.id);
-        return NextResponse.json({ ok: true, status: "CONFIRMED", demo: result.demo });
+        return NextResponse.json({ ok: true, status: "CONFIRMED", demo: result.demo, provider });
       }
 
       return NextResponse.json({
         ok: true,
         status: "PENDING",
         message: "Aguardando confirmação do pagamento",
+        provider,
       });
     }
 
     if (method === "demo-confirm") {
-      // Allows confirming demo Pix without real webhook
       const body = z.object({ bookingId: z.string() }).parse(await req.json());
       const booking = await loadBooking(body.bookingId, slug);
-      if (!booking?.payment?.caktoPaymentId?.startsWith("demo_")) {
+      if (!isDemoPaymentId(booking?.payment?.caktoPaymentId)) {
         return NextResponse.json({ error: "Só para demo" }, { status: 400 });
       }
       await prisma.payment.update({
-        where: { bookingId: booking.id },
+        where: { bookingId: booking!.id },
         data: { status: "PAID", paidAt: new Date() },
       });
-      await confirmBooking(booking.id);
+      await confirmBooking(booking!.id);
       return NextResponse.json({ ok: true, status: "CONFIRMED" });
     }
 

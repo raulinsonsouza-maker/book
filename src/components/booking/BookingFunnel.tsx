@@ -83,7 +83,10 @@ export function BookingFunnel({ slug }: { slug: string }) {
   const [services, setServices] = useState<Service[]>([]);
   const [availableDays, setAvailableDays] = useState<string[]>([]);
   const [demoPayments, setDemoPayments] = useState(true);
+  const [paymentProvider, setPaymentProvider] = useState<"CAKTO" | "MERCADO_PAGO" | "DEMO">("DEMO");
+  const [paymentProviderLabel, setPaymentProviderLabel] = useState("Demo");
   const [caktoSdkClientId, setCaktoSdkClientId] = useState<string | null>(null);
+  const [mercadoPagoPublicKey, setMercadoPagoPublicKey] = useState<string | null>(null);
 
   const [step, setStep] = useState<Step>("service");
   const [service, setService] = useState<Service | null>(null);
@@ -149,7 +152,10 @@ export function BookingFunnel({ slug }: { slug: string }) {
         setServices(data.services);
         setAvailableDays(data.availableDays || []);
         setDemoPayments(data.demoPayments);
+        setPaymentProvider(data.paymentProvider || "DEMO");
+        setPaymentProviderLabel(data.paymentProviderLabel || "Demo");
         setCaktoSdkClientId(data.caktoSdkClientId);
+        setMercadoPagoPublicKey(data.mercadoPagoPublicKey);
         if (!Intl?.DateTimeFormat) setTimezone(data.page.timezone);
 
         // Auto-skip serviço único
@@ -347,7 +353,47 @@ export function BookingFunnel({ slug }: { slug: string }) {
     setError("");
 
     let cardToken = `demo_${Date.now()}`;
-    if (caktoSdkClientId && typeof window !== "undefined") {
+    if (
+      paymentProvider === "MERCADO_PAGO" &&
+      mercadoPagoPublicKey &&
+      typeof window !== "undefined"
+    ) {
+      try {
+        // @ts-expect-error MercadoPago global
+        if (!window.MercadoPago) {
+          await new Promise<void>((resolve, reject) => {
+            const s = document.createElement("script");
+            s.src = "https://sdk.mercadopago.com/js/v2";
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error("SDK Mercado Pago falhou"));
+            document.body.appendChild(s);
+          });
+        }
+        const cpf = details.customerCpf.replace(/\D/g, "");
+        if (!isValidCpf(cpf)) {
+          setPaying(false);
+          setError("Informe um CPF válido para pagar com cartão");
+          return;
+        }
+        // @ts-expect-error MercadoPago global
+        const mp = new window.MercadoPago(mercadoPagoPublicKey);
+        const tokenized = await mp.createCardToken({
+          cardNumber: card.cardNumber.replace(/\D/g, ""),
+          cardholderName: card.holderName,
+          cardExpirationMonth: card.expMonth.padStart(2, "0"),
+          cardExpirationYear:
+            card.expYear.length === 2 ? `20${card.expYear}` : card.expYear,
+          securityCode: card.cvv,
+          identificationType: "CPF",
+          identificationNumber: cpf,
+        });
+        cardToken = tokenized.id;
+      } catch (err) {
+        setPaying(false);
+        setError(err instanceof Error ? err.message : "Erro ao tokenizar cartão");
+        return;
+      }
+    } else if (caktoSdkClientId && typeof window !== "undefined") {
       try {
         // @ts-expect-error Cakto global
         if (!window.Cakto) {
@@ -777,7 +823,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
                         Pagamento
                       </h2>
                       <p className="mt-1 text-sm text-muted">
-                        Seguro · via Cakto
+                        Seguro · via {paymentProviderLabel}
                       </p>
                     </div>
                     <p className="text-2xl font-bold tracking-tight">

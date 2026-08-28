@@ -37,7 +37,16 @@
 }
 
 .sidebar-link-active {
-  box-shadow: inset 3px 0 0 0 #0a0a0a;
+  box-shadow: inset 3px 0 0 0 #2563eb;
+  color: #2563eb;
+}
+
+.dashboard-panel {
+  border: 1px solid var(--border);
+}
+
+.dashboard-stat-card {
+  min-height: 148px;
 }
 
 .integration-card {

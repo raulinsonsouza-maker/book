@@ -46,6 +46,7 @@ export default function CaktoIntegrationPage() {
         caktoClientId: clientId.trim(),
         caktoOfferId: offerId.trim(),
         caktoSdkClientId: clientId.trim(),
+        paymentProvider: "CAKTO",
         ...(secret ? { caktoClientSecret: secret.trim() } : {}),
       }),
     });

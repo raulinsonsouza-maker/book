@@ -20,6 +20,11 @@ enum BookingStatus {
   EXPIRED
 }
 
+enum PaymentProvider {
+  CAKTO
+  MERCADO_PAGO
+}
+
 enum PaymentMethod {
   PIX
   CARD
@@ -61,6 +66,13 @@ model Organization {
   caktoClientSecret  String?
   caktoSdkClientId   String?
   caktoOfferId       String?
+  paymentProvider    PaymentProvider @default(CAKTO)
+  mercadoPagoAccessToken String?
+  mercadoPagoPublicKey   String?
+  mercadoPagoRefreshToken String?
+  mercadoPagoTokenExpiry DateTime?
+  mercadoPagoUserId      String?
+  mercadoPagoConnectedAt DateTime?
   googleAccessToken  String?
   googleRefreshToken String?
   googleTokenExpiry  DateTime?
@@ -198,6 +210,7 @@ model Payment {
   status           PaymentStatus @default(PENDING)
   amountCents      Int
   currency         String        @default("BRL")
+  provider         PaymentProvider @default(CAKTO)
   caktoPaymentId   String?
   idempotencyKey   String        @unique
   pixQrCode        String?

@@ -3,14 +3,23 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  isCaktoReady,
+  isMercadoPagoReady,
+  webhookUrl,
+} from "@/lib/payments/resolve-provider";
+import { mercadoPagoOAuthConfigured } from "@/lib/mercadopago/oauth";
 
 const schema = z.object({
   name: z.string().min(2).optional(),
   timezone: z.string().optional(),
+  paymentProvider: z.enum(["CAKTO", "MERCADO_PAGO"]).optional(),
   caktoClientId: z.string().nullable().optional(),
   caktoClientSecret: z.string().nullable().optional(),
   caktoSdkClientId: z.string().nullable().optional(),
   caktoOfferId: z.string().nullable().optional(),
+  mercadoPagoAccessToken: z.string().nullable().optional(),
+  mercadoPagoPublicKey: z.string().nullable().optional(),
 });
 
 function serializeOrg(org: {
@@ -18,23 +27,38 @@ function serializeOrg(org: {
   name: string;
   slug: string;
   timezone: string;
+  paymentProvider: "CAKTO" | "MERCADO_PAGO";
   caktoClientId: string | null;
   caktoSdkClientId: string | null;
   caktoClientSecret: string | null;
   caktoOfferId: string | null;
+  mercadoPagoAccessToken: string | null;
+  mercadoPagoPublicKey: string | null;
+  mercadoPagoRefreshToken?: string | null;
+  mercadoPagoUserId?: string | null;
+  mercadoPagoConnectedAt?: Date | null;
 }) {
   return {
     id: org.id,
     name: org.name,
     slug: org.slug,
     timezone: org.timezone,
+    paymentProvider: org.paymentProvider,
     caktoClientId: org.caktoClientId,
     caktoSdkClientId: org.caktoSdkClientId,
     caktoOfferId: org.caktoOfferId,
     hasCaktoSecret: Boolean(org.caktoClientSecret),
-    caktoConnected: Boolean(
-      org.caktoClientId && org.caktoClientSecret && org.caktoOfferId,
-    ),
+    caktoConnected: isCaktoReady(org),
+    mercadoPagoPublicKey: org.mercadoPagoPublicKey,
+    hasMercadoPagoToken: Boolean(org.mercadoPagoAccessToken),
+    mercadoPagoConnected: isMercadoPagoReady(org),
+    mercadoPagoViaOAuth: Boolean(org.mercadoPagoRefreshToken),
+    mercadoPagoUserId: org.mercadoPagoUserId ?? null,
+    mercadoPagoOAuthConfigured: mercadoPagoOAuthConfigured(),
+    mercadoPagoWebhookUrl: webhookUrl("/api/webhooks/mercadopago"),
+    mercadoPagoRedirectUri:
+      process.env.MERCADOPAGO_REDIRECT_URI ||
+      `${(process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")}/api/mercadopago/callback`,
   };
 }
 
@@ -62,6 +86,7 @@ export async function PATCH(req: Request) {
 
     if (body.name !== undefined) data.name = body.name;
     if (body.timezone !== undefined) data.timezone = body.timezone;
+    if (body.paymentProvider !== undefined) data.paymentProvider = body.paymentProvider;
 
     if ("caktoClientId" in raw) {
       const id =
@@ -87,6 +112,18 @@ export async function PATCH(req: Request) {
       data.caktoSdkClientId =
         typeof body.caktoSdkClientId === "string"
           ? body.caktoSdkClientId.trim() || null
+          : null;
+    }
+    if ("mercadoPagoAccessToken" in raw) {
+      data.mercadoPagoAccessToken =
+        typeof body.mercadoPagoAccessToken === "string"
+          ? body.mercadoPagoAccessToken.trim() || null
+          : null;
+    }
+    if ("mercadoPagoPublicKey" in raw) {
+      data.mercadoPagoPublicKey =
+        typeof body.mercadoPagoPublicKey === "string"
+          ? body.mercadoPagoPublicKey.trim() || null
           : null;
     }
 

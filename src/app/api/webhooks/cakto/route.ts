@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendBookingConfirmation } from "@/lib/email";
-import { syncBookingToGoogle } from "@/lib/google/calendar";
+import { markPaymentPaidAndConfirm } from "@/lib/payments/confirm-booking";
 
 /**
  * Cakto webhook — confirma pagamento e libera o booking.
@@ -70,38 +69,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true, already: true });
     }
 
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { status: "PAID", paidAt: new Date() },
-    });
+    await markPaymentPaidAndConfirm(payment.bookingId, payment.id);
 
-    const booking = await prisma.booking.update({
-      where: { id: payment.bookingId },
-      data: {
-        status: "CONFIRMED",
-        confirmedAt: new Date(),
-        holdExpiresAt: null,
-      },
-      include: { service: true, bookingPage: true },
-    });
-
-    await prisma.slotHold.deleteMany({ where: { bookingId: booking.id } });
-
-    await sendBookingConfirmation({
-      to: booking.customerEmail,
-      customerName: booking.customerName,
-      serviceTitle: booking.service.title,
-      pageTitle: booking.bookingPage.title,
-      startAt: booking.startAt,
-      endAt: booking.endAt,
-      timezone: booking.timezone,
-      priceCents: booking.service.priceCents,
-      bookingId: booking.id,
-    });
-
-    void syncBookingToGoogle(booking.id);
-
-    return NextResponse.json({ received: true, confirmed: booking.id });
+    return NextResponse.json({ received: true, confirmed: payment.bookingId });
   } catch (e) {
     console.error("[cakto:webhook:error]", e);
     return NextResponse.json({ error: "Webhook error" }, { status: 500 });

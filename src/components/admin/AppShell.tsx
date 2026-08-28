@@ -156,7 +156,9 @@ export function AppShell({ organizationName, userName, children }: Props) {
               href={item.href}
               onClick={() => setMobileOpen(false)}
               className={`sidebar-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                active ? "sidebar-link-active bg-muted-bg text-foreground" : "text-muted hover:bg-muted-bg hover:text-foreground"
+                active
+                  ? "sidebar-link-active bg-[#eff6ff] text-[#2563eb]"
+                  : "text-muted hover:bg-muted-bg hover:text-foreground"
               }`}
             >
               {item.icon}

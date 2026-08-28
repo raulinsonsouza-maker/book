@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAvailableDays, getAvailableSlots } from "@/lib/availability";
 import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
+import { resolvePaymentProvider, paymentProviderLabel } from "@/lib/payments/resolve-provider";
 
 export async function GET(
   req: Request,
@@ -25,6 +26,10 @@ export async function GET(
           caktoSdkClientId: true,
           caktoClientId: true,
           caktoClientSecret: true,
+          caktoOfferId: true,
+          paymentProvider: true,
+          mercadoPagoAccessToken: true,
+          mercadoPagoPublicKey: true,
         },
       },
     },
@@ -40,6 +45,7 @@ export async function GET(
       from: new Date(),
       timezone: page.timezone,
     });
+    const provider = resolvePaymentProvider(page.organization);
     return NextResponse.json({
       page: {
         id: page.id,
@@ -60,10 +66,11 @@ export async function GET(
       }),
       services: page.services,
       availableDays: days,
+      paymentProvider: provider,
+      paymentProviderLabel: paymentProviderLabel(provider),
       caktoSdkClientId: page.organization.caktoSdkClientId || null,
-      demoPayments: !(
-        page.organization.caktoClientId && page.organization.caktoClientSecret
-      ),
+      mercadoPagoPublicKey: page.organization.mercadoPagoPublicKey || null,
+      demoPayments: provider === "DEMO",
     });
   }
 
