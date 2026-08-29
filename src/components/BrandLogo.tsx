@@ -12,25 +12,45 @@ type Size = keyof typeof SIZES;
 type Props = {
   size?: Size;
   showText?: boolean;
+  title?: string;
   subtitle?: string;
+  logoUrl?: string | null;
   href?: string;
   className?: string;
   onClick?: () => void;
 };
 
-function LogoMark({ size = "md" }: { size?: Size }) {
+function LogoMark({
+  size = "md",
+  logoUrl,
+}: {
+  size?: Size;
+  logoUrl?: string | null;
+}) {
   const { box, px } = SIZES[size];
+  const custom = Boolean(logoUrl?.trim());
 
   return (
     <span className={`${box} relative inline-flex shrink-0`}>
-      <Image
-        src="/logo.png"
-        alt=""
-        width={px}
-        height={px}
-        className="h-full w-full object-contain"
-        priority={size !== "sm"}
-      />
+      {custom ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logoUrl!}
+          alt=""
+          width={px}
+          height={px}
+          className="h-full w-full object-contain"
+        />
+      ) : (
+        <Image
+          src="/logo.png"
+          alt=""
+          width={px}
+          height={px}
+          className="h-full w-full object-contain"
+          priority={size !== "sm"}
+        />
+      )}
     </span>
   );
 }
@@ -38,18 +58,20 @@ function LogoMark({ size = "md" }: { size?: Size }) {
 export function BrandLogo({
   size = "md",
   showText = false,
+  title = "Book Symbius",
   subtitle,
+  logoUrl,
   href,
   className = "",
   onClick,
 }: Props) {
   const content = (
     <>
-      <LogoMark size={size} />
+      <LogoMark size={size} logoUrl={logoUrl} />
       {showText && (
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold tracking-tight text-foreground">
-            Book Symbius
+            {title}
           </span>
           {subtitle && (
             <span className="block truncate text-[11px] text-muted">{subtitle}</span>

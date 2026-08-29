@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/admin/AppShell";
 
 export default async function AppLayout({
@@ -11,9 +12,15 @@ export default async function AppLayout({
   if (!session?.user) redirect("/login");
   if (!session.user.organizationId) redirect("/signup/complete");
 
+  const org = await prisma.organization.findUnique({
+    where: { id: session.user.organizationId },
+    select: { name: true, logoUrl: true },
+  });
+
   return (
     <AppShell
-      organizationName={session.user.organizationName}
+      organizationName={org?.name || session.user.organizationName}
+      organizationLogoUrl={org?.logoUrl}
       userName={session.user.name}
     >
       {children}

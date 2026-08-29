@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseProductFormConfig } from "@/lib/product-form-config";
 import { resolvePaymentProvider, paymentProviderLabel } from "@/lib/payments/resolve-provider";
+import { resolveBrand } from "@/lib/branding";
 
 export async function GET(
   _req: Request,
@@ -25,6 +26,18 @@ export async function GET(
   const org = link.product.organization;
   const formConfig = parseProductFormConfig(link.product.formConfig);
   const provider = resolvePaymentProvider(org);
+  const brand = resolveBrand({
+    org: {
+      name: org.name,
+      description: org.description,
+      logoUrl: org.logoUrl,
+      accentColor: org.accentColor,
+    },
+    title: link.title || link.product.title,
+    description: link.product.description,
+    logoUrl: link.logoUrl,
+    accentColor: link.accentColor,
+  });
 
   return NextResponse.json({
     link: {
@@ -40,9 +53,12 @@ export async function GET(
       description: link.product.description,
       priceCents: link.product.priceCents,
     },
-    displayTitle: link.title || link.product.title,
-    displayLogoUrl: link.logoUrl,
-    displayAccentColor: link.accentColor || "#0a0a0a",
+    businessName: brand.businessName,
+    businessDescription: org.description,
+    displayTitle: brand.title,
+    displayDescription: brand.description,
+    displayLogoUrl: brand.logoUrl,
+    displayAccentColor: brand.accentColor,
     formConfig,
     paymentProvider: provider,
     paymentProviderLabel: paymentProviderLabel(provider),

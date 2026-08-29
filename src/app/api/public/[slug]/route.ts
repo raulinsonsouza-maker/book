@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getAvailableDays, getAvailableSlots } from "@/lib/availability";
 import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
 import { resolvePaymentProvider, paymentProviderLabel } from "@/lib/payments/resolve-provider";
+import { resolveBrand } from "@/lib/branding";
 
 export async function GET(
   req: Request,
@@ -23,6 +24,10 @@ export async function GET(
       },
       organization: {
         select: {
+          name: true,
+          description: true,
+          logoUrl: true,
+          accentColor: true,
           caktoSdkClientId: true,
           caktoClientId: true,
           caktoClientSecret: true,
@@ -47,24 +52,47 @@ export async function GET(
       timezone: page.timezone,
     });
     const provider = resolvePaymentProvider(page.organization);
+    const brand = resolveBrand({
+      org: page.organization,
+      title: page.title,
+      description: page.description,
+      logoUrl: page.logoUrl,
+      accentColor: page.accentColor,
+    });
+    const mergedFunnel = mergeFunnelConfig(parseFunnelConfig(page.funnelConfig), {
+      title: brand.title,
+      description: brand.description,
+      accentColor: brand.accentColor,
+      logoUrl: brand.logoUrl,
+    });
     return NextResponse.json({
       page: {
         id: page.id,
-        title: page.title,
+        title: brand.title,
         slug: page.slug,
-        description: page.description,
-        logoUrl: page.logoUrl,
-        accentColor: page.accentColor,
+        description: brand.description,
+        logoUrl: brand.logoUrl,
+        accentColor: brand.accentColor,
         websiteUrl: page.websiteUrl,
         instagram: page.instagram,
         timezone: page.timezone,
       },
-      funnelConfig: mergeFunnelConfig(parseFunnelConfig(page.funnelConfig), {
-        title: page.title,
-        description: page.description,
-        accentColor: page.accentColor,
-        logoUrl: page.logoUrl,
-      }),
+      brand: {
+        businessName: brand.businessName,
+        logoUrl: brand.logoUrl,
+        accentColor: brand.accentColor,
+        description: brand.description,
+      },
+      funnelConfig: {
+        ...mergedFunnel,
+        theme: {
+          ...mergedFunnel.theme,
+          logoUrl: mergedFunnel.theme.logoUrl || brand.logoUrl || undefined,
+          accentColor: brand.accentColor,
+          heroSubtitle:
+            mergedFunnel.theme.heroSubtitle || brand.description || undefined,
+        },
+      },
       services: page.services,
       availableDays: days,
       paymentProvider: provider,

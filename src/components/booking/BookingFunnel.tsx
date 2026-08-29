@@ -124,6 +124,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
     expYear: "",
   });
   const [paying, setPaying] = useState(false);
+  const [businessName, setBusinessName] = useState("");
 
   const accent =
     funnelConfig?.theme.accentColor ||
@@ -162,6 +163,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
         setCaktoSdkClientId(data.caktoSdkClientId);
         setMercadoPagoPublicKey(data.mercadoPagoPublicKey);
         setTimezone(data.page.timezone || DEFAULT_TIMEZONE);
+        setBusinessName(data.brand?.businessName || data.page?.businessName || "");
 
         // Auto-skip serviço único
         if (data.services?.length === 1) {
@@ -543,7 +545,10 @@ export function BookingFunnel({ slug }: { slug: string }) {
     );
 
   return (
-    <div className="dot-grid min-h-screen px-4 py-6 sm:py-10">
+    <div
+      className="dot-grid min-h-screen px-4 py-6 sm:py-10"
+      style={{ "--accent": accent } as React.CSSProperties}
+    >
       <div className="mx-auto w-full max-w-3xl">
         {/* Progress */}
         {step !== "done" && (
@@ -591,17 +596,26 @@ export function BookingFunnel({ slug }: { slug: string }) {
                 <img
                   src={logoUrl}
                   alt=""
-                  className="mb-3 h-11 w-11 rounded-lg object-cover"
+                  className="mb-3 h-12 max-w-[140px] object-contain"
                 />
               ) : (
                 <div
                   className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg text-xs font-bold text-white"
                   style={{ background: accent }}
                 >
-                  {(heroTitle || "BS").slice(0, 2).toUpperCase()}
+                  {(businessName || heroTitle || "BS").slice(0, 2).toUpperCase()}
                 </div>
               )}
-              <h1 className="text-lg font-bold tracking-tight leading-snug">
+              {businessName && (
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+                  {businessName}
+                </p>
+              )}
+              <h1
+                className={`text-lg font-bold tracking-tight leading-snug ${
+                  businessName ? "mt-1.5" : ""
+                }`}
+              >
                 {heroTitle}
               </h1>
               {heroSubtitle && !service && (

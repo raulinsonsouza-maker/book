@@ -48,10 +48,11 @@ export function InstantCheckout({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [displayTitle, setDisplayTitle] = useState("");
+  const [displayDescription, setDisplayDescription] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState("");
   const [displayLogoUrl, setDisplayLogoUrl] = useState<string | null>(null);
   const [accentColor, setAccentColor] = useState("#0a0a0a");
   const [productTitle, setProductTitle] = useState("");
-  const [productDescription, setProductDescription] = useState<string | null>(null);
   const [priceCents, setPriceCents] = useState(0);
   const [formConfig, setFormConfig] = useState<ProductFormConfig | null>(null);
   const [demoPayments, setDemoPayments] = useState(true);
@@ -115,10 +116,11 @@ export function InstantCheckout({ slug }: { slug: string }) {
       })
       .then((data) => {
         setDisplayTitle(data.displayTitle);
+        setDisplayDescription(data.displayDescription || null);
+        setBusinessName(data.businessName || "");
         setDisplayLogoUrl(data.displayLogoUrl);
         setAccentColor(data.displayAccentColor || "#0a0a0a");
         setProductTitle(data.product.title);
-        setProductDescription(data.product.description);
         setPriceCents(data.product.priceCents);
         setFormConfig(data.formConfig);
         setDemoPayments(data.paymentProvider === "DEMO");
@@ -389,15 +391,35 @@ export function InstantCheckout({ slug }: { slug: string }) {
     <div className="dot-grid min-h-screen" style={{ "--accent": accentColor } as React.CSSProperties}>
       <div className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-8">
         <header className="mb-8 text-center">
-          {displayLogoUrl && (
+          {displayLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={displayLogoUrl} alt="" className="mx-auto mb-4 h-12 object-contain" />
+            <img
+              src={displayLogoUrl}
+              alt=""
+              className="mx-auto mb-4 h-14 max-w-[180px] object-contain"
+            />
+          ) : (
+            <div
+              className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-sm font-bold text-white"
+              style={{ background: accentColor }}
+            >
+              {(businessName || displayTitle || "BS").slice(0, 2).toUpperCase()}
+            </div>
           )}
-          <h1 className="text-2xl font-bold tracking-tight">{displayTitle}</h1>
-          {productDescription && (
-            <p className="mt-2 text-sm text-muted">{productDescription}</p>
+          {businessName && (
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+              {businessName}
+            </p>
           )}
-          <p className="mt-3 text-3xl font-bold">{formatBRL(priceCents)}</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight">{displayTitle}</h1>
+          {displayDescription && (
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+              {displayDescription}
+            </p>
+          )}
+          <p className="mt-4 text-3xl font-bold tracking-tight" style={{ color: accentColor }}>
+            {formatBRL(priceCents)}
+          </p>
         </header>
 
         <main className="flex-1 space-y-4">

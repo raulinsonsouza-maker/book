@@ -70,6 +70,9 @@ model Organization {
   name               String
   slug               String        @unique
   timezone           String        @default("America/Sao_Paulo")
+  description        String?
+  logoUrl            String?
+  accentColor        String        @default("#0a0a0a")
   caktoClientId      String?
   caktoClientSecret  String?
   caktoSdkClientId   String?

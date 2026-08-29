@@ -11,10 +11,14 @@ import {
 } from "@/lib/payments/resolve-provider";
 import { mercadoPagoOAuthConfigured } from "@/lib/mercadopago/oauth";
 import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
+import { DESCRIPTION_MAX, normalizeAccent } from "@/lib/branding";
 
 const schema = z.object({
   name: z.string().min(2).optional(),
   timezone: z.string().optional(),
+  description: z.string().max(DESCRIPTION_MAX).nullable().optional(),
+  logoUrl: z.string().nullable().optional(),
+  accentColor: z.string().optional(),
   paymentProvider: z.enum(["CAKTO", "MERCADO_PAGO", "ASAAS"]).optional(),
   caktoClientId: z.string().nullable().optional(),
   caktoClientSecret: z.string().nullable().optional(),
@@ -37,6 +41,9 @@ type OrgRow = {
   name: string;
   slug: string;
   timezone: string;
+  description: string | null;
+  logoUrl: string | null;
+  accentColor: string;
   paymentProvider: "CAKTO" | "MERCADO_PAGO" | "ASAAS";
   caktoClientId: string | null;
   caktoSdkClientId: string | null;
@@ -66,6 +73,9 @@ function serializeOrg(org: OrgRow) {
     name: org.name,
     slug: org.slug,
     timezone: org.timezone,
+    description: org.description,
+    logoUrl: org.logoUrl,
+    accentColor: normalizeAccent(org.accentColor),
     paymentProvider: org.paymentProvider,
     caktoClientId: org.caktoClientId,
     caktoSdkClientId: org.caktoSdkClientId,
@@ -130,6 +140,27 @@ export async function PATCH(req: Request) {
 
     if (body.name !== undefined) data.name = body.name;
     if (body.timezone !== undefined) data.timezone = body.timezone;
+    if (body.description !== undefined) {
+      const d = body.description?.trim() || null;
+      data.description = d && d.length > DESCRIPTION_MAX ? d.slice(0, DESCRIPTION_MAX) : d;
+    }
+    if (body.logoUrl !== undefined) {
+      const url = typeof body.logoUrl === "string" ? body.logoUrl.trim() : "";
+      // Allow http(s) URLs or data:image (upload local pequeno)
+      if (
+        !url ||
+        url.startsWith("https://") ||
+        url.startsWith("http://") ||
+        url.startsWith("data:image/")
+      ) {
+        data.logoUrl = url || null;
+      } else {
+        return NextResponse.json({ error: "URL de logo inválida" }, { status: 400 });
+      }
+    }
+    if (body.accentColor !== undefined) {
+      data.accentColor = normalizeAccent(body.accentColor);
+    }
 
     if (body.paymentProvider !== undefined) {
       if (body.paymentProvider === "CAKTO") {

@@ -144,11 +144,17 @@ function SidebarNavLink({
 
 type Props = {
   organizationName?: string | null;
+  organizationLogoUrl?: string | null;
   userName?: string | null;
   children: React.ReactNode;
 };
 
-export function AppShell({ organizationName, userName, children }: Props) {
+export function AppShell({
+  organizationName,
+  organizationLogoUrl,
+  userName,
+  children,
+}: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isBuilder = pathname.includes("/builder");
@@ -162,7 +168,9 @@ export function AppShell({ organizationName, userName, children }: Props) {
         href="/app"
         size="sm"
         showText
+        title={displayName}
         subtitle="Agendamento"
+        logoUrl={organizationLogoUrl}
         className="sidebar-brand admin-topbar"
         onClick={closeMobile}
       />
