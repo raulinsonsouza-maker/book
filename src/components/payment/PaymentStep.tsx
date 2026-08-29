@@ -1,6 +1,7 @@
 "use client";
 
 import { formatBRL } from "@/lib/utils";
+import { PixQrImage } from "@/components/payment/PixQrImage";
 
 type CardState = {
   holderName: string;
@@ -19,6 +20,7 @@ type PaymentStepProps = {
   onPayMethodChange: (m: "pix" | "card") => void;
   pixLoading: boolean;
   pixQr: string | null;
+  pixQrBase64?: string | null;
   copied: boolean;
   onCopyPix: () => void;
   onDemoConfirm: () => void;
@@ -38,6 +40,7 @@ export function PaymentStep({
   onPayMethodChange,
   pixLoading,
   pixQr,
+  pixQrBase64,
   copied,
   onCopyPix,
   onDemoConfirm,
@@ -93,6 +96,7 @@ export function PaymentStep({
           {pixQr && (
             <div className="space-y-3 rounded-lg border border-border p-4">
               <p className="text-center text-sm font-medium">Escaneie o QR ou copie o código</p>
+              <PixQrImage payload={pixQr} base64={pixQrBase64} />
               <textarea
                 readOnly
                 className="h-20 w-full rounded-lg border border-border bg-muted-bg p-2 font-mono text-[11px]"

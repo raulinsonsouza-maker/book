@@ -20,6 +20,7 @@ import type { FunnelConfig } from "@/types/funnel-config";
 import { FunnelLandingBlocks } from "@/components/booking/FunnelLandingBlocks";
 import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 import { encodeAsaasCardToken } from "@/lib/asaas/client";
+import { PixQrImage } from "@/components/payment/PixQrImage";
 
 type CustomField = {
   id: string;
@@ -112,6 +113,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
 
   const [payMethod, setPayMethod] = useState<"pix" | "card">("pix");
   const [pixQr, setPixQr] = useState<string | null>(null);
+  const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
   const [pixLoading, setPixLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [card, setCard] = useState({
@@ -211,6 +213,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
         return;
       }
       setPixQr(data.qrCode);
+      setPixQrBase64(data.qrCodeBase64 || null);
     },
     [slug],
   );
@@ -277,6 +280,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
     setBookingId(null);
     setHoldExpiresAt(null);
     setPixQr(null);
+    setPixQrBase64(null);
     setSelectedSlot(null);
     setStep("datetime");
     setError(message || "Este horário não está mais disponível. Escolha outro.");
@@ -365,6 +369,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
     setBookingId(data.bookingId);
     setHoldExpiresAt(data.holdExpiresAt);
     setPixQr(null);
+    setPixQrBase64(null);
     setStep("payment");
   }
 
@@ -930,9 +935,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
                           <p className="text-center text-sm font-medium">
                             Escaneie o QR ou copie o código
                           </p>
-                          <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-lg bg-muted-bg text-xs text-muted">
-                            QR Pix
-                          </div>
+                          <PixQrImage payload={pixQr} base64={pixQrBase64} />
                           <textarea
                             readOnly
                             className="h-20 w-full rounded-lg border border-border bg-muted-bg p-2 font-mono text-[11px]"

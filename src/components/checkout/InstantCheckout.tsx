@@ -75,6 +75,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
 
   const [payMethod, setPayMethod] = useState<"pix" | "card">("pix");
   const [pixQr, setPixQr] = useState<string | null>(null);
+  const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
   const [pixLoading, setPixLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [card, setCard] = useState({
@@ -206,6 +207,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
     if (!formReady) {
       setOrderId(null);
       setPixQr(null);
+      setPixQrBase64(null);
       lastOrderFingerprint.current = null;
       failedFingerprint.current = null;
     }
@@ -227,6 +229,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
         return;
       }
       setPixQr(data.qrCode);
+      setPixQrBase64(data.qrCodeBase64 || null);
     },
     [slug],
   );
@@ -461,10 +464,14 @@ export function InstantCheckout({ slug }: { slug: string }) {
                     onPayMethodChange={(m) => {
                       setPayMethod(m);
                       setError("");
-                      if (m === "card") setPixQr(null);
+                      if (m === "card") {
+                        setPixQr(null);
+                        setPixQrBase64(null);
+                      }
                     }}
                     pixLoading={pixLoading}
                     pixQr={pixQr}
+                    pixQrBase64={pixQrBase64}
                     copied={copied}
                     onCopyPix={async () => {
                       if (pixQr) {
