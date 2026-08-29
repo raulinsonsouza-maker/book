@@ -292,7 +292,7 @@ export function BookingFunnel({
   }, [step, bookingId, payMethod, pixQr, pixLoading, startPix]);
 
   const daySet = useMemo(() => new Set(availableDays), [availableDays]);
-  const upcomingDays = useMemo(() => availableDays.slice(0, 28), [availableDays]);
+  const weekDays = useMemo(() => availableDays.slice(0, 7), [availableDays]);
   const calendarDays = useMemo(() => {
     const start = startOfMonth(month);
     const end = endOfMonth(month);
@@ -620,13 +620,21 @@ export function BookingFunnel({
     else setError(data.message || "Aguardando confirmação");
   }
 
+  function canGoBack() {
+    if (step === "professional") return services.length > 1;
+    if (step === "datetime") {
+      return businessMode === "SALON" || services.length > 1;
+    }
+    if (step === "details" || step === "payment") return true;
+    return false;
+  }
+
   function goBack() {
+    if (!canGoBack()) return;
     setError("");
     if (step === "professional") {
-      if (services.length > 1) {
-        setStep("service");
-        setService(null);
-      }
+      setStep("service");
+      setService(null);
       setProfessional(null);
       setAnyone(false);
     } else if (step === "datetime") {
@@ -635,7 +643,7 @@ export function BookingFunnel({
         setStep("professional");
         setProfessional(null);
         setAnyone(false);
-      } else if (services.length > 1) {
+      } else {
         setStep("service");
         setService(null);
       }
@@ -753,7 +761,7 @@ export function BookingFunnel({
           showDock ? "pb-36" : "pb-10"
         }`}
       >
-        {step !== "service" && step !== "done" && (
+        {canGoBack() && (
           <button
             type="button"
             onClick={goBack}
@@ -774,7 +782,7 @@ export function BookingFunnel({
           <div className="space-y-4 animate-in">
             <div>
               <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
-                O que você precisa?
+                Escolha o atendimento
               </h1>
               {heroSubtitle ? (
                 <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -782,7 +790,7 @@ export function BookingFunnel({
                 </p>
               ) : (
                 <p className="mt-2 text-sm text-muted">
-                  Escolha o atendimento e reserve em poucos toques
+                  Selecione o serviço para ver os horários disponíveis
                 </p>
               )}
             </div>
@@ -904,33 +912,84 @@ export function BookingFunnel({
           <div className="space-y-5 animate-in">
             <div>
               <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
-                Quando funciona pra você?
+                Escolha o dia e o horário
               </h1>
-              <p className="mt-2 text-sm text-muted">
-                Toque no dia e depois no horário — tudo em segundos
+              {(heroSubtitle || service.description) && (
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  {heroSubtitle || service.description}
+                </p>
+              )}
+            </div>
+
+            <div className="booking-card px-4 py-3.5">
+              <p className="text-sm font-semibold tracking-tight">
+                {service.title}
               </p>
+              {service.description &&
+                service.description !== heroSubtitle && (
+                  <p className="mt-1 text-sm leading-relaxed text-muted line-clamp-4">
+                    {service.description}
+                  </p>
+                )}
+              {(anyone || professional) && (
+                <p className="mt-1 text-xs text-muted">
+                  {anyone
+                    ? "Qualquer profissional disponível"
+                    : professional?.displayName}
+                </p>
+              )}
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <span className="tag">{service.durationMinutes} min</span>
+                <span
+                  className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
+                  style={{ background: accent }}
+                >
+                  {formatBRL(service.priceCents)}
+                </span>
+              </div>
             </div>
 
             <div className="booking-card overflow-hidden">
-              <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
                 <p className="text-sm font-semibold tracking-tight">
-                  Dias disponíveis
+                  {showMonthCalendar ? "Calendário" : "Próximos dias"}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setShowMonthCalendar((v) => !v)}
-                  className="text-xs font-semibold text-muted underline-offset-2 hover:text-foreground hover:underline"
+                <div
+                  className="inline-flex rounded-lg bg-muted-bg p-0.5"
+                  role="group"
+                  aria-label="Visualização do calendário"
                 >
-                  {showMonthCalendar ? "Ver faixa" : "Ver mês"}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowMonthCalendar(false)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                      !showMonthCalendar
+                        ? "bg-white text-foreground shadow-sm"
+                        : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    Semana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowMonthCalendar(true)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                      showMonthCalendar
+                        ? "bg-white text-foreground shadow-sm"
+                        : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    Mês
+                  </button>
+                </div>
               </div>
 
               {!showMonthCalendar ? (
                 <div className="-mx-0 flex gap-2 overflow-x-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {upcomingDays.length === 0 ? (
+                  {weekDays.length === 0 ? (
                     <p className="text-sm text-muted">Nenhum dia disponível.</p>
                   ) : (
-                    upcomingDays.map((key) => {
+                    weekDays.map((key) => {
                       const d = parseISO(key);
                       const selected = selectedDate === key;
                       return (
@@ -1034,7 +1093,7 @@ export function BookingFunnel({
                   {slotsLoading ? (
                     <div className="mt-5 flex items-center justify-center gap-2 py-8 text-sm text-muted">
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground" />
-                      Buscando horários…
+                      Carregando horários…
                     </div>
                   ) : slots.length === 0 ? (
                     <p className="mt-4 rounded-xl bg-muted-bg px-3 py-5 text-center text-sm text-muted">
@@ -1068,7 +1127,7 @@ export function BookingFunnel({
                       {grouped.afternoon.length > 0 && (
                         <div>
                           <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                            Tarde / noite
+                            Tarde
                           </p>
                           <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
                             {grouped.afternoon.map((slot) => (
@@ -1093,7 +1152,7 @@ export function BookingFunnel({
                 </>
               ) : (
                 <p className="py-6 text-center text-sm text-muted">
-                  Selecione um dia acima para ver os horários
+                  Selecione um dia para ver os horários
                 </p>
               )}
             </div>

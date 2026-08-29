@@ -304,8 +304,6 @@ export function AppShell({
   const isFloor = pathname.startsWith("/app/salao");
   const displayName = organizationName || userName || "Sua conta";
   const sections = navForRole(role, businessMode);
-  const modeLabel =
-    businessMode === "SALON" ? "Modo Salão" : "Modo Individual";
 
   useEffect(() => {
     if (role !== "PROFESSIONAL") return;
@@ -328,12 +326,6 @@ export function AppShell({
         className="sidebar-brand admin-topbar"
         onClick={closeMobile}
       />
-
-      <div className="px-3 pb-1">
-        <span className="inline-flex rounded-full bg-muted-bg px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted ring-1 ring-border">
-          {modeLabel}
-        </span>
-      </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
         {sections.map((section) => (
@@ -361,7 +353,11 @@ export function AppShell({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
             <p className="text-[11px] text-muted">
-              {role === "PROFESSIONAL" ? "Profissional" : "Plano ativo"}
+              {role === "PROFESSIONAL"
+                ? "Profissional"
+                : businessMode === "SALON"
+                  ? "Salão"
+                  : "Individual"}
             </p>
           </div>
         </div>
