@@ -198,7 +198,11 @@
   --color-warn-bg: var(--warn-bg);
   --color-warn-border: var(--warn-border);
   --font-sans: var(--font-geist);
-  --font-display: var(--font-geist);
+  --font-display: var(--font-syne), var(--font-geist);
+}
+
+.font-display {
+  font-family: var(--font-display);
 }
 
 * {
@@ -488,4 +492,181 @@ button {
 .booking-service:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   box-shadow: 0 10px 24px rgba(15, 15, 15, 0.06);
+}
+
+/* Landing — Book Symbius */
+.lp-shell {
+  --lp-ink: #0a0a0a;
+  --lp-mist: #f4f5f7;
+  --lp-steel: #5b6472;
+  --lp-line: rgba(10, 10, 10, 0.08);
+  background:
+    radial-gradient(1200px 520px at 12% -8%, rgba(37, 99, 235, 0.07), transparent 55%),
+    radial-gradient(900px 480px at 92% 8%, rgba(15, 23, 42, 0.06), transparent 50%),
+    linear-gradient(180deg, #fbfbfc 0%, #f3f4f6 42%, #eef0f3 100%);
+  color: var(--lp-ink);
+}
+
+.lp-nav {
+  background: rgba(251, 251, 252, 0.78);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--lp-line);
+}
+
+.lp-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.lp-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 100%, rgba(10, 10, 10, 0.06), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.lp-brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+}
+
+.lp-headline {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.lp-fade {
+  animation: lp-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.lp-fade-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.lp-fade-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.lp-fade-delay-3 {
+  animation-delay: 0.24s;
+}
+
+.lp-fade-delay-4 {
+  animation-delay: 0.34s;
+}
+
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes lp-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.lp-mock {
+  animation: lp-float 7s ease-in-out infinite;
+}
+
+.lp-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  background: var(--lp-ink);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.85rem 1.35rem;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.lp-cta:hover {
+  background: #1a1a1a;
+  transform: translateY(-1px);
+}
+
+.lp-cta-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--lp-line);
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--lp-ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.85rem 1.35rem;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.lp-cta-ghost:hover {
+  background: #fff;
+  border-color: rgba(10, 10, 10, 0.18);
+}
+
+.lp-section-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.lp-split {
+  background: #0a0a0a;
+  color: #f8fafc;
+}
+
+.lp-glow-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: lp-shimmer 4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-fade,
+  .lp-mock,
+  .lp-glow-line {
+    animation: none;
+  }
 }
