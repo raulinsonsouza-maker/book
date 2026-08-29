@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { reconcileCheckoutPaymentIfNeeded } from "@/lib/payments/reconcile-checkout-payment";
 
 export async function GET(
   req: Request,
@@ -10,6 +11,20 @@ export async function GET(
   if (!orderId) {
     return NextResponse.json({ error: "orderId obrigatório" }, { status: 400 });
   }
+
+  const existing = await prisma.checkoutOrder.findFirst({
+    where: {
+      id: orderId,
+      checkoutLink: { slug, isActive: true },
+    },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  }
+
+  await reconcileCheckoutPaymentIfNeeded(orderId);
 
   const order = await prisma.checkoutOrder.findFirst({
     where: {

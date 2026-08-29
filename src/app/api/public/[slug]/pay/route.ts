@@ -124,6 +124,7 @@ export async function POST(
         bookingId: z.string(),
         fingerprint: z.string().min(1),
         cardToken: z.string().min(1),
+        installments: z.number().int().min(1).max(12).optional(),
       });
       const body = cardSchema.parse(await req.json());
       const booking = await loadBooking(body.bookingId, slug);
@@ -164,6 +165,10 @@ export async function POST(
           idempotencyKey,
           fingerprint: body.fingerprint,
           cardToken: body.cardToken,
+          installments: Math.min(
+            body.installments || 1,
+            Math.min(12, Math.max(1, org.cardMaxInstallments || 12)),
+          ),
           metadata: { bookingId: booking.id },
           remoteIp,
         });
@@ -237,6 +242,19 @@ export async function POST(
         message: "Aguardando confirmação do pagamento",
         provider,
       });
+    }
+
+    if (method === "abandon") {
+      const body = z.object({ bookingId: z.string() }).parse(await req.json());
+      const booking = await loadBooking(body.bookingId, slug);
+      if (!booking) {
+        return NextResponse.json({ ok: true, status: "RELEASED" });
+      }
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: "EXPIRED", holdExpiresAt: null },
+      });
+      return NextResponse.json({ ok: true, status: "RELEASED" });
     }
 
     if (method === "demo-confirm") {

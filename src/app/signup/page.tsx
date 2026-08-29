@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
@@ -17,6 +17,14 @@ export default function SignupPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/google-enabled")
+      .then((r) => r.json())
+      .then((d) => setGoogleEnabled(Boolean(d.enabled)))
+      .catch(() => setGoogleEnabled(false));
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,11 +48,10 @@ export default function SignupPage() {
     });
     setLoading(false);
     if (sign?.error) {
-      router.push("/login");
+      router.push("/login?created=1");
       return;
     }
-    router.push("/app");
-    router.refresh();
+    router.replace("/onboarding");
   }
 
   return (
@@ -59,15 +66,22 @@ export default function SignupPage() {
         <p className="eyebrow">Começar</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Criar conta</h1>
         <p className="mt-1 text-sm text-muted">
-          Sua empresa já nasce com uma página de exemplo
+          Crie a conta e um assistente configura empresa, agenda e pagamentos
         </p>
 
-        <div className="mt-6">
-          <GoogleSignInButton label="Cadastrar com Google" />
-        </div>
-        <AuthDivider />
+        {googleEnabled && (
+          <>
+            <div className="mt-6">
+              <GoogleSignInButton label="Cadastrar com Google" enabled />
+            </div>
+            <AuthDivider />
+          </>
+        )}
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form
+          onSubmit={onSubmit}
+          className={`space-y-4 ${googleEnabled ? "" : "mt-6"}`}
+        >
           {(
             [
               ["name", "Seu nome", "text"],
@@ -91,6 +105,17 @@ export default function SignupPage() {
             </label>
           ))}
           {error && <p className="text-sm text-danger">{error}</p>}
+          <p className="text-xs leading-relaxed text-muted">
+            Ao criar a conta, você concorda com os{" "}
+            <Link href="/termos" className="underline underline-offset-2">
+              Termos de uso
+            </Link>{" "}
+            e a{" "}
+            <Link href="/privacidade" className="underline underline-offset-2">
+              Política de privacidade
+            </Link>
+            .
+          </p>
           <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
             {loading ? "Criando…" : "Criar conta"}
           </button>
@@ -98,7 +123,10 @@ export default function SignupPage() {
 
         <p className="mt-6 text-center text-sm text-muted">
           Já tem conta?{" "}
-          <Link href="/login" className="font-medium text-foreground underline-offset-2 hover:underline">
+          <Link
+            href="/login"
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+          >
             Entrar
           </Link>
         </p>

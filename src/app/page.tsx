@@ -132,7 +132,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <Link
               href="/login"
-              className="hidden rounded-full px-3.5 py-2 text-sm font-semibold text-[#5b6472] transition hover:text-[#0a0a0a] sm:inline-flex"
+              className="rounded-full px-3.5 py-2 text-sm font-semibold text-[#5b6472] transition hover:text-[#0a0a0a]"
             >
               Entrar
             </Link>

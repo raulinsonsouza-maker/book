@@ -14,10 +14,20 @@ export default async function AgendaCalendarioPage() {
 
   const withServices = pages.filter((p) => p.services.length > 0);
   if (withServices.length === 0) {
+    const draft = pages[0];
     return (
-      <p className="text-sm text-muted">
-        Crie uma agenda com serviço ativo para ver o calendário.
-      </p>
+      <div className="space-y-3">
+        <p className="text-sm text-muted">
+          Ainda não há agenda com serviço e horários. Configure para ver a grade
+          e os compromissos do Google.
+        </p>
+        <a
+          href={draft ? `/app/pages/${draft.id}` : "/app/pages"}
+          className="btn-primary inline-flex !text-sm"
+        >
+          {draft ? "Continuar configuração" : "Criar agenda"}
+        </a>
+      </div>
     );
   }
 

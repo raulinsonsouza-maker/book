@@ -69,7 +69,11 @@ async function asaasFetch<T>(
 
 export function isAsaasPaidStatus(status: string) {
   const s = String(status).toUpperCase();
-  return s === "RECEIVED" || s === "CONFIRMED";
+  return (
+    s === "RECEIVED" ||
+    s === "CONFIRMED" ||
+    s === "RECEIVED_IN_CASH"
+  );
 }
 
 export async function validateAsaasApiKey(apiKey: string) {
@@ -164,6 +168,8 @@ export async function createAsaasCardPayment(params: {
   creditCard: AsaasCreditCard;
   externalReference: string;
   remoteIp?: string;
+  /** 1 = à vista; 2–12 = parcelado (Asaas: installmentCount + totalValue). */
+  installments?: number;
 }): Promise<AsaasPaymentResult> {
   const customerId = await findOrCreateCustomer(params.apiKey, params.payer);
   const cpf = (params.payer.cpf || "").replace(/\D/g, "");
@@ -172,6 +178,16 @@ export async function createAsaasCardPayment(params: {
     params.creditCard.expiryYear.length === 2
       ? `20${params.creditCard.expiryYear}`
       : params.creditCard.expiryYear;
+  const installments = Math.min(
+    12,
+    Math.max(1, Math.floor(params.installments || 1)),
+  );
+  const totalValue = params.amountCents / 100;
+  // À vista: só `value`. Parcelado: `installmentCount` + `totalValue` (sem `value`).
+  const amountFields =
+    installments > 1
+      ? { installmentCount: installments, totalValue }
+      : { value: totalValue };
 
   const payment = await asaasFetch<{ id: string; status: string }>(
     params.apiKey,
@@ -181,7 +197,7 @@ export async function createAsaasCardPayment(params: {
       body: JSON.stringify({
         customer: customerId,
         billingType: "CREDIT_CARD",
-        value: params.amountCents / 100,
+        ...amountFields,
         dueDate: dueDateIso(),
         description: params.description.slice(0, 500),
         externalReference: params.externalReference,

@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       },
     });
 
-    const { bookingPageSlug } = await provisionOrganization(
+    const { bookingPageId, bookingPageSlug } = await provisionOrganization(
       user.id,
       data.organizationName,
     );
@@ -43,6 +43,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       userId: user.id,
+      bookingPageId,
       bookingPageSlug,
     });
   } catch (e) {

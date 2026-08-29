@@ -24,11 +24,21 @@ type PaymentStepProps = {
   copied: boolean;
   onCopyPix: () => void;
   onDemoConfirm: () => void;
+  onCheckPix?: () => void;
+  checkingPix?: boolean;
+  pixCheckHint?: string;
   paying: boolean;
   card: CardState;
   onCardChange: (card: CardState) => void;
   onPayCard: (e: React.FormEvent) => void;
   formatCardNumber: (v: string) => string;
+  holdExpiresAt?: string | null;
+  holdCountdown?: string;
+  installments?: number;
+  onInstallmentsChange?: (n: number) => void;
+  cardMaxInstallments?: number;
+  showInstallments?: boolean;
+  awaitingCardConfirm?: boolean;
 };
 
 export function PaymentStep({
@@ -44,11 +54,21 @@ export function PaymentStep({
   copied,
   onCopyPix,
   onDemoConfirm,
+  onCheckPix,
+  checkingPix = false,
+  pixCheckHint = "",
   paying,
   card,
   onCardChange,
   onPayCard,
   formatCardNumber,
+  holdExpiresAt,
+  holdCountdown = "",
+  installments = 1,
+  onInstallmentsChange,
+  cardMaxInstallments = 12,
+  showInstallments = false,
+  awaitingCardConfirm = false,
 }: PaymentStepProps) {
   return (
     <div className="space-y-4 animate-in">
@@ -61,6 +81,18 @@ export function PaymentStep({
         </div>
         <p className="text-2xl font-bold tracking-tight">{formatBRL(priceCents)}</p>
       </div>
+
+      {holdExpiresAt && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          <p className="font-semibold">
+            Reserva temporária
+            {holdCountdown ? ` · ${holdCountdown}` : ""}
+          </p>
+          <p className="mt-0.5 text-xs text-amber-900/80">
+            Conclua o pagamento antes do tempo acabar.
+          </p>
+        </div>
+      )}
 
       {demoPayments && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -115,8 +147,21 @@ export function PaymentStep({
                   {paying ? "Confirmando…" : "Simular pagamento (demo)"}
                 </button>
               )}
+              {onCheckPix && (
+                <button
+                  type="button"
+                  disabled={checkingPix}
+                  onClick={onCheckPix}
+                  className="btn-primary w-full py-3"
+                >
+                  {checkingPix
+                    ? "Verificando…"
+                    : "Já paguei — verificar agora"}
+                </button>
+              )}
               <p className="text-center text-xs text-muted">
-                Aguardando pagamento — atualiza automaticamente
+                {pixCheckHint ||
+                  "A tela atualiza sozinha a cada poucos segundos após o Pix. Se demorar, use o botão acima."}
               </p>
             </div>
           )}
@@ -125,6 +170,52 @@ export function PaymentStep({
 
       {payMethod === "card" && (
         <form onSubmit={onPayCard} className="space-y-3">
+          {awaitingCardConfirm && (
+            <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              <p className="font-medium">Pagamento em análise</p>
+              <p className="text-xs text-amber-900/80">
+                {pixCheckHint ||
+                  "Aguardando confirmação do cartão. A tela atualiza sozinha."}
+              </p>
+              {onCheckPix && (
+                <button
+                  type="button"
+                  disabled={checkingPix}
+                  onClick={onCheckPix}
+                  className="btn-primary w-full py-2.5"
+                >
+                  {checkingPix
+                    ? "Verificando…"
+                    : "Já paguei — verificar agora"}
+                </button>
+              )}
+            </div>
+          )}
+          {showInstallments &&
+            cardMaxInstallments > 0 &&
+            onInstallmentsChange &&
+            !awaitingCardConfirm && (
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-medium">Parcelas</span>
+                <select
+                  className="input-field"
+                  value={Math.min(installments, cardMaxInstallments)}
+                  onChange={(e) =>
+                    onInstallmentsChange(Number(e.target.value) || 1)
+                  }
+                >
+                  {Array.from({ length: cardMaxInstallments }, (_, i) => i + 1).map(
+                    (n) => (
+                      <option key={n} value={n}>
+                        {n === 1
+                          ? `À vista — ${formatBRL(priceCents)}`
+                          : `${n}x de ${formatBRL(Math.ceil(priceCents / n))}`}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+            )}
           <label className="block text-sm">
             <span className="mb-1.5 block font-medium">Nome no cartão</span>
             <input
@@ -132,6 +223,7 @@ export function PaymentStep({
               className="input-field"
               value={card.holderName}
               onChange={(e) => onCardChange({ ...card, holderName: e.target.value })}
+              disabled={awaitingCardConfirm}
             />
           </label>
           <label className="block text-sm">
@@ -142,6 +234,7 @@ export function PaymentStep({
               placeholder="0000 0000 0000 0000"
               className="input-field"
               value={card.cardNumber}
+              disabled={awaitingCardConfirm}
               onChange={(e) =>
                 onCardChange({ ...card, cardNumber: formatCardNumber(e.target.value) })
               }
@@ -156,6 +249,7 @@ export function PaymentStep({
                 maxLength={2}
                 className="input-field"
                 value={card.expMonth}
+                disabled={awaitingCardConfirm}
                 onChange={(e) =>
                   onCardChange({ ...card, expMonth: e.target.value.replace(/\D/g, "") })
                 }
@@ -169,6 +263,7 @@ export function PaymentStep({
                 maxLength={4}
                 className="input-field"
                 value={card.expYear}
+                disabled={awaitingCardConfirm}
                 onChange={(e) =>
                   onCardChange({ ...card, expYear: e.target.value.replace(/\D/g, "") })
                 }
@@ -181,14 +276,23 @@ export function PaymentStep({
                 maxLength={4}
                 className="input-field"
                 value={card.cvv}
+                disabled={awaitingCardConfirm}
                 onChange={(e) =>
                   onCardChange({ ...card, cvv: e.target.value.replace(/\D/g, "") })
                 }
               />
             </label>
           </div>
-          <button type="submit" disabled={paying} className="btn-primary w-full py-3">
-            {paying ? "Processando…" : `Pagar ${formatBRL(priceCents)}`}
+          <button
+            type="submit"
+            disabled={paying || awaitingCardConfirm}
+            className="btn-primary w-full py-3"
+          >
+            {paying
+              ? "Processando…"
+              : awaitingCardConfirm
+                ? "Aguardando confirmação…"
+                : `Pagar ${formatBRL(priceCents)}`}
           </button>
         </form>
       )}

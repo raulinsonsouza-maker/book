@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { reconcileBookingPaymentIfNeeded } from "@/lib/payments/reconcile-booking-payment";
 
 export async function GET(
   req: Request,
@@ -11,8 +12,18 @@ export async function GET(
     return NextResponse.json({ error: "bookingId obrigatório" }, { status: 400 });
   }
 
-  const booking = await prisma.booking.findFirst({
+  const found = await prisma.booking.findFirst({
     where: { id: bookingId, bookingPage: { slug } },
+    select: { id: true },
+  });
+  if (!found) {
+    return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  }
+
+  await reconcileBookingPaymentIfNeeded(bookingId);
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
     include: { payment: true, service: true },
   });
   if (!booking) {

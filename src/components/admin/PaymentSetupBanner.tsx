@@ -1,58 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-
-const storageKey = (orgId: string) => `book.paymentSetupNudge.${orgId}`;
+import { useState } from "react";
 
 type Props = {
   organizationId: string;
 };
 
-/** Mostra só na primeira visita ao painel (sem provedor). Depois some. */
-export function PaymentSetupBanner({ organizationId }: Props) {
-  const [visible, setVisible] = useState(false);
+/**
+ * Visível enquanto o painel indica que não há provedor pronto.
+ * "Agora não" só esconde na sessão atual; volta na próxima visita.
+ */
+export function PaymentSetupBanner({ organizationId: _organizationId }: Props) {
+  const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(storageKey(organizationId))) return;
-      setVisible(true);
-      localStorage.setItem(storageKey(organizationId), "1");
-    } catch {
-      setVisible(true);
-    }
-  }, [organizationId]);
-
-  if (!visible) return null;
-
-  function dismiss() {
-    try {
-      localStorage.setItem(storageKey(organizationId), "1");
-    } catch {
-      /* ignore */
-    }
-    setVisible(false);
-  }
+  if (dismissed) return null;
 
   return (
-    <div className="dashboard-panel flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="dashboard-panel flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p className="text-sm font-semibold tracking-tight">
+        <p className="text-sm font-semibold tracking-tight text-amber-950">
           Conecte um provedor de pagamento
         </p>
-        <p className="mt-1 text-sm text-muted">
-          Conecte Mercado Pago ou Asaas — sem isso, o checkout fica em modo demo.
+        <p className="mt-1 text-sm text-amber-900/80">
+          Sem Mercado Pago ou Asaas, o checkout público fica em modo demo — nenhum
+          valor real é cobrado.
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <button type="button" onClick={dismiss} className="btn-secondary">
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          className="btn-secondary"
+        >
           Agora não
         </button>
-        <Link
-          href="/app/integrations"
-          className="btn-primary"
-          onClick={dismiss}
-        >
+        <Link href="/app/integrations" className="btn-primary">
           Configurar integrações
         </Link>
       </div>

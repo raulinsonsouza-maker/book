@@ -1,20 +1,40 @@
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
-import { defaultWeekRules } from "@/lib/availability";
+import { uniqueBookingPageSlug } from "@/lib/booking-page-slug";
 
+/**
+ * Cria a organização e uma agenda vazia (rascunho).
+ * Sem serviços e sem horários — o usuário configura no wizard.
+ */
 export async function provisionOrganization(
   userId: string,
   organizationName: string,
 ) {
-  let orgSlug = slugify(organizationName);
-  const slugTaken = await prisma.organization.findUnique({
+  const base = slugify(organizationName) || `empresa-${Date.now().toString(36)}`;
+  let orgSlug = base;
+
+  const taken = await prisma.organization.findUnique({
     where: { slug: orgSlug },
   });
-  if (slugTaken) orgSlug = `${orgSlug}-${Date.now().toString(36)}`;
+  if (taken) {
+    let found = false;
+    for (let i = 2; i < 100; i++) {
+      const candidate = `${base}-${i}`;
+      const exists = await prisma.organization.findUnique({
+        where: { slug: candidate },
+      });
+      if (!exists) {
+        orgSlug = candidate;
+        found = true;
+        break;
+      }
+    }
+    if (!found) orgSlug = `${base}-${Date.now().toString(36)}`;
+  }
 
   const organization = await prisma.organization.create({
     data: {
-      name: organizationName,
+      name: organizationName.trim(),
       slug: orgSlug,
     },
   });
@@ -27,39 +47,18 @@ export async function provisionOrganization(
     },
   });
 
-  const pageSlug = `${orgSlug}-consulta`;
+  const pageSlug = await uniqueBookingPageSlug(
+    organization.id,
+    organizationName.trim() || "Minha agenda",
+  );
+
   const page = await prisma.bookingPage.create({
     data: {
       organizationId: organization.id,
-      title: "Consultas",
+      title: organizationName.trim() || "Minha agenda",
       slug: pageSlug,
-      description:
-        "Você está a poucos passos de agendar. Escolha a melhor data e hora — o fuso é ajustado automaticamente.",
+      description: null,
       accentColor: "#0a0a0a",
-      websiteUrl: "https://example.com",
-      services: {
-        create: {
-          title: "Consulta padrão",
-          description:
-            "Opção ideal para quem precisa de orientação personalizada. Duração de 30 minutos.",
-          durationMinutes: 30,
-          priceCents: 39000,
-          sortOrder: 0,
-          customFields: {
-            create: [
-              {
-                label: "Conte brevemente sua situação e necessidades",
-                type: "TEXTAREA",
-                required: true,
-                sortOrder: 0,
-              },
-            ],
-          },
-        },
-      },
-      availability: {
-        create: defaultWeekRules(),
-      },
     },
   });
 
@@ -67,6 +66,7 @@ export async function provisionOrganization(
     organizationId: organization.id,
     organizationName: organization.name,
     role: "OWNER" as const,
+    bookingPageId: page.id,
     bookingPageSlug: page.slug,
   };
 }

@@ -45,18 +45,37 @@ export default function AgendaListagemPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [status, setStatus] = useState("");
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedQ(q), 300);
+    return () => window.clearTimeout(t);
+  }, [q]);
 
   const load = useCallback(() => {
     setLoading(true);
+    setError("");
     const params = new URLSearchParams();
     if (status) params.set("status", status);
-    if (q) params.set("q", q);
+    if (debouncedQ) params.set("q", debouncedQ);
     fetch(`/api/bookings?${params}`)
-      .then((r) => r.json())
-      .then(setBookings)
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) {
+          setError(data.error || "Não foi possível carregar agendamentos");
+          setBookings([]);
+          return;
+        }
+        setBookings(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        setError("Falha de rede ao carregar agendamentos");
+        setBookings([]);
+      })
       .finally(() => setLoading(false));
-  }, [status, q]);
+  }, [status, debouncedQ]);
 
   useEffect(() => {
     load();
@@ -84,9 +103,16 @@ export default function AgendaListagemPage() {
           <option value="">Todos os status</option>
           <option value="CONFIRMED">Confirmados</option>
           <option value="PENDING_PAYMENT">Aguardando pagamento</option>
+          <option value="EXPIRED">Expirados</option>
           <option value="CANCELLED">Cancelados</option>
         </select>
       </div>
+
+      {error && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-danger">
+          {error}
+        </p>
+      )}
 
       {loading ? (
         <p className="text-sm text-muted">Carregando…</p>

@@ -179,38 +179,40 @@ function navForRole(
   const salon = businessMode === "SALON";
 
   if (isPro) {
-    return [
+    const principal: NavItem[] = [
+      { href: "/app", label: "Painel", icon: NavIconHome, match: (p) => p === "/app" },
+    ];
+    if (salon) {
+      principal.push({
+        href: "/app/salao",
+        label: "Gestão à vista",
+        icon: NavIconBookings,
+        match: (p) => p.startsWith("/app/salao"),
+      });
+    }
+    principal.push(
       {
-        title: "Principal",
-        items: [
-          { href: "/app", label: "Painel", icon: NavIconHome, match: (p) => p === "/app" },
-          {
-            href: "/app/salao",
-            label: "Gestão à vista",
-            icon: NavIconCalendar,
-            match: (p) => p.startsWith("/app/salao"),
-          },
-          {
-            href: "/app/agenda/calendario",
-            label: "Calendário",
-            icon: NavIconCalendar,
-            match: (p) => p.startsWith("/app/agenda/calendario"),
-          },
-          {
-            href: "/app/agenda/listagem",
-            label: "Agendamentos",
-            icon: NavIconBookings,
-            match: (p) =>
-              p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
-          },
-          {
-            href: "/app/financeiro",
-            label: "Financeiro",
-            icon: NavIconFinance,
-            match: (p) => p.startsWith("/app/financeiro"),
-          },
-        ],
+        href: "/app/agenda/calendario",
+        label: "Calendário",
+        icon: NavIconCalendar,
+        match: (p) => p.startsWith("/app/agenda/calendario"),
       },
+      {
+        href: "/app/agenda/listagem",
+        label: "Agendamentos",
+        icon: NavIconBookings,
+        match: (p) =>
+          p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
+      },
+      {
+        href: "/app/financeiro",
+        label: "Financeiro",
+        icon: NavIconFinance,
+        match: (p) => p.startsWith("/app/financeiro"),
+      },
+    );
+    return [
+      { title: "Principal", items: principal },
       {
         title: "Conta",
         items: [
@@ -232,7 +234,7 @@ function navForRole(
     principal.push({
       href: "/app/salao",
       label: "Gestão à vista",
-      icon: NavIconCalendar,
+      icon: NavIconBookings,
       match: (p) => p.startsWith("/app/salao"),
     });
   }

@@ -33,6 +33,21 @@ export default async function AppHomePage() {
         <PaymentSetupBanner organizationId={org.id} />
       )}
 
+      {stats.totalServices === 0 && (
+        <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+          <h2 className="text-base font-semibold tracking-tight">
+            Configure sua primeira agenda
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Ainda não há serviços e horários definidos — o link público só mostra
+            vagas depois que você concluir o assistente.
+          </p>
+          <Link href="/app/pages" className="btn-primary mt-4 inline-flex">
+            Ir para Agendas
+          </Link>
+        </div>
+      )}
+
       {stats.paymentReady && (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />

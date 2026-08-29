@@ -12,19 +12,23 @@ export default function CompleteGoogleSignupPage() {
   const [organizationName, setOrganizationName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const hasOrg = Boolean(session?.user?.organizationId);
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/login");
       return;
     }
-    if (status === "authenticated" && session?.user?.organizationId) {
+    if (status === "authenticated" && hasOrg && !loading) {
       router.replace("/app");
     }
-  }, [status, session, router]);
+  }, [status, hasOrg, loading, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading || done) return;
     setLoading(true);
     setError("");
 
@@ -41,15 +45,17 @@ export default function CompleteGoogleSignupPage() {
       return;
     }
 
+    setDone(true);
     await update();
-    router.push("/app");
-    router.refresh();
+    router.replace("/onboarding");
   }
 
-  if (status === "loading") {
+  if (status === "loading" || done || (status === "authenticated" && hasOrg)) {
     return (
       <div className="dot-grid flex min-h-screen items-center justify-center px-4">
-        <p className="text-sm text-muted">Carregando…</p>
+        <p className="text-sm text-muted">
+          {done ? "Abrindo configuração inicial…" : "Carregando…"}
+        </p>
       </div>
     );
   }
@@ -66,8 +72,8 @@ export default function CompleteGoogleSignupPage() {
         </h1>
         <p className="mt-1 text-sm text-muted">
           Olá{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}!
-          Escolha um nome para sua empresa. Criamos uma página de exemplo
-          automaticamente.
+          Informe o nome da empresa. Em seguida um assistente configura agenda,
+          equipe e pagamentos.
         </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
@@ -81,16 +87,25 @@ export default function CompleteGoogleSignupPage() {
               onChange={(e) => setOrganizationName(e.target.value)}
               className="input-field"
               placeholder="Ex.: Clínica Silva"
+              disabled={loading}
+              autoFocus
             />
           </label>
           {error && <p className="text-sm text-danger">{error}</p>}
-          <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
-            {loading ? "Criando…" : "Continuar para o painel"}
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary w-full py-2.5"
+          >
+            {loading ? "Criando…" : "Continuar"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted">
-          <Link href="/login" className="font-medium text-foreground underline-offset-2 hover:underline">
+          <Link
+            href="/login"
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+          >
             Voltar ao login
           </Link>
         </p>

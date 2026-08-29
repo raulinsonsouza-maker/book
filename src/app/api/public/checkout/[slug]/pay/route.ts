@@ -125,6 +125,7 @@ export async function POST(
         orderId: z.string(),
         fingerprint: z.string().min(1),
         cardToken: z.string().min(1),
+        installments: z.number().int().min(1).max(12).optional(),
       });
       const body = cardSchema.parse(await req.json());
       const order = await loadOrder(body.orderId, slug);
@@ -166,6 +167,10 @@ export async function POST(
         idempotencyKey,
         fingerprint: body.fingerprint,
         cardToken: body.cardToken,
+        installments: Math.min(
+          body.installments || 1,
+          Math.min(12, Math.max(1, org.cardMaxInstallments || 12)),
+        ),
         metadata: { checkoutOrderId: order.id },
         remoteIp,
       });
@@ -210,6 +215,19 @@ export async function POST(
         message: "Aguardando confirmação do pagamento",
         provider,
       });
+    }
+
+    if (method === "abandon") {
+      const body = z.object({ orderId: z.string() }).parse(await req.json());
+      const order = await loadOrder(body.orderId, slug);
+      if (!order) {
+        return NextResponse.json({ ok: true, status: "RELEASED" });
+      }
+      await prisma.checkoutOrder.update({
+        where: { id: order.id },
+        data: { status: "EXPIRED", holdExpiresAt: null },
+      });
+      return NextResponse.json({ ok: true, status: "RELEASED" });
     }
 
     if (method === "demo-confirm") {

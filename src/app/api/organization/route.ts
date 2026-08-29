@@ -34,6 +34,7 @@ const schema = z.object({
   notifyProCancellation: z.boolean().optional(),
   notifyProReschedule: z.boolean().optional(),
   reminderHoursBefore: z.union([z.literal(0), z.literal(2), z.literal(12), z.literal(24)]).optional(),
+  cardMaxInstallments: z.number().int().min(1).max(12).optional(),
 });
 
 type OrgRow = {
@@ -66,6 +67,7 @@ type OrgRow = {
   notifyProCancellation: boolean;
   notifyProReschedule: boolean;
   reminderHoursBefore: number;
+  cardMaxInstallments: number;
 };
 
 function serializeOrg(org: OrgRow) {
@@ -107,6 +109,7 @@ function serializeOrg(org: OrgRow) {
     notifyProCancellation: org.notifyProCancellation,
     notifyProReschedule: org.notifyProReschedule,
     reminderHoursBefore: org.reminderHoursBefore,
+    cardMaxInstallments: Math.min(12, Math.max(1, org.cardMaxInstallments || 12)),
   };
 }
 
@@ -295,6 +298,12 @@ export async function PATCH(req: Request) {
     }
     if (body.reminderHoursBefore !== undefined) {
       data.reminderHoursBefore = body.reminderHoursBefore;
+    }
+    if (body.cardMaxInstallments !== undefined) {
+      data.cardMaxInstallments = Math.min(
+        12,
+        Math.max(1, body.cardMaxInstallments),
+      );
     }
 
     const org = await prisma.organization.update({

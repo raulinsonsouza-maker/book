@@ -60,7 +60,12 @@ export async function requireAdminContext() {
 export async function apiAuthContext() {
   const ctx = await getAuthContext();
   if (!ctx) {
-    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return {
+      error: NextResponse.json(
+        { error: "Faça login para continuar" },
+        { status: 401 },
+      ),
+    };
   }
   return { ctx };
 }
@@ -69,7 +74,12 @@ export async function apiRequireAdmin() {
   const result = await apiAuthContext();
   if ("error" in result) return result;
   if (!isAdminRole(result.ctx.role)) {
-    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+    return {
+      error: NextResponse.json(
+        { error: "Sem permissão para esta ação" },
+        { status: 403 },
+      ),
+    };
   }
   return result;
 }

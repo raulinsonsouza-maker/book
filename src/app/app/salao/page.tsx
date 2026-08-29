@@ -340,7 +340,11 @@ export default function FloorBoardPage() {
         <p className="p-6 text-sm text-muted">Carregando painel do dia…</p>
       ) : data.professionals.length === 0 ? (
         <p className="p-6 text-sm text-muted">
-          Nenhum profissional ativo. Cadastre a equipe em Profissionais.
+          Nenhum profissional ativo. Cadastre a equipe em{" "}
+          <a href="/app/professionals" className="font-medium underline">
+            Profissionais
+          </a>
+          .
         </p>
       ) : (
         <div className="flex min-h-0 flex-1">

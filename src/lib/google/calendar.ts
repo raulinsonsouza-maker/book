@@ -300,14 +300,34 @@ export async function getGoogleCalendarEvents(params: {
 
     const items: GoogleCalendarEventItem[] = [];
     for (const ev of res.data.items || []) {
-      if (!ev.start?.dateTime || !ev.end?.dateTime || !ev.id) continue;
-      items.push({
-        id: ev.id,
-        summary: ev.summary || "(Sem título)",
-        start: new Date(ev.start.dateTime),
-        end: new Date(ev.end.dateTime),
-        htmlLink: ev.htmlLink || null,
-      });
+      if (!ev.id) continue;
+
+      // Timed events
+      if (ev.start?.dateTime && ev.end?.dateTime) {
+        items.push({
+          id: ev.id,
+          summary: ev.summary || "(Sem título)",
+          start: new Date(ev.start.dateTime),
+          end: new Date(ev.end.dateTime),
+          htmlLink: ev.htmlLink || null,
+        });
+        continue;
+      }
+
+      // All-day events (date only) — show as full day block
+      if (ev.start?.date && ev.end?.date) {
+        const start = new Date(`${ev.start.date}T00:00:00`);
+        // Google end date is exclusive
+        const endExclusive = new Date(`${ev.end.date}T00:00:00`);
+        const end = new Date(endExclusive.getTime() - 1);
+        items.push({
+          id: ev.id,
+          summary: ev.summary || "(Dia inteiro)",
+          start,
+          end,
+          htmlLink: ev.htmlLink || null,
+        });
+      }
     }
     return items;
   } catch (e) {

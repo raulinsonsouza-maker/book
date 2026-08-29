@@ -78,6 +78,9 @@ export function WeekCalendar({
   const [googleConnected, setGoogleConnected] = useState(false);
   const [showGoogle, setShowGoogle] = useState(true);
   const [showSlots, setShowSlots] = useState(true);
+  const [loadingCal, setLoadingCal] = useState(false);
+  const [calError, setCalError] = useState("");
+  const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
 
   const weekEnd = addDays(weekStart, 6);
   const from = format(weekStart, "yyyy-MM-dd");
@@ -96,16 +99,28 @@ export function WeekCalendar({
 
   const load = useCallback(() => {
     if (!pageId || !serviceId) return;
+    setLoadingCal(true);
+    setCalError("");
     fetch(
       `/api/agenda/calendar?from=${from}&to=${to}&bookingPageId=${pageId}&serviceId=${serviceId}`,
     )
-      .then((r) => r.json())
-      .then((data) => {
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) {
+          setCalError(data.error || "Não foi possível carregar o calendário");
+          setBookings([]);
+          setSlots([]);
+          return;
+        }
         setBookings(data.bookings || []);
         setSlots(data.availableSlots || []);
         setGoogleEvents(data.googleEvents || []);
         setGoogleConnected(Boolean(data.googleConnected));
-      });
+      })
+      .catch(() => {
+        setCalError("Falha de rede ao carregar o calendário");
+      })
+      .finally(() => setLoadingCal(false));
   }, [from, to, pageId, serviceId]);
 
   useEffect(() => {
@@ -118,6 +133,45 @@ export function WeekCalendar({
 
   return (
     <div className="space-y-3">
+      {calError && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
+          {calError}
+        </p>
+      )}
+      {loadingCal && (
+        <p className="text-xs text-muted">Atualizando calendário…</p>
+      )}
+      {selectedBooking && (
+        <div className="rounded-xl border border-border bg-white p-4 text-sm shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold tracking-tight">
+                {selectedBooking.customerName}
+              </p>
+              <p className="text-muted">{selectedBooking.serviceTitle}</p>
+              <p className="mt-1 text-xs text-muted">
+                {format(parseISO(selectedBooking.startAt), "EEE d MMM · HH:mm", {
+                  locale: ptBR,
+                })}{" "}
+                · {selectedBooking.status}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="text-xs text-muted hover:text-foreground"
+              onClick={() => setSelectedBooking(null)}
+            >
+              Fechar
+            </button>
+          </div>
+          <a
+            href="/app/agenda/listagem"
+            className="mt-3 inline-flex text-xs font-medium underline-offset-2 hover:underline"
+          >
+            Abrir em Agendamentos
+          </a>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <div className="flex items-center gap-1.5">
           <button
@@ -211,6 +265,14 @@ export function WeekCalendar({
           )}
         </div>
       </div>
+
+      {googleConnected && (
+        <p className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
+          Compromissos do Google aparecem em azul neste calendário (deixe o filtro
+          <strong> Google</strong> ligado). Eles não entram na Listagem — só
+          reservas feitas pelo Book Symbius.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-white px-3 py-2.5 shadow-sm">
         <LegendChip
@@ -340,21 +402,23 @@ export function WeekCalendar({
                   const { top } = topPx(b.startAt, weekStart);
                   const confirmed = b.status === "CONFIRMED";
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={b.id}
-                      className={`absolute inset-x-0.5 z-[3] overflow-hidden rounded px-1 py-0.5 text-[10px] leading-tight ${
+                      className={`absolute inset-x-0.5 z-[3] overflow-hidden rounded px-1 py-0.5 text-left text-[10px] leading-tight ${
                         confirmed
-                          ? "bg-emerald-600 font-medium text-white shadow-sm"
-                          : "border-2 border-dashed border-amber-500 bg-white font-medium text-amber-900"
+                          ? "bg-emerald-600 font-medium text-white shadow-sm hover:bg-emerald-700"
+                          : "border-2 border-dashed border-amber-500 bg-white font-medium text-amber-900 hover:bg-amber-50"
                       }`}
                       style={{
                         top: `${top}px`,
                         height: `${heightPx(b.startAt, b.endAt)}px`,
                       }}
                       title={b.customerName}
+                      onClick={() => setSelectedBooking(b)}
                     >
                       {b.serviceTitle} — {b.customerName}
-                    </div>
+                    </button>
                   );
                 })}
             </div>

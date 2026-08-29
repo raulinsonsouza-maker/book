@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiRequireAdmin } from "@/lib/rbac";
 
 const fieldSchema = z.object({
   label: z.string().min(1),
@@ -25,19 +24,19 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiRequireAdmin();
+  if ("error" in auth) return auth.error;
   try {
     const body = schema.parse(await req.json());
     const page = await prisma.bookingPage.findFirst({
       where: {
         id: body.bookingPageId,
-        organizationId: session.user.organizationId,
+        organizationId: auth.ctx.organizationId,
       },
     });
-    if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!page) {
+      return NextResponse.json({ error: "Agenda não encontrada" }, { status: 404 });
+    }
 
     const count = await prisma.service.count({
       where: { bookingPageId: body.bookingPageId },

@@ -21,6 +21,7 @@ type BookingView = {
   meetLink: string | null;
   priceCents: number;
   canReschedule: boolean;
+  paymentStatus: string | null;
   durationMinutes: number;
 };
 
@@ -136,14 +137,27 @@ function ManageBookingInner() {
 
   if (!booking) {
     return (
-      <main className="booking-shell flex min-h-dvh items-center justify-center px-4">
-        <p className="text-sm text-muted">{error || "Não encontrado"}</p>
+      <main className="booking-shell flex min-h-dvh flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-sm text-muted">
+          {error || "Link inválido ou agendamento não encontrado"}
+        </p>
+        <a href="/" className="text-sm font-medium underline-offset-2 hover:underline">
+          Ir para o início
+        </a>
       </main>
     );
   }
 
   const start = parseISO(booking.startAt);
   const end = parseISO(booking.endAt);
+  const statusHelp =
+    booking.status === "PENDING_PAYMENT"
+      ? "Este agendamento ainda aguarda pagamento. Se você já pagou, aguarde a confirmação ou fale com a empresa."
+      : booking.status === "EXPIRED"
+        ? "O prazo para pagamento deste horário expirou. Faça um novo agendamento pelo link da empresa."
+        : booking.status === "CANCELLED"
+          ? "Este agendamento foi cancelado."
+          : null;
 
   return (
     <main className="booking-shell mx-auto min-h-dvh max-w-lg px-4 py-8">
@@ -164,6 +178,11 @@ function ManageBookingInner() {
           {error}
         </p>
       )}
+      {statusHelp && (
+        <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950">
+          {statusHelp}
+        </p>
+      )}
 
       <div className="booking-card mt-6 space-y-2 p-5">
         <p className="text-base font-semibold tracking-tight">
@@ -176,6 +195,16 @@ function ManageBookingInner() {
           {format(start, "HH:mm")}–{format(end, "HH:mm")}
         </p>
         <p className="text-sm text-muted">{formatBRL(booking.priceCents)}</p>
+        {booking.paymentStatus && (
+          <p className="text-xs text-muted">
+            Pagamento:{" "}
+            {booking.paymentStatus === "PAID"
+              ? "pago"
+              : booking.paymentStatus === "PENDING"
+                ? "pendente"
+                : booking.paymentStatus.toLowerCase()}
+          </p>
+        )}
         {booking.meetLink && (
           <a
             href={booking.meetLink}

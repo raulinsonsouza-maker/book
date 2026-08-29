@@ -87,6 +87,13 @@ export function InstantCheckout({ slug }: { slug: string }) {
     expYear: "",
   });
   const [paying, setPaying] = useState(false);
+  const [checkingPix, setCheckingPix] = useState(false);
+  const [pixCheckHint, setPixCheckHint] = useState("");
+  const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
+  const [holdCountdown, setHoldCountdown] = useState("");
+  const [awaitingCardConfirm, setAwaitingCardConfirm] = useState(false);
+  const [installments, setInstallments] = useState(1);
+  const [cardMaxInstallments, setCardMaxInstallments] = useState(12);
 
   const formFields: FormFieldConfig[] = enabledProductFormFields(formConfig);
   const formReady = useMemo(
@@ -128,6 +135,9 @@ export function InstantCheckout({ slug }: { slug: string }) {
         setPaymentProviderLabel(data.paymentProviderLabel || "Demo");
         setCaktoSdkClientId(data.caktoSdkClientId);
         setMercadoPagoPublicKey(data.mercadoPagoPublicKey);
+        setCardMaxInstallments(
+          Math.min(12, Math.max(1, data.cardMaxInstallments || 12)),
+        );
         setLoading(false);
       })
       .catch((e) => {
@@ -172,8 +182,11 @@ export function InstantCheckout({ slug }: { slug: string }) {
     setCreatingOrder(false);
 
     if (!res.ok) {
-      setError(data.error || "Não foi possível liberar o pagamento");
+      setError(
+        `${data.error || "Não foi possível liberar o pagamento"} Altere um campo e tente de novo.`,
+      );
       setOrderId(null);
+      setHoldExpiresAt(null);
       setPixQr(null);
       lastOrderFingerprint.current = null;
       failedFingerprint.current = orderFingerprint;
@@ -183,7 +196,9 @@ export function InstantCheckout({ slug }: { slug: string }) {
     failedFingerprint.current = null;
     lastOrderFingerprint.current = orderFingerprint;
     setOrderId(data.orderId);
+    setHoldExpiresAt(data.holdExpiresAt || null);
     setPixQr(null);
+    setAwaitingCardConfirm(false);
   }, [
     answers,
     creatingOrder,
@@ -207,13 +222,53 @@ export function InstantCheckout({ slug }: { slug: string }) {
 
   useEffect(() => {
     if (!formReady) {
+      if (orderId) {
+        void fetch(`/api/public/checkout/${slug}/pay?method=abandon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId }),
+        }).catch(() => undefined);
+      }
       setOrderId(null);
+      setHoldExpiresAt(null);
       setPixQr(null);
       setPixQrBase64(null);
+      setAwaitingCardConfirm(false);
       lastOrderFingerprint.current = null;
       failedFingerprint.current = null;
     }
-  }, [formReady]);
+  }, [formReady, orderId, slug]);
+
+  useEffect(() => {
+    if (!holdExpiresAt || paid) {
+      setHoldCountdown("");
+      return;
+    }
+    const tick = () => {
+      const ms = new Date(holdExpiresAt).getTime() - Date.now();
+      if (ms <= 0) {
+        setHoldCountdown("0:00");
+        return;
+      }
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setHoldCountdown(`${m}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [holdExpiresAt, paid]);
+
+  useEffect(() => {
+    if (holdCountdown !== "0:00" || !holdExpiresAt || paid) return;
+    if (new Date(holdExpiresAt).getTime() > Date.now()) return;
+    setError("O tempo para pagar acabou. Atualize a página ou altere seus dados para tentar de novo.");
+    setOrderId(null);
+    setHoldExpiresAt(null);
+    setPixQr(null);
+    setAwaitingCardConfirm(false);
+    lastOrderFingerprint.current = null;
+  }, [holdCountdown, holdExpiresAt, paid]);
 
   const startPix = useCallback(
     async (id: string) => {
@@ -244,14 +299,69 @@ export function InstantCheckout({ slug }: { slug: string }) {
   }, [formReady, orderId, paid, payMethod, pixQr, pixLoading, startPix]);
 
   useEffect(() => {
-    if (!orderId || !formReady || paid || payMethod !== "pix" || !pixQr) return;
-    const id = setInterval(async () => {
-      const res = await fetch(`/api/public/checkout/${slug}/status?orderId=${orderId}`);
-      const data = await res.json();
-      if (data.status === "PAID") setPaid(true);
-    }, 2500);
+    if (!orderId || !formReady || paid) return;
+    if (payMethod === "pix" && !pixQr) return;
+    if (payMethod === "card" && !awaitingCardConfirm) return;
+    const tick = async () => {
+      try {
+        const res = await fetch(
+          `/api/public/checkout/${slug}/status?orderId=${orderId}`,
+          { cache: "no-store" },
+        );
+        const data = await res.json();
+        if (data.status === "PAID" || data.paymentStatus === "PAID") {
+          setPaid(true);
+          setAwaitingCardConfirm(false);
+        }
+        if (data.status === "EXPIRED") {
+          setError("O tempo para pagar acabou. Altere um campo para tentar de novo.");
+          setOrderId(null);
+          setHoldExpiresAt(null);
+          setPixQr(null);
+          setAwaitingCardConfirm(false);
+          lastOrderFingerprint.current = null;
+        }
+      } catch {
+        /* keep polling */
+      }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), 3000);
     return () => clearInterval(id);
-  }, [formReady, payMethod, orderId, pixQr, paid, slug]);
+  }, [formReady, payMethod, orderId, pixQr, awaitingCardConfirm, paid, slug]);
+
+  async function checkPixNow() {
+    if (!orderId || checkingPix) return;
+    setCheckingPix(true);
+    setPixCheckHint("Consultando pagamento…");
+    try {
+      const res = await fetch(
+        `/api/public/checkout/${slug}/status?orderId=${orderId}`,
+        { cache: "no-store" },
+      );
+      const data = await res.json();
+      if (data.status === "PAID" || data.paymentStatus === "PAID") {
+        setPaid(true);
+        setAwaitingCardConfirm(false);
+        return;
+      }
+      if (data.status === "EXPIRED") {
+        setError("O tempo para pagar acabou. Altere um campo para tentar de novo.");
+        setOrderId(null);
+        setHoldExpiresAt(null);
+        setPixQr(null);
+        setAwaitingCardConfirm(false);
+        return;
+      }
+      setPixCheckHint(
+        "Ainda não identificamos o pagamento. Se já pagou, aguarde alguns segundos e toque de novo.",
+      );
+    } catch {
+      setPixCheckHint("Falha ao verificar. Tente novamente.");
+    } finally {
+      setCheckingPix(false);
+    }
+  }
 
   async function confirmDemoPix() {
     if (!orderId) return;
@@ -359,6 +469,10 @@ export function InstantCheckout({ slug }: { slug: string }) {
         orderId,
         fingerprint: `fp_${orderId}`,
         cardToken,
+        installments:
+          paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS"
+            ? Math.min(installments, cardMaxInstallments)
+            : 1,
       }),
     });
     const data = await res.json();
@@ -368,7 +482,13 @@ export function InstantCheckout({ slug }: { slug: string }) {
       return;
     }
     if (data.status === "PAID") setPaid(true);
-    else setError(data.message || "Aguardando confirmação");
+    else {
+      setAwaitingCardConfirm(true);
+      setError("");
+      setPixCheckHint(
+        "Pagamento em análise. A tela atualiza sozinha — ou toque em verificar.",
+      );
+    }
   }
 
   if (loading) {
@@ -503,11 +623,24 @@ export function InstantCheckout({ slug }: { slug: string }) {
                       }
                     }}
                     onDemoConfirm={confirmDemoPix}
+                    onCheckPix={() => void checkPixNow()}
+                    checkingPix={checkingPix}
+                    pixCheckHint={pixCheckHint}
                     paying={paying}
                     card={card}
                     onCardChange={setCard}
                     onPayCard={payCard}
                     formatCardNumber={formatCardNumber}
+                    holdExpiresAt={holdExpiresAt}
+                    holdCountdown={holdCountdown}
+                    installments={installments}
+                    onInstallmentsChange={setInstallments}
+                    cardMaxInstallments={cardMaxInstallments}
+                    showInstallments={
+                      paymentProvider === "MERCADO_PAGO" ||
+                      paymentProvider === "ASAAS"
+                    }
+                    awaitingCardConfirm={awaitingCardConfirm}
                   />
                 ) : (
                   <p className="text-sm text-muted">Aguardando liberação do pagamento…</p>

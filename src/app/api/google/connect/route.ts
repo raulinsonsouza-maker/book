@@ -12,7 +12,7 @@ export async function GET() {
   if (!googleConfigured()) {
     return NextResponse.redirect(
       new URL(
-        "/app/settings?google=missing_env",
+        "/app/integrations?google=missing_env",
         process.env.NEXTAUTH_URL || "http://localhost:3000",
       ),
     );

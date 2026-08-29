@@ -40,6 +40,7 @@ function publicBooking(booking: NonNullable<Awaited<ReturnType<typeof loadByToke
     orgSlug: booking.bookingPage.organization.slug,
     meetLink: booking.googleMeetLink,
     canReschedule: booking.status === "CONFIRMED",
+    paymentStatus: booking.payment?.status ?? null,
     professionalId: booking.professionalId,
   };
 }

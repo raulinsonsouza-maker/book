@@ -37,6 +37,7 @@ export default function IntegrationsPage() {
   const [org, setOrg] = useState<Org | null>(null);
   const [google, setGoogle] = useState<GoogleStatus | null>(null);
   const [msg, setMsg] = useState("");
+  const [msgTone, setMsgTone] = useState<"ok" | "err">("ok");
   const [savingDefault, setSavingDefault] = useState(false);
 
   useEffect(() => {
@@ -47,12 +48,32 @@ export default function IntegrationsPage() {
       .then((r) => r.json())
       .then(setGoogle);
 
-    const g = new URLSearchParams(window.location.search).get("google");
+    const params = new URLSearchParams(window.location.search);
+    const g = params.get("google");
     if (g === "connected") {
-      setMsg("Google Agenda conectada com sucesso");
+      setMsgTone("ok");
+      setMsg(
+        "Google Agenda conectada. Compromissos aparecem no Calendário e horários ocupados bloqueiam o funil.",
+      );
       fetch("/api/google/status")
         .then((r) => r.json())
         .then(setGoogle);
+    } else if (g === "error") {
+      setMsgTone("err");
+      setMsg("Não foi possível conectar o Google. Tente de novo.");
+    } else if (g === "forbidden") {
+      setMsgTone("err");
+      setMsg("Sessão inválida na conexão Google. Entre de novo e tente outra vez.");
+    } else if (g === "missing_env") {
+      setMsgTone("err");
+      setMsg(
+        "Google Agenda não está configurado neste ambiente (credenciais ausentes).",
+      );
+    }
+    if (g) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("google");
+      window.history.replaceState({}, "", url.pathname);
     }
   }, []);
 
@@ -67,6 +88,7 @@ export default function IntegrationsPage() {
     if (!ok) return;
     await fetch("/api/google/status", { method: "DELETE" });
     setGoogle((g) => (g ? { ...g, connected: false, email: null } : null));
+    setMsgTone("ok");
     setMsg("Google Agenda desconectada");
   }
 
@@ -166,7 +188,13 @@ export default function IntegrationsPage() {
   return (
     <div className="space-y-6">
       {msg && (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+        <p
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            msgTone === "err"
+              ? "border-red-200 bg-red-50 text-danger"
+              : "border-emerald-200 bg-emerald-50 text-emerald-900"
+          }`}
+        >
           {msg}
         </p>
       )}
@@ -288,7 +316,7 @@ export default function IntegrationsPage() {
           title="Google Calendar"
           status={google?.connected ? "Conectado" : "Não conectado"}
           statusVariant={google?.connected ? "connected" : "disconnected"}
-          description="Sincronize reservas confirmadas com sua agenda. Horários ocupados no Google bloqueiam slots no funil."
+          description="Conecte para: (1) ver compromissos do Google no Calendário do Book, (2) bloquear horários ocupados no funil público e (3) enviar reservas confirmadas para o Google. Compromissos externos não viram agendamentos na Listagem — aparecem no Calendário (filtro Google)."
           action={
             google?.connected ? (
               <div className="space-y-2">

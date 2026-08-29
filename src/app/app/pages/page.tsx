@@ -20,6 +20,7 @@ export default function PagesAdminPage() {
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
@@ -44,21 +45,27 @@ export default function PagesAdminPage() {
   async function createPage(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
-    await fetch("/api/pages", {
+    setCreateError("");
+    const res = await fetch("/api/pages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
     });
-    setTitle("");
+    const data = await res.json();
     setCreating(false);
-    await load();
+    if (!res.ok) {
+      setCreateError(data.error || "Não foi possível criar a agenda");
+      return;
+    }
+    window.location.href = `/app/pages/${data.id}`;
   }
 
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">
         Cada agenda tem serviços, horários e um link para o cliente marcar.
-        Abra uma agenda e configure tudo na edição.
+        Ao criar, um assistente guia a configuração passo a passo — nada fica
+        aberto ao público até você definir horários.
       </p>
 
       <form
@@ -77,9 +84,14 @@ export default function PagesAdminPage() {
           disabled={creating}
           className="btn-primary whitespace-nowrap"
         >
-          {creating ? "Criando…" : "+ Criar agenda"}
+          {creating ? "Criando…" : "Criar agenda"}
         </button>
       </form>
+      {createError && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-danger">
+          {createError}
+        </p>
+      )}
 
       {loading ? (
         <p className="text-sm text-muted">Carregando…</p>

@@ -17,6 +17,7 @@ type Org = {
   notifyProCancellation: boolean;
   notifyProReschedule: boolean;
   reminderHoursBefore: number;
+  cardMaxInstallments: number;
 };
 
 const MAX_LOGO_BYTES = 350_000;
@@ -42,6 +43,8 @@ export default function SettingsPage() {
   const [savingComms, setSavingComms] = useState(false);
   const [savingMode, setSavingMode] = useState(false);
   const [businessMode, setBusinessMode] = useState<"SOLO" | "SALON">("SOLO");
+  const [cardMaxInstallments, setCardMaxInstallments] = useState(12);
+  const [savingInstallments, setSavingInstallments] = useState(false);
 
   useEffect(() => {
     fetch("/api/organization")
@@ -53,6 +56,7 @@ export default function SettingsPage() {
         setLogoUrl(data.logoUrl || "");
         setAccentColor(data.accentColor || "#0a0a0a");
         setBusinessMode(data.businessMode || "SOLO");
+        setCardMaxInstallments(data.cardMaxInstallments || 12);
         setComms({
           notifyClientConfirmation: data.notifyClientConfirmation,
           notifyClientReminder: data.notifyClientReminder,
@@ -64,6 +68,30 @@ export default function SettingsPage() {
         });
       });
   }, []);
+
+  async function saveInstallments(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingInstallments(true);
+    setError("");
+    const res = await fetch("/api/organization", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cardMaxInstallments }),
+    });
+    const data = await res.json();
+    setSavingInstallments(false);
+    if (!res.ok) {
+      setError(data.error || "Não foi possível salvar parcelas");
+      return;
+    }
+    setCardMaxInstallments(data.cardMaxInstallments);
+    setMsg(
+      data.cardMaxInstallments === 1
+        ? "Cartão só à vista"
+        : `Máximo de ${data.cardMaxInstallments}x no cartão`,
+    );
+    setTimeout(() => setMsg(""), 2500);
+  }
 
   async function saveMode(next: "SOLO" | "SALON") {
     setSavingMode(true);
@@ -81,12 +109,11 @@ export default function SettingsPage() {
     }
     setBusinessMode(data.businessMode);
     setOrg(data);
-    setMsg(
-      data.businessMode === "SALON"
-        ? "Modo Salão ativo — cadastre profissionais em Gestão"
-        : "Modo Individual ativo",
+    setSavingMode(false);
+    // Recarrega o shell (sidebar muda entre Individual/Salão)
+    window.location.assign(
+      data.businessMode === "SALON" ? "/app/professionals" : "/app",
     );
-    setTimeout(() => setMsg(""), 3500);
   }
   function onLogoFile(file: File | null) {
     setError("");
@@ -143,7 +170,7 @@ export default function SettingsPage() {
     const data = await res.json();
     setSavingComms(false);
     if (!res.ok) {
-      setMsg(data.error || "Não foi possível salvar comunicação");
+      setError(data.error || "Não foi possível salvar comunicação");
       return;
     }
     setOrg(data);
@@ -227,6 +254,41 @@ export default function SettingsPage() {
           </p>
         )}
       </section>
+
+      <form onSubmit={saveInstallments} className="surface space-y-4 p-6">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">
+            Parcelas no cartão
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            Limite que o cliente vê no funil e no checkout (Mercado Pago e Asaas).
+            Juros e regras finas continuam na conta do provedor.
+          </p>
+        </div>
+        <label className="block text-sm">
+          <span className="mb-1.5 block font-medium">Máximo de parcelas</span>
+          <select
+            className="input-field max-w-xs"
+            value={cardMaxInstallments}
+            onChange={(e) =>
+              setCardMaxInstallments(Number(e.target.value) || 1)
+            }
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n === 1 ? "1x — só à vista" : `Até ${n}x`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          disabled={savingInstallments}
+          className="btn-primary"
+        >
+          {savingInstallments ? "Salvando…" : "Salvar parcelas"}
+        </button>
+      </form>
 
       <form onSubmit={saveOrg} className="surface space-y-5 p-6">
         <div>

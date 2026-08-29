@@ -65,5 +65,9 @@ export async function GET(
     demoPayments: provider === "DEMO",
     mercadoPagoPublicKey: org.mercadoPagoPublicKey,
     caktoSdkClientId: org.caktoSdkClientId,
+    cardMaxInstallments: Math.min(
+      12,
+      Math.max(1, org.cardMaxInstallments || 12),
+    ),
   });
 }

@@ -107,6 +107,7 @@ export async function POST(
 
     return NextResponse.json({
       bookingId: booking.id,
+      manageToken: booking.manageToken,
       holdExpiresAt,
       amountCents: service.priceCents,
       serviceTitle: service.title,

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uniqueBookingPageSlug } from "@/lib/booking-page-slug";
 import { DEFAULT_TIMEZONE } from "@/lib/utils";
+import { apiRequireAdmin } from "@/lib/rbac";
 
 const schema = z.object({
   title: z.string().min(2),
@@ -15,12 +14,11 @@ const schema = z.object({
 });
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiRequireAdmin();
+  if ("error" in auth) return auth.error;
+
   const pages = await prisma.bookingPage.findMany({
-    where: { organizationId: session.user.organizationId },
+    where: { organizationId: auth.ctx.organizationId },
     include: {
       _count: { select: { services: true, bookings: true } },
       services: { where: { isActive: true }, take: 3 },
@@ -31,21 +29,22 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiRequireAdmin();
+  if ("error" in auth) return auth.error;
   try {
     const body = schema.parse(await req.json());
     const org = await prisma.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: auth.ctx.organizationId },
       select: { timezone: true },
     });
-    const slug = await uniqueBookingPageSlug(session.user.organizationId, body.title);
+    const slug = await uniqueBookingPageSlug(
+      auth.ctx.organizationId,
+      body.title,
+    );
 
     const page = await prisma.bookingPage.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: auth.ctx.organizationId,
         title: body.title,
         slug,
         description: body.description,
@@ -53,20 +52,6 @@ export async function POST(req: Request) {
         websiteUrl: body.websiteUrl,
         instagram: body.instagram,
         timezone: org?.timezone || DEFAULT_TIMEZONE,
-        availability: {
-          create: [
-            { dayOfWeek: 1, startTime: "09:00", endTime: "12:00" },
-            { dayOfWeek: 1, startTime: "13:00", endTime: "18:00" },
-            { dayOfWeek: 2, startTime: "09:00", endTime: "12:00" },
-            { dayOfWeek: 2, startTime: "13:00", endTime: "18:00" },
-            { dayOfWeek: 3, startTime: "09:00", endTime: "12:00" },
-            { dayOfWeek: 3, startTime: "13:00", endTime: "18:00" },
-            { dayOfWeek: 4, startTime: "09:00", endTime: "12:00" },
-            { dayOfWeek: 4, startTime: "13:00", endTime: "18:00" },
-            { dayOfWeek: 5, startTime: "09:00", endTime: "12:00" },
-            { dayOfWeek: 5, startTime: "13:00", endTime: "18:00" },
-          ],
-        },
       },
     });
     return NextResponse.json(page);
@@ -74,6 +59,6 @@ export async function POST(req: Request) {
     if (e instanceof z.ZodError) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }
-    return NextResponse.json({ error: "Erro" }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao criar agenda" }, { status: 500 });
   }
 }

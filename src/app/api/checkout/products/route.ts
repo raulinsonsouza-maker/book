@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   defaultProductFormConfig,
@@ -9,6 +7,7 @@ import {
   serializeProductFormConfig,
 } from "@/lib/product-form-config";
 import { ensureProductCheckoutLink } from "@/lib/checkout-slug";
+import { apiRequireAdmin } from "@/lib/rbac";
 
 const schema = z.object({
   title: z.string().min(2),
@@ -20,13 +19,11 @@ const schema = z.object({
 });
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiRequireAdmin();
+  if ("error" in auth) return auth.error;
 
   const products = await prisma.product.findMany({
-    where: { organizationId: session.user.organizationId! },
+    where: { organizationId: auth.ctx.organizationId },
     include: {
       checkoutLinks: {
         take: 1,
@@ -49,10 +46,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiRequireAdmin();
+  if ("error" in auth) return auth.error;
 
   try {
     const body = schema.parse(await req.json());
@@ -64,7 +59,7 @@ export async function POST(req: Request) {
 
     const product = await prisma.product.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: auth.ctx.organizationId,
         title: body.title,
         description: body.description,
         priceCents: body.priceCents,
@@ -81,6 +76,6 @@ export async function POST(req: Request) {
     if (e instanceof z.ZodError) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }
-    return NextResponse.json({ error: "Erro" }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao criar produto" }, { status: 500 });
   }
 }

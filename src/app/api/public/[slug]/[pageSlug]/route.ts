@@ -114,6 +114,10 @@ export async function GET(
       paymentProviderLabel: paymentProviderLabel(provider),
       caktoSdkClientId: page.organization.caktoSdkClientId || null,
       mercadoPagoPublicKey: page.organization.mercadoPagoPublicKey || null,
+      cardMaxInstallments: Math.min(
+        12,
+        Math.max(1, page.organization.cardMaxInstallments || 12),
+      ),
       demoPayments: provider === "DEMO",
     });
   }

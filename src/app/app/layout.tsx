@@ -14,8 +14,17 @@ export default async function AppLayout({
 
   const org = await prisma.organization.findUnique({
     where: { id: session.user.organizationId },
-    select: { name: true, logoUrl: true, businessMode: true },
+    select: {
+      name: true,
+      logoUrl: true,
+      businessMode: true,
+      onboardingCompletedAt: true,
+    },
   });
+
+  if (!org?.onboardingCompletedAt) {
+    redirect("/onboarding");
+  }
 
   return (
     <AppShell

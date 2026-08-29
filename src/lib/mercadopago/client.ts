@@ -97,12 +97,18 @@ export async function createMercadoPagoCardPayment(params: {
   cardToken: string;
   bookingId: string;
   idempotencyKey: string;
+  installments?: number;
 }): Promise<MercadoPagoPaymentResult> {
   const { first_name, last_name } = splitName(params.payer.name);
   const cpf = params.payer.cpf?.replace(/\D/g, "");
   if (!cpf) {
     throw new Error("CPF obrigatório para pagamento com cartão");
   }
+
+  const installments = Math.min(
+    12,
+    Math.max(1, Math.floor(params.installments || 1)),
+  );
 
   const res = await fetch("https://api.mercadopago.com/v1/payments", {
     method: "POST",
@@ -111,7 +117,7 @@ export async function createMercadoPagoCardPayment(params: {
       transaction_amount: params.amountCents / 100,
       token: params.cardToken,
       description: params.description,
-      installments: 1,
+      installments,
       external_reference: params.bookingId,
       notification_url: webhookUrl("/api/webhooks/mercadopago"),
       payer: {

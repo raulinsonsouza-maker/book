@@ -129,6 +129,7 @@ export async function createCardForProvider(params: {
   idempotencyKey: string;
   fingerprint: string;
   cardToken: string;
+  installments?: number;
   metadata?: Record<string, string>;
   remoteIp?: string;
 }) {
@@ -140,6 +141,7 @@ export async function createCardForProvider(params: {
     idempotencyKey,
     fingerprint,
     cardToken,
+    installments,
     metadata,
     remoteIp,
   } = params;
@@ -160,6 +162,7 @@ export async function createCardForProvider(params: {
       externalReference: customer.id,
       creditCard,
       remoteIp,
+      installments: installments || 1,
       payer: {
         email: customer.customerEmail,
         name: customer.customerName,
@@ -180,6 +183,7 @@ export async function createCardForProvider(params: {
       bookingId: customer.id,
       idempotencyKey,
       cardToken,
+      installments: installments || 1,
       payer: {
         email: customer.customerEmail,
         name: customer.customerName,

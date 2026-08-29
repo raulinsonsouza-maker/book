@@ -14,6 +14,7 @@ const orgSelect = {
   paymentProvider: true,
   mercadoPagoAccessToken: true,
   mercadoPagoPublicKey: true,
+  cardMaxInstallments: true,
   asaasApiKey: true,
 } as const;
 

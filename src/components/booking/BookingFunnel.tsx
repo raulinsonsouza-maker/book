@@ -127,7 +127,10 @@ export function BookingFunnel({
   });
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [manageToken, setManageToken] = useState<string | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
+  const [holdCountdown, setHoldCountdown] = useState("");
+  const [awaitingCardConfirm, setAwaitingCardConfirm] = useState(false);
 
   const [payMethod, setPayMethod] = useState<"pix" | "card">("pix");
   const [pixQr, setPixQr] = useState<string | null>(null);
@@ -141,7 +144,11 @@ export function BookingFunnel({
     expMonth: "",
     expYear: "",
   });
+  const [installments, setInstallments] = useState(1);
+  const [cardMaxInstallments, setCardMaxInstallments] = useState(12);
   const [paying, setPaying] = useState(false);
+  const [checkingPix, setCheckingPix] = useState(false);
+  const [pixCheckHint, setPixCheckHint] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [showMonthCalendar, setShowMonthCalendar] = useState(false);
 
@@ -181,6 +188,9 @@ export function BookingFunnel({
         setPaymentProviderLabel(data.paymentProviderLabel || "Demo");
         setCaktoSdkClientId(data.caktoSdkClientId);
         setMercadoPagoPublicKey(data.mercadoPagoPublicKey);
+        setCardMaxInstallments(
+          Math.min(12, Math.max(1, data.cardMaxInstallments || 12)),
+        );
         setTimezone(data.page.timezone || DEFAULT_TIMEZONE);
         setBusinessName(data.brand?.businessName || data.page?.businessName || "");
         const mode = data.businessMode === "SALON" ? "SALON" : "SOLO";
@@ -387,9 +397,11 @@ export function BookingFunnel({
 
   function handleSlotUnavailable(message: string) {
     setBookingId(null);
+    setManageToken(null);
     setHoldExpiresAt(null);
     setPixQr(null);
     setPixQrBase64(null);
+    setAwaitingCardConfirm(false);
     setSelectedSlot(null);
     setStep("datetime");
     setError(message || "Este horário não está mais disponível. Escolha outro.");
@@ -399,21 +411,143 @@ export function BookingFunnel({
   }
 
   useEffect(() => {
-    if (step !== "payment" || payMethod !== "pix" || !bookingId || !pixQr) return;
-    const id = setInterval(async () => {
-      const res = await fetch(
-        `${apiBase}/status?bookingId=${bookingId}`,
-      );
-      const data = await res.json();
-      if (data.status === "CONFIRMED") setStep("done");
-      if (data.status === "CANCELLED") {
-        handleSlotUnavailable(
-          "Este horário não está mais disponível. Escolha outro.",
-        );
+    if (!holdExpiresAt || step !== "payment") {
+      setHoldCountdown("");
+      return;
+    }
+    const tick = () => {
+      const ms = new Date(holdExpiresAt).getTime() - Date.now();
+      if (ms <= 0) {
+        setHoldCountdown("0:00");
+        return;
       }
-    }, 2500);
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setHoldCountdown(`${m}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [step, payMethod, bookingId, pixQr, apiBase, selectedDate, service]);
+  }, [holdExpiresAt, step]);
+
+  useEffect(() => {
+    if (step !== "payment" || !bookingId) return;
+    if (payMethod === "pix" && !pixQr) return;
+    if (payMethod === "card" && !awaitingCardConfirm) return;
+
+    let cancelled = false;
+
+    async function checkOnce() {
+      try {
+        const res = await fetch(
+          `${apiBase}/status?bookingId=${bookingId}`,
+          { cache: "no-store" },
+        );
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.status === "CONFIRMED" || data.paymentStatus === "PAID") {
+          setStep("done");
+          setAwaitingCardConfirm(false);
+          return;
+        }
+        if (data.status === "EXPIRED" || data.status === "CANCELLED") {
+          handleHoldExpired(
+            data.status === "EXPIRED"
+              ? "O tempo para pagar acabou. Escolha o horário de novo."
+              : "Este horário não está mais disponível. Escolha outro.",
+          );
+        }
+      } catch {
+        /* keep polling */
+      }
+    }
+
+    void checkOnce();
+    const id = setInterval(() => void checkOnce(), 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [step, payMethod, bookingId, pixQr, awaitingCardConfirm, apiBase]);
+
+  useEffect(() => {
+    if (
+      step === "payment" &&
+      holdCountdown === "0:00" &&
+      holdExpiresAt &&
+      new Date(holdExpiresAt).getTime() <= Date.now()
+    ) {
+      handleHoldExpired(
+        "O tempo para pagar acabou. Escolha o horário de novo.",
+      );
+    }
+  }, [holdCountdown, holdExpiresAt, step]);
+
+  function handleHoldExpired(message: string) {
+    setBookingId(null);
+    setManageToken(null);
+    setHoldExpiresAt(null);
+    setPixQr(null);
+    setPixQrBase64(null);
+    setAwaitingCardConfirm(false);
+    setSelectedSlot(null);
+    setStep("datetime");
+    setError(message);
+    if (selectedDate) {
+      void refreshSlotsForDate(selectedDate);
+    }
+  }
+
+  async function checkPixNow() {
+    if (!bookingId || checkingPix) return;
+    setCheckingPix(true);
+    setPixCheckHint("Consultando pagamento…");
+    try {
+      const res = await fetch(`${apiBase}/status?bookingId=${bookingId}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (data.status === "CONFIRMED" || data.paymentStatus === "PAID") {
+        setStep("done");
+        setAwaitingCardConfirm(false);
+        return;
+      }
+      if (data.status === "EXPIRED" || data.status === "CANCELLED") {
+        handleHoldExpired(
+          data.status === "EXPIRED"
+            ? "O tempo para pagar acabou. Escolha o horário de novo."
+            : "Este horário não está mais disponível. Escolha outro.",
+        );
+        return;
+      }
+      setPixCheckHint(
+        "Ainda não identificamos o pagamento. Se já pagou, aguarde alguns segundos e toque de novo.",
+      );
+    } catch {
+      setPixCheckHint("Falha ao verificar. Tente novamente.");
+    } finally {
+      setCheckingPix(false);
+    }
+  }
+
+  async function abandonHold() {
+    if (!bookingId) return;
+    try {
+      await fetch(`${apiBase}/pay?method=abandon`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+    } catch {
+      /* ignore */
+    }
+    setBookingId(null);
+    setManageToken(null);
+    setHoldExpiresAt(null);
+    setPixQr(null);
+    setPixQrBase64(null);
+    setAwaitingCardConfirm(false);
+  }
 
   async function submitDetails(e: React.FormEvent) {
     e.preventDefault();
@@ -483,9 +617,11 @@ export function BookingFunnel({
       return;
     }
     setBookingId(data.bookingId);
+    setManageToken(data.manageToken || null);
     setHoldExpiresAt(data.holdExpiresAt);
     setPixQr(null);
     setPixQrBase64(null);
+    setAwaitingCardConfirm(false);
     setStep("payment");
   }
 
@@ -604,6 +740,10 @@ export function BookingFunnel({
         bookingId,
         fingerprint: `fp_${bookingId}`,
         cardToken,
+        installments:
+          paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS"
+            ? Math.min(installments, cardMaxInstallments)
+            : 1,
       }),
     });
     const data = await res.json();
@@ -617,7 +757,13 @@ export function BookingFunnel({
       return;
     }
     if (data.status === "CONFIRMED") setStep("done");
-    else setError(data.message || "Aguardando confirmação");
+    else {
+      setAwaitingCardConfirm(true);
+      setError("");
+      setPixCheckHint(
+        "Pagamento em análise. A tela atualiza sozinha — ou toque em verificar.",
+      );
+    }
   }
 
   function canGoBack() {
@@ -648,7 +794,10 @@ export function BookingFunnel({
         setService(null);
       }
     } else if (step === "details") setStep("datetime");
-    else if (step === "payment") setStep("details");
+    else if (step === "payment") {
+      void abandonHold();
+      setStep("details");
+    }
   }
 
   if (loading) {
@@ -777,8 +926,19 @@ export function BookingFunnel({
           </p>
         )}
 
-        {/* SERVICE */}
-        {step === "service" && (
+        {!loading && page && services.length === 0 && (
+          <div className="booking-card space-y-2 p-6 text-center">
+            <h1 className="text-lg font-semibold tracking-tight">
+              Agenda em configuração
+            </h1>
+            <p className="text-sm text-muted">
+              Esta página ainda não tem serviços disponíveis. Volte em breve ou
+              fale com {businessName || "a empresa"}.
+            </p>
+          </div>
+        )}
+
+        {step === "service" && services.length > 0 && (
           <div className="space-y-4 animate-in">
             <div>
               <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
@@ -1228,9 +1388,13 @@ export function BookingFunnel({
 
             {holdExpiresAt && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-                <p className="font-semibold">Horário reservado por alguns minutos</p>
+                <p className="font-semibold">
+                  Horário reservado
+                  {holdCountdown ? ` · ${holdCountdown}` : ""}
+                </p>
                 <p className="mt-1 text-xs text-amber-900/80">
-                  Conclua até {format(new Date(holdExpiresAt), "HH:mm")} para garantir.
+                  Conclua até {format(new Date(holdExpiresAt), "HH:mm")} para
+                  garantir. Depois disso o horário é liberado.
                 </p>
               </div>
             )}
@@ -1287,9 +1451,15 @@ export function BookingFunnel({
                       type="button"
                       className="btn-secondary w-full !rounded-2xl !py-3"
                       onClick={async () => {
-                        await navigator.clipboard.writeText(pixQr);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 1500);
+                        try {
+                          await navigator.clipboard.writeText(pixQr);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 1500);
+                        } catch {
+                          setPixCheckHint(
+                            "Não foi possível copiar. Selecione o código e copie manualmente.",
+                          );
+                        }
                       }}
                     >
                       {copied ? "Código copiado!" : "Copiar código Pix"}
@@ -1304,8 +1474,19 @@ export function BookingFunnel({
                         {paying ? "Confirmando…" : "Simular pagamento (demo)"}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      disabled={checkingPix}
+                      onClick={() => void checkPixNow()}
+                      className="btn-primary w-full !rounded-2xl !py-3.5"
+                    >
+                      {checkingPix
+                        ? "Verificando…"
+                        : "Já paguei — verificar agora"}
+                    </button>
                     <p className="text-center text-xs text-muted">
-                      Aguardando pagamento — atualiza automaticamente
+                      {pixCheckHint ||
+                        "A tela atualiza sozinha a cada poucos segundos após o Pix. Se demorar, use o botão acima."}
                     </p>
                   </div>
                 )}
@@ -1314,6 +1495,64 @@ export function BookingFunnel({
 
             {payMethod === "card" && (
               <form onSubmit={payCard} className="booking-card space-y-3.5 p-4">
+                {awaitingCardConfirm && (
+                  <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                    <p className="font-medium">Pagamento em análise</p>
+                    <p className="text-xs text-amber-900/80">
+                      {pixCheckHint ||
+                        "Aguardando confirmação do cartão. A tela atualiza sozinha."}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={checkingPix}
+                      onClick={() => void checkPixNow()}
+                      className="btn-primary w-full !rounded-2xl !py-3"
+                    >
+                      {checkingPix
+                        ? "Verificando…"
+                        : "Já paguei — verificar agora"}
+                    </button>
+                  </div>
+                )}
+                {(paymentProvider === "MERCADO_PAGO" ||
+                  paymentProvider === "ASAAS") &&
+                  cardMaxInstallments > 0 &&
+                  !awaitingCardConfirm && (
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">Parcelas</span>
+                    <select
+                      className="input-field"
+                      value={Math.min(installments, cardMaxInstallments)}
+                      onChange={(e) =>
+                        setInstallments(Number(e.target.value) || 1)
+                      }
+                    >
+                      {Array.from(
+                        { length: cardMaxInstallments },
+                        (_, i) => i + 1,
+                      ).map((n) => (
+                        <option key={n} value={n}>
+                          {n === 1
+                            ? `À vista — ${formatBRL(service.priceCents)}`
+                            : `${n}x de ${formatBRL(Math.ceil(service.priceCents / n))}`}
+                        </option>
+                      ))}
+                    </select>
+                    {cardMaxInstallments === 1 ? (
+                      <span className="mt-1 block text-[11px] text-muted">
+                        Esta empresa aceita apenas pagamento à vista no cartão.
+                      </span>
+                    ) : (
+                      <span className="mt-1 block text-[11px] text-muted">
+                        Até {cardMaxInstallments}x. Juros, se houver, seguem a
+                        conta {paymentProvider === "ASAAS"
+                          ? "Asaas"
+                          : "Mercado Pago"}{" "}
+                        do vendedor.
+                      </span>
+                    )}
+                  </label>
+                )}
                 <label className="block text-sm">
                   <span className="mb-1.5 block font-medium">Nome no cartão</span>
                   <input
@@ -1400,10 +1639,14 @@ export function BookingFunnel({
                 </div>
                 <button
                   type="submit"
-                  disabled={paying}
+                  disabled={paying || awaitingCardConfirm}
                   className="btn-primary w-full !rounded-2xl !py-3.5 text-base"
                 >
-                  {paying ? "Processando…" : `Pagar ${formatBRL(service.priceCents)}`}
+                  {paying
+                    ? "Processando…"
+                    : awaitingCardConfirm
+                      ? "Aguardando confirmação…"
+                      : `Pagar ${formatBRL(service.priceCents)}`}
                 </button>
                 <p className="text-center text-[11px] text-muted">
                   Dados do cartão tokenizados · não passam pelo nosso servidor
@@ -1429,10 +1672,18 @@ export function BookingFunnel({
               <h1 className="text-[1.75rem] font-bold tracking-tight">
                 Agendado!
               </h1>
-              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
-                Confirmação enviada para{" "}
-                <strong className="text-foreground">{details.customerEmail}</strong>
-              </p>
+              {details.customerEmail?.includes("@") ? (
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+                  Confirmação enviada para{" "}
+                  <strong className="text-foreground">
+                    {details.customerEmail}
+                  </strong>
+                </p>
+              ) : (
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+                  Seu horário está confirmado. Guarde os detalhes abaixo.
+                </p>
+              )}
             </div>
             {whenLabel && service && (
               <div className="booking-card mx-auto max-w-sm p-5 text-left text-sm">
@@ -1448,6 +1699,15 @@ export function BookingFunnel({
                 </p>
               </div>
             )}
+            {manageToken && (
+              <a
+                href={`/m/${manageToken}`}
+                className="inline-flex text-sm font-medium underline-offset-2 hover:underline"
+                style={{ color: accent }}
+              >
+                Remarcar ou ver detalhes
+              </a>
+            )}
           </div>
         )}
 
@@ -1462,7 +1722,22 @@ export function BookingFunnel({
               </a>
             )}
             {page.websiteUrl && page.instagram ? " · " : null}
-            {page.instagram}
+            {page.instagram && (
+              <a
+                href={
+                  page.instagram.startsWith("http")
+                    ? page.instagram
+                    : `https://instagram.com/${page.instagram.replace(/^@/, "")}`
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-foreground hover:underline"
+              >
+                {page.instagram.startsWith("@")
+                  ? page.instagram
+                  : `@${page.instagram.replace(/^@/, "").replace(/.*instagram\.com\//, "")}`}
+              </a>
+            )}
           </p>
         )}
       </main>

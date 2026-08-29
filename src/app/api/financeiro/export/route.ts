@@ -3,13 +3,13 @@ import { format } from "date-fns";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { buildPaymentWhere } from "@/lib/payments/org-filter";
-import { getAuthorizedOrganizationId } from "@/lib/session";
+import { apiAuthContext, isProfessionalRole } from "@/lib/rbac";
 
 export async function GET(req: Request) {
-  const orgId = await getAuthorizedOrganizationId();
-  if (!orgId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiAuthContext();
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  const orgId = ctx.organizationId;
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
@@ -19,75 +19,79 @@ export async function GET(req: Request) {
   const bookingPageId = searchParams.get("bookingPageId");
   const type = searchParams.get("type");
 
+  const professionalId = isProfessionalRole(ctx.role)
+    ? ctx.professionalId
+    : searchParams.get("professionalId");
+
   const payments = await prisma.payment.findMany({
     where: buildPaymentWhere(orgId, {
       from,
       to,
       status,
       method,
-      bookingPageId,
-      type,
+      bookingPageId: isProfessionalRole(ctx.role) ? null : bookingPageId,
+      type: isProfessionalRole(ctx.role) ? "booking" : type,
+      professionalId,
     }),
     include: {
       booking: {
-        include: {
-          service: true,
+        select: {
+          customerName: true,
+          service: { select: { title: true } },
           bookingPage: { select: { title: true } },
         },
       },
       checkoutOrder: {
-        include: {
+        select: {
+          customerName: true,
           product: { select: { title: true } },
         },
       },
     },
-    orderBy: { paidAt: "desc" },
+    orderBy: { createdAt: "desc" },
     take: 5000,
   });
 
-  const header =
-    "Data pagamento,Tipo,Cliente,E-mail,Referência,Valor (R$),Status,Método,Referência ID";
+  const header = [
+    "data",
+    "tipo",
+    "titulo",
+    "cliente",
+    "metodo",
+    "status",
+    "valor_centavos",
+    "pago_em",
+  ];
   const rows = payments.map((p) => {
-    const date = p.paidAt
-      ? format(p.paidAt, "yyyy-MM-dd HH:mm")
-      : format(p.createdAt, "yyyy-MM-dd HH:mm");
-    const value = (p.amountCents / 100).toFixed(2).replace(".", ",");
-    const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
-
-    if (p.checkoutOrder) {
-      return [
-        date,
-        "Checkout",
-        escape(p.checkoutOrder.customerName),
-        escape(p.checkoutOrder.customerEmail),
-        escape(p.checkoutOrder.product.title),
-        value,
-        p.status,
-        p.method,
-        p.checkoutOrder.id,
-      ].join(",");
-    }
-
+    const isBooking = Boolean(p.bookingId);
+    const title = isBooking
+      ? p.booking?.service.title || ""
+      : p.checkoutOrder?.product.title || "";
+    const customer = isBooking
+      ? p.booking?.customerName || ""
+      : p.checkoutOrder?.customerName || "";
     return [
-      date,
-      "Agendamento",
-      escape(p.booking!.customerName),
-      escape(p.booking!.customerEmail),
-      escape(p.booking!.service.title),
-      value,
-      p.status,
+      format(p.createdAt, "yyyy-MM-dd HH:mm"),
+      isBooking ? "agendamento" : "checkout",
+      csvEscape(title),
+      csvEscape(customer),
       p.method,
-      p.booking!.id,
+      p.status,
+      String(p.amountCents),
+      p.paidAt ? format(p.paidAt, "yyyy-MM-dd HH:mm") : "",
     ].join(",");
   });
 
-  const csv = [header, ...rows].join("\n");
-  const filename = `financeiro-${from || "inicio"}-${to || "fim"}.csv`;
-
+  const csv = [header.join(","), ...rows].join("\n");
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": `attachment; filename="financeiro-${format(new Date(), "yyyy-MM-dd")}.csv"`,
     },
   });
+}
+
+function csvEscape(value: string) {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
 }

@@ -17,7 +17,9 @@ export async function GET(req: Request) {
   const error = searchParams.get("error");
 
   if (error || !code || !state) {
-    return NextResponse.redirect(new URL("/app/settings?google=error", base));
+    return NextResponse.redirect(
+      new URL("/app/integrations?google=error", base),
+    );
   }
 
   try {
@@ -27,7 +29,7 @@ export async function GET(req: Request) {
 
     if (parsed.organizationId !== session.user.organizationId) {
       return NextResponse.redirect(
-        new URL("/app/settings?google=forbidden", base),
+        new URL("/app/integrations?google=forbidden", base),
       );
     }
 
@@ -49,9 +51,13 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.redirect(new URL("/app/settings?google=connected", base));
+    return NextResponse.redirect(
+      new URL("/app/integrations?google=connected", base),
+    );
   } catch (e) {
     console.error("[google:callback]", e);
-    return NextResponse.redirect(new URL("/app/settings?google=error", base));
+    return NextResponse.redirect(
+      new URL("/app/integrations?google=error", base),
+    );
   }
 }

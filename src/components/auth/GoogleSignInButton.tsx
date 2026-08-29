@@ -27,18 +27,22 @@ function GoogleGIcon({ size = 20 }: { size?: number }) {
 
 type GoogleSignInButtonProps = {
   label?: string;
+  enabled?: boolean;
 };
 
 export function GoogleSignInButton({
   label = "Continuar com Google",
+  enabled = true,
 }: GoogleSignInButtonProps) {
+  if (!enabled) return null;
+
   return (
     <button
       type="button"
       onClick={() => signIn("google", { callbackUrl: "/app" })}
       className="inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-[#dadce0] bg-white px-4 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm transition hover:bg-[#f8f9fa] hover:shadow"
     >
-      <GoogleGIcon size={20} />
+      <GoogleGIcon />
       {label}
     </button>
   );
@@ -46,13 +50,10 @@ export function GoogleSignInButton({
 
 export function AuthDivider() {
   return (
-    <div className="relative my-6">
-      <div className="absolute inset-0 flex items-center">
-        <div className="w-full border-t border-border" />
-      </div>
-      <div className="relative flex justify-center text-xs uppercase tracking-wide">
-        <span className="bg-white px-3 text-muted">ou continue com e-mail</span>
-      </div>
+    <div className="my-5 flex items-center gap-3 text-xs text-muted">
+      <span className="h-px flex-1 bg-border" />
+      ou
+      <span className="h-px flex-1 bg-border" />
     </div>
   );
 }

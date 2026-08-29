@@ -22,6 +22,7 @@ export default function CheckoutProductsPage() {
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
@@ -41,16 +42,29 @@ export default function CheckoutProductsPage() {
   async function createProduct(e: React.FormEvent) {
     e.preventDefault();
     const priceCents = Math.round(parseFloat(price.replace(",", ".")) * 100);
-    if (!title || Number.isNaN(priceCents)) return;
+    if (!title.trim()) {
+      setCreateError("Informe o nome do produto");
+      return;
+    }
+    if (Number.isNaN(priceCents) || priceCents < 0) {
+      setCreateError("Informe um preço válido");
+      return;
+    }
     setCreating(true);
-    await fetch("/api/checkout/products", {
+    setCreateError("");
+    const res = await fetch("/api/checkout/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, priceCents }),
     });
+    const data = await res.json().catch(() => ({}));
+    setCreating(false);
+    if (!res.ok) {
+      setCreateError(data.error || "Não foi possível criar o produto");
+      return;
+    }
     setTitle("");
     setPrice("");
-    setCreating(false);
     await load();
   }
 
@@ -61,6 +75,12 @@ export default function CheckoutProductsPage() {
       </p>
 
       <CheckoutSubnav />
+
+      {createError && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-danger">
+          {createError}
+        </p>
+      )}
 
       <form onSubmit={createProduct} className="surface flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
         <label className="flex-1 text-sm">

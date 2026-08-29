@@ -108,6 +108,10 @@ model Organization {
   notifyProCancellation    Boolean @default(false)
   notifyProReschedule      Boolean @default(false)
   reminderHoursBefore      Int     @default(24)
+  /** Máximo de parcelas no cartão (Mercado Pago e Asaas). 1 = só à vista. */
+  cardMaxInstallments      Int     @default(12)
+  /** Null = wizard de primeiro acesso ainda não concluído. */
+  onboardingCompletedAt    DateTime?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   memberships        Membership[]
