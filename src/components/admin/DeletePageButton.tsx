@@ -36,7 +36,7 @@ export function DeletePageButton({
     setLoading(false);
 
     if (!res.ok) {
-      alert("Não foi possível excluir a página.");
+      alert("Não foi possível excluir a agenda.");
       return;
     }
 

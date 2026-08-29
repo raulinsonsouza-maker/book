@@ -56,7 +56,7 @@ export default async function AppHomePage() {
           variant="pink"
         />
         <DashboardStatCard
-          title="Páginas ativas"
+          title="Agendas ativas"
           value={stats.activePages}
           href="/app/pages"
           hrefLabel="Saiba mais"

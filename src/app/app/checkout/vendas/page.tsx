@@ -84,13 +84,9 @@ export default function CheckoutVendasPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="eyebrow">Checkout</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Vendas</h1>
-        <p className="mt-2 text-sm text-muted">
-          Clientes que pagaram via checkout instantâneo.
-        </p>
-      </div>
+      <p className="text-sm text-muted">
+        Clientes que pagaram via checkout instantâneo.
+      </p>
 
       <CheckoutSubnav />
 

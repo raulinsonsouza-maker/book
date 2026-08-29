@@ -94,7 +94,7 @@ export default function PageEditor() {
       setPage(await res.json());
     }
     setSaving(false);
-    setMsg("Página salva");
+    setMsg("Agenda salva");
     setTimeout(() => setMsg(""), 2000);
   }
 
@@ -147,20 +147,15 @@ export default function PageEditor() {
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Link href="/app/pages" className="text-sm text-muted hover:text-foreground">
-            ← Páginas
-          </Link>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">
-            {page.title}
-          </h1>
-        </div>
+        <Link href="/app/pages" className="text-sm text-muted hover:text-foreground">
+          ← Agendas
+        </Link>
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/app/pages/${page.id}/builder`}
             className="btn-secondary"
           >
-            Personalizar página
+            Personalizar
           </Link>
           <Link
             href={`/app/pages/${page.id}/availability`}
@@ -173,7 +168,7 @@ export default function PageEditor() {
             target="_blank"
             className="btn-primary"
           >
-            Ver funil público
+            Ver link público
           </Link>
           <DeletePageButton
             pageId={page.id}
@@ -193,10 +188,10 @@ export default function PageEditor() {
         onSubmit={savePage}
         className="surface space-y-4 p-6"
       >
-        <h2 className="font-semibold">Branding e dados</h2>
+        <h2 className="font-semibold">Dados da agenda</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm md:col-span-2">
-            <span className="mb-1 block font-medium">Título</span>
+            <span className="mb-1 block font-medium">Nome</span>
             <input
               className="input-field"
               value={page.title}
@@ -255,7 +250,7 @@ export default function PageEditor() {
           disabled={saving}
           className="btn-primary"
         >
-          Salvar página
+          Salvar agenda
         </button>
       </form>
 

@@ -64,13 +64,9 @@ export default function AgendaListagemPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="eyebrow">Agenda</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Listagem</h1>
-        <p className="mt-2 text-sm text-muted">
-          Compromissos criados pelo Book Symbius com status de pagamento.
-        </p>
-      </div>
+      <p className="text-sm text-muted">
+        Compromissos com status de pagamento e dados do cliente.
+      </p>
 
       <div className="flex flex-wrap gap-3">
         <input

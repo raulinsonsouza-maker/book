@@ -35,7 +35,7 @@ export default async function PageAvailabilityPage({
   if (page.services.length === 0) {
     return (
       <p className="text-sm text-muted">
-        Adicione pelo menos um serviço na página antes de configurar horários.
+        Adicione pelo menos um serviço na agenda antes de configurar horários.
       </p>
     );
   }

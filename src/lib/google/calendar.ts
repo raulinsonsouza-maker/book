@@ -333,7 +333,7 @@ function formatBookingDescription(booking: {
   ];
   if (booking.customerCpf) lines.push(`CPF: ${booking.customerCpf}`);
   lines.push(`Serviço: ${booking.service.title}`);
-  lines.push(`Página: ${booking.bookingPage.title}`);
+  lines.push(`Agenda: ${booking.bookingPage.title}`);
 
   if (booking.customAnswers) {
     try {

@@ -56,13 +56,9 @@ export default function CheckoutProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="eyebrow">Checkout</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Produtos</h1>
-        <p className="mt-2 text-sm text-muted">
-          Cadastre produtos e copie o link de pagamento para enviar ao cliente.
-        </p>
-      </div>
+      <p className="text-sm text-muted">
+        Cadastre produtos e copie o link de pagamento para enviar ao cliente.
+      </p>
 
       <CheckoutSubnav />
 

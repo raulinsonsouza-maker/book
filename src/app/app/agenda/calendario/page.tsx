@@ -16,7 +16,7 @@ export default async function AgendaCalendarioPage() {
   if (withServices.length === 0) {
     return (
       <p className="text-sm text-muted">
-        Crie uma página com serviço ativo para ver o calendário.
+        Crie uma agenda com serviço ativo para ver o calendário.
       </p>
     );
   }

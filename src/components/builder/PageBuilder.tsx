@@ -118,7 +118,7 @@ export function PageBuilder({ pageId, slug }: Props) {
             rel="noreferrer"
             className="btn-secondary !py-1.5 text-xs"
           >
-            Abrir página
+            Abrir agenda
           </a>
           <button type="button" onClick={save} disabled={saving} className="btn-primary !py-1.5 text-xs">
             {saving ? "Salvando…" : "Salvar"}

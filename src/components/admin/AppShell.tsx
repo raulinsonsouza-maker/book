@@ -53,7 +53,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       {
         href: "/app/pages",
-        label: "Páginas",
+        label: "Agendas",
         icon: NavIconPages,
         match: (p) => p.startsWith("/app/pages"),
       },
@@ -94,8 +94,9 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p === "/app", title: "Painel" },
   { match: (p) => p.startsWith("/app/agenda/calendario"), title: "Calendário" },
   { match: (p) => p.startsWith("/app/agenda/listagem"), title: "Agendamentos" },
-  { match: (p) => p.startsWith("/app/pages") && p.includes("/builder"), title: "Construtor de página" },
-  { match: (p) => p.startsWith("/app/pages"), title: "Páginas" },
+  { match: (p) => p.startsWith("/app/pages") && p.includes("/builder"), title: "Personalizar agenda" },
+  { match: (p) => p.startsWith("/app/pages") && p.includes("/availability"), title: "Horários" },
+  { match: (p) => p.startsWith("/app/pages"), title: "Agendas" },
   { match: (p) => p.startsWith("/app/checkout/vendas"), title: "Vendas" },
   { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Produtos" },
   { match: (p) => p.startsWith("/app/checkout"), title: "Checkout" },

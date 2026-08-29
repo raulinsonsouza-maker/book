@@ -95,14 +95,10 @@ export default function FinanceiroPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">Financeiro</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">Receitas</h1>
-          <p className="mt-2 text-sm text-muted">
-            Pagamentos de agendamentos e checkout no período selecionado.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="text-sm text-muted">
+          Pagamentos de agendamentos e checkout no período selecionado.
+        </p>
         <button type="button" onClick={exportCsv} className="btn-secondary">
           Exportar CSV
         </button>
@@ -165,7 +161,7 @@ export default function FinanceiroPage() {
           </select>
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-muted">Página</span>
+          <span className="mb-1 block text-muted">Agenda</span>
           <select
             className="input-field !w-auto min-w-[160px]"
             value={pageId}

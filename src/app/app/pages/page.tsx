@@ -48,34 +48,29 @@ export default function PagesAdminPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <p className="eyebrow">Páginas</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
-          Páginas de agendamento
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          Cada página tem serviços, disponibilidade e link público.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <p className="text-sm text-muted">
+        Monte aqui o seu sistema de agendamento: serviços, horários e o link
+        público para o cliente marcar.
+      </p>
 
       <form onSubmit={createPage} className="surface flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
         <input
           required
-          placeholder="Nome da nova página"
+          placeholder="Nome da nova agenda"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="input-field flex-1"
         />
         <button type="submit" disabled={creating} className="btn-primary whitespace-nowrap">
-          {creating ? "Criando…" : "+ Criar página"}
+          {creating ? "Criando…" : "+ Criar agenda"}
         </button>
       </form>
 
       {loading ? (
         <p className="text-sm text-muted">Carregando…</p>
       ) : pages.length === 0 ? (
-        <p className="text-sm text-muted">Nenhuma página criada.</p>
+        <p className="text-sm text-muted">Nenhuma agenda criada.</p>
       ) : (
         <ul className="space-y-3">
           {pages.map((p) => (

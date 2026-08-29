@@ -107,20 +107,14 @@ export default function EditProductPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/app/checkout/produtos" className="text-sm text-muted hover:text-foreground">
           ← Produtos
         </Link>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">{product.title}</h1>
+        {linkSlug && <CopyLinkButton url={`${appUrl}/pay/${linkSlug}`} />}
       </div>
 
       <CheckoutSubnav />
-
-      {linkSlug && (
-        <div className="flex flex-wrap items-center gap-2">
-          <CopyLinkButton url={`${appUrl}/pay/${linkSlug}`} />
-        </div>
-      )}
 
       <form onSubmit={save} className="surface max-w-2xl space-y-4 p-6">
         <label className="block text-sm">

@@ -214,12 +214,8 @@ export function AvailabilityEditor({
         >
           ← Voltar para {pageTitle}
         </Link>
-        <p className="eyebrow mt-4">Disponibilidade</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">
-          Horários de atendimento
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          Configure múltiplos períodos por dia (ex.: manhã e tarde). Fuso:{" "}
+        <p className="mt-3 text-sm text-muted">
+          Configure períodos por dia (ex.: manhã e tarde). Fuso:{" "}
           {timezoneLabel(timezone)} (automático)
         </p>
       </div>

@@ -73,7 +73,7 @@ export function buildUtilizationItems(stats: {
       percent: utilizationPercent(stats.monthRevenueCents, revenueScale),
     },
     {
-      label: "Páginas ativas",
+      label: "Agendas ativas",
       value: String(stats.activePages),
       sublabel: "Links públicos de agendamento",
       percent: utilizationPercent(stats.activePages, pageScale),
