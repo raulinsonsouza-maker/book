@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Syne } from "next/font/google";
+import { Geist, Instrument_Serif, Syne } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
@@ -14,10 +14,17 @@ const syne = Syne({
   weight: ["500", "600", "700", "800"],
 });
 
+const instrument = Instrument_Serif({
+  variable: "--font-instrument",
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+});
+
 export const metadata: Metadata = {
-  title: "Book Symbius — Agendamento com pagamento na mesma tela",
+  title: "Book Symbius — Agenda cheia. Caixa na hora.",
   description:
-    "Agenda pública, Pix e cartão no funil, modo salão com equipe e gestão à vista. Feito para consultórios, clínicas e salões.",
+    "O cliente agenda e paga com Pix ou cartão na mesma tela. Calendário, equipe e financeiro para quem vive de horário marcado.",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",
@@ -30,7 +37,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${geist.variable} ${syne.variable} h-full`}>
+    <html
+      lang="pt-BR"
+      className={`${geist.variable} ${syne.variable} ${instrument.variable} h-full`}
+    >
       <body className="min-h-full antialiased font-sans">
         <Providers>{children}</Providers>
       </body>

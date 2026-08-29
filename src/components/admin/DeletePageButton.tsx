@@ -88,7 +88,7 @@ export function DeletePageButton({
     const ok = await confirm({
       title: `Excluir “${pageTitle}”?`,
       description:
-        "Só agendas sem nenhum agendamento podem ser excluídas. Serviços e horários serão removidos. Não dá para desfazer.",
+        "Só páginas sem nenhum agendamento podem ser excluídas. Serviços e horários serão removidos. Não dá para desfazer.",
       confirmLabel: "Excluir de vez",
       cancelLabel: "Cancelar",
       tone: "danger",
@@ -105,7 +105,7 @@ export function DeletePageButton({
         title: "Não dá para excluir",
         description:
           data.error ||
-          "Esta agenda tem histórico. Desative o link público para proteger os agendamentos.",
+          "Esta página tem histórico. Desative o link público para proteger os agendamentos.",
         confirmLabel: "Desativar link",
         cancelLabel: "Voltar",
         tone: "danger",
@@ -147,7 +147,7 @@ export function DeletePageButton({
         disabled={loading}
         onClick={askDeactivate}
         className={btnClass}
-        title="Agendas com histórico só podem ser desativadas"
+        title="Páginas com histórico só podem ser desativadas"
       >
         {loading ? "Desativando…" : "Desativar"}
       </button>

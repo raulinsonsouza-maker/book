@@ -54,7 +54,7 @@ export default function PagesAdminPage() {
     const data = await res.json();
     setCreating(false);
     if (!res.ok) {
-      setCreateError(data.error || "Não foi possível criar a agenda");
+      setCreateError(data.error || "Não foi possível criar");
       return;
     }
     window.location.href = `/app/pages/${data.id}`;
@@ -63,9 +63,9 @@ export default function PagesAdminPage() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">
-        Cada agenda tem serviços, horários e um link para o cliente marcar.
-        Ao criar, um assistente guia a configuração passo a passo — nada fica
-        aberto ao público até você definir horários.
+        Cadastre o que você oferece, os horários e o link para o cliente marcar.
+        Um assistente guia a configuração — nada fica aberto ao público até
+        definir horários.
       </p>
 
       <form
@@ -74,7 +74,7 @@ export default function PagesAdminPage() {
       >
         <input
           required
-          placeholder="Nome da nova agenda"
+          placeholder="Nome (ex.: Consultas, Unidade Centro)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="input-field flex-1"
@@ -84,7 +84,7 @@ export default function PagesAdminPage() {
           disabled={creating}
           className="btn-primary whitespace-nowrap"
         >
-          {creating ? "Criando…" : "Criar agenda"}
+          {creating ? "Criando…" : "Criar"}
         </button>
       </form>
       {createError && (
@@ -96,7 +96,7 @@ export default function PagesAdminPage() {
       {loading ? (
         <p className="text-sm text-muted">Carregando…</p>
       ) : pages.length === 0 ? (
-        <p className="text-sm text-muted">Nenhuma agenda criada.</p>
+        <p className="text-sm text-muted">Nenhum serviço configurado ainda.</p>
       ) : (
         <ul className="space-y-3">
           {pages.map((p) => {

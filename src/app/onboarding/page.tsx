@@ -322,7 +322,7 @@ export default function OnboardingPage() {
                   Configure sua empresa
                 </h1>
                 <p className="mt-1 text-sm text-muted">
-                  Em poucos minutos sua agenda e pagamentos ficam prontos para
+                  Em poucos minutos seus serviços e pagamentos ficam prontos para
                   receber clientes.
                 </p>
               </div>
@@ -385,7 +385,7 @@ export default function OnboardingPage() {
                   Quem atende?
                 </h1>
                 <p className="mt-1 text-sm text-muted">
-                  Individual se for só você. Salão se a agenda tiver equipe.
+                  Individual se for só você. Salão se a equipe atender no mesmo link.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -670,7 +670,7 @@ export default function OnboardingPage() {
                   Tudo pronto!
                 </h1>
                 <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                  Sua agenda está configurada
+                  Seus serviços estão configurados
                   {services[0]?.title
                     ? ` com ${services.filter((s) => s.title.trim()).length} serviço(s)`
                     : ""}
@@ -754,7 +754,7 @@ export default function OnboardingPage() {
               Não quero fazer isso agora
             </button>
             <p className="text-xs text-muted">
-              Você configura tudo depois em Conta, Agendas e Integrações. Este
+              Você configura tudo depois em Conta, Serviços e Integrações. Este
               assistente só aparece na primeira vez.
             </p>
           </div>

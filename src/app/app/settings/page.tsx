@@ -208,8 +208,8 @@ export default function SettingsPage() {
         <div>
           <h2 className="text-sm font-semibold tracking-tight">Modo de operação</h2>
           <p className="mt-1 text-xs text-muted">
-            Individual = um calendário por agenda. Salão = vários profissionais com
-            login e agendas próprias.
+            Individual = um calendário por página de serviços. Salão = vários profissionais com
+            login e páginas próprias.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">

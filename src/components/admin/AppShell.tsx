@@ -68,7 +68,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       {
         href: "/app/pages",
-        label: "Agendas",
+        label: "Serviços",
         icon: NavIconPages,
         match: (p) => p.startsWith("/app/pages"),
       },
@@ -110,10 +110,10 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith("/app/salao"), title: "Gestão à vista" },
   { match: (p) => p.startsWith("/app/agenda/calendario"), title: "Calendário" },
   { match: (p) => p.startsWith("/app/agenda/listagem"), title: "Agendamentos" },
-  { match: (p) => p.startsWith("/app/pages") && p.includes("/builder"), title: "Personalizar agenda" },
+  { match: (p) => p.startsWith("/app/pages") && p.includes("/builder"), title: "Personalizar página" },
   { match: (p) => p.startsWith("/app/pages") && p.includes("/availability"), title: "Horários avançados" },
-  { match: (p) => /^\/app\/pages\/[^/]+$/.test(p), title: "Configurar agenda" },
-  { match: (p) => p.startsWith("/app/pages"), title: "Agendas" },
+  { match: (p) => /^\/app\/pages\/[^/]+$/.test(p), title: "Configurar serviços" },
+  { match: (p) => p.startsWith("/app/pages"), title: "Serviços" },
   { match: (p) => p.startsWith("/app/checkout/vendas"), title: "Vendas" },
   { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Produtos" },
   { match: (p) => p.startsWith("/app/checkout"), title: "Checkout" },
@@ -256,7 +256,7 @@ function navForRole(
   const gestao: NavItem[] = [
     {
       href: "/app/pages",
-      label: "Agendas",
+      label: "Serviços",
       icon: NavIconPages,
       match: (p) => p.startsWith("/app/pages"),
     },

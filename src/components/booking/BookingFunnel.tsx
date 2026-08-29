@@ -929,7 +929,7 @@ export function BookingFunnel({
         {!loading && page && services.length === 0 && (
           <div className="booking-card space-y-2 p-6 text-center">
             <h1 className="text-lg font-semibold tracking-tight">
-              Agenda em configuração
+              Página em configuração
             </h1>
             <p className="text-sm text-muted">
               Esta página ainda não tem serviços disponíveis. Volte em breve ou
@@ -1709,36 +1709,6 @@ export function BookingFunnel({
               </a>
             )}
           </div>
-        )}
-
-        {(page.websiteUrl || page.instagram) && step !== "datetime" && (
-          <p className="mt-8 text-center text-xs text-muted">
-            {page.websiteUrl && (
-              <a
-                href={page.websiteUrl}
-                className="hover:text-foreground hover:underline"
-              >
-                {page.websiteUrl.replace(/^https?:\/\//, "")}
-              </a>
-            )}
-            {page.websiteUrl && page.instagram ? " · " : null}
-            {page.instagram && (
-              <a
-                href={
-                  page.instagram.startsWith("http")
-                    ? page.instagram
-                    : `https://instagram.com/${page.instagram.replace(/^@/, "")}`
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="hover:text-foreground hover:underline"
-              >
-                {page.instagram.startsWith("@")
-                  ? page.instagram
-                  : `@${page.instagram.replace(/^@/, "").replace(/.*instagram\.com\//, "")}`}
-              </a>
-            )}
-          </p>
         )}
       </main>
 

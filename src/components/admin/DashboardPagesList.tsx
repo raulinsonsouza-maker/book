@@ -21,7 +21,7 @@ export function DashboardPagesList({ pages, appUrl, orgSlug }: Props) {
     <div className="dashboard-panel rounded-2xl bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold tracking-tight">
-          Minhas agendas
+          Minhas páginas
         </h2>
         <Link
           href="/app/pages"
@@ -33,9 +33,9 @@ export function DashboardPagesList({ pages, appUrl, orgSlug }: Props) {
 
       {pages.length === 0 ? (
         <div className="mt-6 rounded-xl border border-dashed border-border px-4 py-8 text-center">
-          <p className="text-sm text-muted">Nenhuma agenda criada ainda.</p>
+          <p className="text-sm text-muted">Nenhum serviço configurado ainda.</p>
           <Link href="/app/pages" className="btn-primary mt-4 inline-block !text-xs">
-            Criar primeira agenda
+            Configurar serviços
           </Link>
         </div>
       ) : (

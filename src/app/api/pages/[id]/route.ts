@@ -110,7 +110,7 @@ export async function DELETE(
     return NextResponse.json(
       {
         error:
-          "Esta agenda tem agendamentos no histórico. Desative o link público em vez de excluir — assim nada se perde.",
+          "Esta página tem agendamentos no histórico. Desative o link público em vez de excluir — assim nada se perde.",
         code: "HAS_BOOKING_HISTORY",
         bookingCount,
         canDeactivate: true,

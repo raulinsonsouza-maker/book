@@ -255,7 +255,7 @@ export default function PageEditor() {
           href="/app/pages"
           className="text-sm text-muted hover:text-foreground"
         >
-          ← Agendas
+          ← Serviços
         </Link>
         <DeletePageButton
           pageId={page.id}
@@ -267,13 +267,13 @@ export default function PageEditor() {
       </div>
 
       {/* Progress */}
-      <div className="surface space-y-4 p-5">
+      <div className="surface space-y-5 p-5">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-            Configurar agenda
+            Configurar serviços
           </p>
           <h1 className="mt-1 text-xl font-semibold tracking-tight">
-            {page.title || "Nova agenda"}
+            {page.title || "Nova página"}
           </h1>
           <p className="mt-1 text-sm text-muted">
             Um passo de cada vez. Horários só liberam depois que você definir.
@@ -329,14 +329,14 @@ export default function PageEditor() {
         <section className="surface space-y-4 p-5 animate-in">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">
-              Como o cliente vê esta agenda?
+              Como o cliente vê esta página?
             </h2>
             <p className="mt-1 text-sm text-muted">
               Nome e texto no topo do link público. Logo e cores ficam em Conta.
             </p>
           </div>
           <label className="block text-sm">
-            <span className="mb-1.5 block font-medium">Nome da agenda</span>
+            <span className="mb-1.5 block font-medium">Nome da página</span>
             <input
               required
               minLength={2}
@@ -606,7 +606,7 @@ export default function PageEditor() {
               <>
                 <div>
                   <h2 className="text-lg font-semibold tracking-tight text-emerald-900">
-                    Agenda pronta
+                    Página pronta
                   </h2>
                   <p className="mt-1 text-sm text-muted">
                     Copie o link e envie ao cliente. Você pode personalizar o

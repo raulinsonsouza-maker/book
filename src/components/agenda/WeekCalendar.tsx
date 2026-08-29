@@ -207,7 +207,7 @@ export function WeekCalendar({
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {showPageFilter && (
             <label className="flex items-center gap-1.5 text-xs text-muted">
-              Agenda
+              Página
               <select
                 className="input-field !w-auto !py-1.5 text-sm"
                 value={pageId}

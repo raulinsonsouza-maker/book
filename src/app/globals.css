@@ -496,20 +496,29 @@ button {
 
 /* Landing — Book Symbius */
 .lp-shell {
-  --lp-ink: #0a0a0a;
-  --lp-mist: #f4f5f7;
-  --lp-steel: #5b6472;
-  --lp-line: rgba(10, 10, 10, 0.08);
+  --lp-ink: #0c1222;
+  --lp-mist: #eef1f4;
+  --lp-steel: #5c6578;
+  --lp-line: rgba(12, 18, 34, 0.1);
+  --lp-accent: #0d9488;
+  --lp-accent-soft: #ccfbf1;
+  --lp-lime: #d9f99d;
   background:
-    radial-gradient(1200px 520px at 12% -8%, rgba(37, 99, 235, 0.07), transparent 55%),
-    radial-gradient(900px 480px at 92% 8%, rgba(15, 23, 42, 0.06), transparent 50%),
-    linear-gradient(180deg, #fbfbfc 0%, #f3f4f6 42%, #eef0f3 100%);
+    radial-gradient(1100px 560px at 8% -12%, rgba(13, 148, 136, 0.11), transparent 58%),
+    radial-gradient(900px 420px at 96% 4%, rgba(12, 18, 34, 0.06), transparent 52%),
+    linear-gradient(180deg, #f7f8fa 0%, #eef1f4 48%, #e8ebf0 100%);
   color: var(--lp-ink);
 }
 
+.font-accent {
+  font-family: var(--font-instrument), ui-serif, Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+}
+
 .lp-nav {
-  background: rgba(251, 251, 252, 0.78);
-  backdrop-filter: blur(14px);
+  background: rgba(247, 248, 250, 0.82);
+  backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--lp-line);
 }
 
@@ -517,6 +526,7 @@ button {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  min-height: min(100vh, 920px);
 }
 
 .lp-hero::before {
@@ -524,7 +534,8 @@ button {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 55% at 50% 100%, rgba(10, 10, 10, 0.06), transparent 70%);
+    radial-gradient(ellipse 90% 60% at 70% 20%, rgba(13, 148, 136, 0.09), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 20% 90%, rgba(12, 18, 34, 0.05), transparent 60%);
   pointer-events: none;
   z-index: 0;
 }
@@ -532,19 +543,27 @@ button {
 .lp-brand {
   font-family: var(--font-display);
   font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 0.92;
+  letter-spacing: -0.045em;
+  line-height: 0.9;
 }
 
 .lp-headline {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
+  letter-spacing: -0.038em;
+  line-height: 1.02;
+}
+
+.lp-kicker {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lp-accent);
 }
 
 .lp-fade {
-  animation: lp-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: lp-rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .lp-fade-delay-1 {
@@ -560,13 +579,17 @@ button {
 }
 
 .lp-fade-delay-4 {
-  animation-delay: 0.34s;
+  animation-delay: 0.32s;
+}
+
+.lp-fade-delay-5 {
+  animation-delay: 0.42s;
 }
 
 @keyframes lp-rise {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -580,21 +603,26 @@ button {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-8px);
+    transform: translateY(-7px);
   }
 }
 
-@keyframes lp-shimmer {
-  0% {
-    background-position: 0% 50%;
-  }
+@keyframes lp-drift {
+  0%,
   100% {
-    background-position: 100% 50%;
+    transform: translate(0, 0) rotate(-2deg);
+  }
+  50% {
+    transform: translate(0, -6px) rotate(-1deg);
   }
 }
 
 .lp-mock {
-  animation: lp-float 7s ease-in-out infinite;
+  animation: lp-float 8s ease-in-out infinite;
+}
+
+.lp-float-card {
+  animation: lp-drift 9s ease-in-out infinite;
 }
 
 .lp-cta {
@@ -602,19 +630,40 @@ button {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 999px;
+  border-radius: 0.875rem;
   background: var(--lp-ink);
   color: #fff;
   font-size: 0.9375rem;
   font-weight: 600;
-  padding: 0.85rem 1.35rem;
+  padding: 0.9rem 1.4rem;
   transition:
     transform 0.2s ease,
     background 0.2s ease;
 }
 
 .lp-cta:hover {
-  background: #1a1a1a;
+  background: #1a2438;
+  transform: translateY(-1px);
+}
+
+.lp-cta-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.875rem;
+  background: var(--lp-lime);
+  color: var(--lp-ink);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  padding: 0.9rem 1.4rem;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
+}
+
+.lp-cta-accent:hover {
+  filter: brightness(1.05);
   transform: translateY(-1px);
 }
 
@@ -622,13 +671,13 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: 0.875rem;
   border: 1px solid var(--lp-line);
-  background: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.7);
   color: var(--lp-ink);
   font-size: 0.9375rem;
   font-weight: 600;
-  padding: 0.85rem 1.35rem;
+  padding: 0.9rem 1.4rem;
   transition:
     background 0.2s ease,
     border-color 0.2s ease;
@@ -636,37 +685,91 @@ button {
 
 .lp-cta-ghost:hover {
   background: #fff;
-  border-color: rgba(10, 10, 10, 0.18);
+  border-color: rgba(12, 18, 34, 0.22);
 }
 
 .lp-section-title {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
 }
 
-.lp-split {
-  background: #0a0a0a;
-  color: #f8fafc;
+.lp-check {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--lp-ink);
 }
 
-.lp-glow-line {
-  height: 1px;
+.lp-check::before {
+  content: "";
+  margin-top: 0.35rem;
+  flex-shrink: 0;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--lp-accent);
+}
+
+.lp-feature-visual {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  min-height: 22rem;
+  background: #1a2438;
+}
+
+.lp-feature-visual img {
+  object-fit: cover;
+}
+
+.lp-ui-sheet {
+  border-radius: 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 48px -20px rgba(0, 0, 0, 0.45);
+  color: var(--lp-ink);
+}
+
+.lp-segment {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  min-height: 17rem;
+  isolation: isolate;
+}
+
+.lp-segment::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.35),
-    transparent
+    180deg,
+    transparent 28%,
+    rgba(12, 18, 34, 0.88) 100%
   );
-  background-size: 200% 100%;
-  animation: lp-shimmer 4s linear infinite;
+  z-index: 1;
+}
+
+.lp-segment > * {
+  position: relative;
+  z-index: 2;
+}
+
+.lp-closing {
+  background:
+    radial-gradient(800px 400px at 85% 20%, rgba(217, 249, 157, 0.12), transparent 55%),
+    #0c1222;
+  color: #f8fafc;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .lp-fade,
   .lp-mock,
-  .lp-glow-line {
+  .lp-float-card {
     animation: none;
   }
 }

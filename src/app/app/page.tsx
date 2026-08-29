@@ -36,14 +36,14 @@ export default async function AppHomePage() {
       {stats.totalServices === 0 && (
         <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
           <h2 className="text-base font-semibold tracking-tight">
-            Configure sua primeira agenda
+            Configure seus serviços
           </h2>
           <p className="mt-1 text-sm text-muted">
             Ainda não há serviços e horários definidos — o link público só mostra
-            vagas depois que você concluir o assistente.
+            vagas depois que você concluir a configuração.
           </p>
           <Link href="/app/pages" className="btn-primary mt-4 inline-flex">
-            Ir para Agendas
+            Ir para Serviços
           </Link>
         </div>
       )}
@@ -71,10 +71,10 @@ export default async function AppHomePage() {
           variant="pink"
         />
         <DashboardStatCard
-          title="Agendas ativas"
+          title="Links ativos"
           value={stats.activePages}
           href="/app/pages"
-          hrefLabel="Saiba mais"
+          hrefLabel="Ver"
           variant="orange"
         />
       </div>
