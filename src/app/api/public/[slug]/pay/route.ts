@@ -15,6 +15,7 @@ import { confirmBooking, SlotUnavailableError } from "@/lib/payments/confirm-boo
 import { isDemoPaymentId } from "@/lib/payments/demo";
 import { resolvePaymentProvider } from "@/lib/payments/resolve-provider";
 import { isValidCpf } from "@/lib/utils";
+import { emitBookingEvent } from "@/lib/events/booking-events";
 
 async function loadBooking(bookingId: string, slug: string) {
   return prisma.booking.findFirst({
@@ -152,17 +153,32 @@ export async function POST(
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
         req.headers.get("x-real-ip") ||
         undefined;
-      const result = await createCardForProvider({
-        provider,
-        org,
-        customer: booking,
-        item: booking.service,
-        idempotencyKey,
-        fingerprint: body.fingerprint,
-        cardToken: body.cardToken,
-        metadata: { bookingId: booking.id },
-        remoteIp,
-      });
+
+      let result;
+      try {
+        result = await createCardForProvider({
+          provider,
+          org,
+          customer: booking,
+          item: booking.service,
+          idempotencyKey,
+          fingerprint: body.fingerprint,
+          cardToken: body.cardToken,
+          metadata: { bookingId: booking.id },
+          remoteIp,
+        });
+      } catch (e) {
+        await emitBookingEvent({
+          type: "payment.failed",
+          organizationId: org.id,
+          bookingId: booking.id,
+          dedupeKey: idempotencyKey,
+        });
+        return NextResponse.json(
+          { error: e instanceof Error ? e.message : "Pagamento recusado" },
+          { status: 400 },
+        );
+      }
 
       const paid = isPaidResult(provider, result);
 
@@ -178,6 +194,13 @@ export async function POST(
           }
           throw e;
         }
+      } else {
+        await emitBookingEvent({
+          type: "payment.failed",
+          organizationId: org.id,
+          bookingId: booking.id,
+          dedupeKey: result.id || idempotencyKey,
+        });
       }
 
       await prisma.payment.upsert({

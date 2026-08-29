@@ -1,78 +1,78 @@
 import { prisma } from "@/lib/prisma";
-import { sendBookingConfirmation } from "@/lib/email";
-import { syncBookingToGoogle } from "@/lib/google/calendar";
-import { assertSlotAvailable, SlotUnavailableError } from "@/lib/availability";
+import { emitBookingEvent, SlotUnavailableError } from "@/lib/events/booking-events";
 
 export { SlotUnavailableError };
 
 export async function confirmBooking(bookingId: string) {
   const existing = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { service: true, bookingPage: true },
+    include: {
+      service: true,
+      bookingPage: true,
+    },
   });
 
   if (!existing) {
     throw new Error("Agendamento não encontrado");
   }
 
-  if (existing.status === "CONFIRMED") {
-    return existing;
-  }
-
-  try {
-    await assertSlotAvailable({
-      bookingPageId: existing.bookingPageId,
-      serviceId: existing.serviceId,
-      startAt: existing.startAt,
-      endAt: existing.endAt,
-      timezone: existing.timezone,
-      durationMinutes: existing.service.durationMinutes,
-      bufferBefore: existing.service.bufferBefore,
-      bufferAfter: existing.service.bufferAfter,
-      excludeBookingId: bookingId,
-    });
-  } catch (e) {
-    if (e instanceof SlotUnavailableError) {
-      await prisma.$transaction([
-        prisma.booking.update({
-          where: { id: bookingId },
-          data: {
-            status: "CANCELLED",
-            cancelledAt: new Date(),
-            holdExpiresAt: null,
-          },
-        }),
-        prisma.slotHold.deleteMany({ where: { bookingId } }),
-      ]);
+  if (existing.status !== "CONFIRMED") {
+    const { assertSlotAvailable } = await import("@/lib/availability");
+    try {
+      await assertSlotAvailable({
+        bookingPageId: existing.bookingPageId,
+        serviceId: existing.serviceId,
+        startAt: existing.startAt,
+        endAt: existing.endAt,
+        timezone: existing.timezone,
+        durationMinutes: existing.service.durationMinutes,
+        bufferBefore: existing.service.bufferBefore,
+        bufferAfter: existing.service.bufferAfter,
+        excludeBookingId: bookingId,
+      });
+    } catch (e) {
+      if (e instanceof SlotUnavailableError) {
+        await prisma.$transaction([
+          prisma.booking.update({
+            where: { id: bookingId },
+            data: {
+              status: "CANCELLED",
+              cancelledAt: new Date(),
+              holdExpiresAt: null,
+            },
+          }),
+          prisma.slotHold.deleteMany({ where: { bookingId } }),
+        ]);
+      }
+      throw e;
     }
-    throw e;
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: "CONFIRMED",
+        confirmedAt: new Date(),
+        holdExpiresAt: null,
+      },
+    });
+    await prisma.slotHold.deleteMany({ where: { bookingId } });
   }
 
-  const booking = await prisma.booking.update({
+  await emitBookingEvent({
+    type: "booking.confirmed",
+    organizationId: existing.bookingPage.organizationId,
+    bookingId,
+    dedupeKey: bookingId,
+  });
+
+  const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    data: {
-      status: "CONFIRMED",
-      confirmedAt: new Date(),
-      holdExpiresAt: null,
-    },
     include: {
       service: true,
       bookingPage: true,
     },
   });
-  await prisma.slotHold.deleteMany({ where: { bookingId } });
-  await sendBookingConfirmation({
-    to: booking.customerEmail,
-    customerName: booking.customerName,
-    serviceTitle: booking.service.title,
-    pageTitle: booking.bookingPage.title,
-    startAt: booking.startAt,
-    endAt: booking.endAt,
-    timezone: booking.timezone,
-    priceCents: booking.service.priceCents,
-    bookingId: booking.id,
-  });
-  void syncBookingToGoogle(booking.id);
+  if (!booking) throw new Error("Agendamento não encontrado");
   return booking;
 }
 
@@ -86,22 +86,23 @@ export async function markPaymentPaidAndConfirm(bookingId: string, paymentId: st
     },
   });
   if (!payment || payment.bookingId !== bookingId || !payment.booking) return null;
+
+  if (payment.status !== "PAID") {
+    await prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: "PAID", paidAt: new Date() },
+    });
+  }
+
   if (payment.booking.status === "CONFIRMED") {
-    if (payment.status !== "PAID") {
-      await prisma.payment.update({
-        where: { id: paymentId },
-        data: { status: "PAID", paidAt: new Date() },
-      });
-    }
+    await emitBookingEvent({
+      type: "booking.confirmed",
+      organizationId: payment.booking.bookingPage.organizationId,
+      bookingId,
+      dedupeKey: bookingId,
+    });
     return payment.booking;
   }
 
-  const booking = await confirmBooking(bookingId);
-
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: { status: "PAID", paidAt: new Date() },
-  });
-
-  return booking;
+  return confirmBooking(bookingId);
 }

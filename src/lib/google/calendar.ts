@@ -98,10 +98,13 @@ type EventPayload = {
   timezone: string;
   attendeeEmail?: string;
   attendeeName?: string;
+  /** Quando true (create), solicita Meet. Em update, só se ainda não houver conference. */
+  createMeet?: boolean;
+  existingHangoutLink?: string | null;
 };
 
 function buildEventBody(params: EventPayload) {
-  return {
+  const body: Record<string, unknown> = {
     summary: params.summary,
     description: params.description,
     start: {
@@ -123,37 +126,91 @@ function buildEventBody(params: EventPayload) {
       ],
     },
   };
+
+  if (params.createMeet && !params.existingHangoutLink) {
+    body.conferenceData = {
+      createRequest: {
+        requestId: `book-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    };
+  }
+
+  return body;
 }
 
-export async function createCalendarEvent(params: EventPayload) {
+export type CalendarEventResult = {
+  eventId: string | null;
+  hangoutLink: string | null;
+};
+
+export async function createCalendarEvent(
+  params: EventPayload,
+): Promise<CalendarEventResult> {
   const auth = await getAuthedClient(params.org);
   const calendar = google.calendar({ version: "v3", auth });
   const calendarId = params.org.googleCalendarId || "primary";
 
   const event = await calendar.events.insert({
     calendarId,
-    requestBody: buildEventBody(params),
+    requestBody: buildEventBody({ ...params, createMeet: true }),
+    conferenceDataVersion: 1,
     sendUpdates: params.attendeeEmail ? "all" : "none",
   });
 
-  return event.data.id || null;
+  return {
+    eventId: event.data.id || null,
+    hangoutLink: event.data.hangoutLink || event.data.conferenceData?.entryPoints?.find(
+      (e) => e.entryPointType === "video",
+    )?.uri || null,
+  };
 }
 
 export async function updateCalendarEvent(
   params: EventPayload & { eventId: string },
-) {
+): Promise<CalendarEventResult> {
   const auth = await getAuthedClient(params.org);
   const calendar = google.calendar({ version: "v3", auth });
   const calendarId = params.org.googleCalendarId || "primary";
 
+  const existing = await calendar.events.get({
+    calendarId,
+    eventId: params.eventId,
+  });
+  const existingHangout =
+    existing.data.hangoutLink ||
+    existing.data.conferenceData?.entryPoints?.find((e) => e.entryPointType === "video")
+      ?.uri ||
+    params.existingHangoutLink ||
+    null;
+
+  const body = buildEventBody({
+    ...params,
+    createMeet: !existingHangout,
+    existingHangoutLink: existingHangout,
+  });
+
+  if (existingHangout && existing.data.conferenceData) {
+    body.conferenceData = existing.data.conferenceData;
+  }
+
   const event = await calendar.events.update({
     calendarId,
     eventId: params.eventId,
-    requestBody: buildEventBody(params),
+    requestBody: body,
+    conferenceDataVersion: 1,
     sendUpdates: params.attendeeEmail ? "all" : "none",
   });
 
-  return event.data.id || null;
+  return {
+    eventId: event.data.id || null,
+    hangoutLink:
+      event.data.hangoutLink ||
+      existingHangout ||
+      event.data.conferenceData?.entryPoints?.find((e) => e.entryPointType === "video")
+        ?.uri ||
+      null,
+  };
 }
 
 export async function deleteCalendarEvent(params: {
@@ -321,22 +378,31 @@ export async function syncBookingToGoogle(bookingId: string) {
     timezone: booking.timezone,
     attendeeEmail: booking.customerEmail,
     attendeeName: booking.customerName,
+    existingHangoutLink: booking.googleMeetLink,
   };
 
   try {
     let eventId = booking.googleEventId;
+    let hangoutLink = booking.googleMeetLink;
     if (eventId) {
-      await updateCalendarEvent({ ...payload, eventId });
+      const updated = await updateCalendarEvent({ ...payload, eventId });
+      eventId = updated.eventId || eventId;
+      hangoutLink = updated.hangoutLink || hangoutLink;
     } else {
-      eventId = await createCalendarEvent(payload);
-      if (eventId) {
-        await prisma.booking.update({
-          where: { id: booking.id },
-          data: { googleEventId: eventId },
-        });
-      }
+      const created = await createCalendarEvent(payload);
+      eventId = created.eventId;
+      hangoutLink = created.hangoutLink;
     }
-    return eventId;
+    if (eventId || hangoutLink) {
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          ...(eventId ? { googleEventId: eventId } : {}),
+          ...(hangoutLink ? { googleMeetLink: hangoutLink } : {}),
+        },
+      });
+    }
+    return { eventId, hangoutLink };
   } catch (e) {
     console.error("[google] sync booking failed", e);
     return null;

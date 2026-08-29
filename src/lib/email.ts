@@ -1,91 +1,131 @@
 import { Resend } from "resend";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { toZonedTime } from "date-fns-tz";
-import { formatBRL } from "@/lib/utils";
+import { emailFrom } from "@/lib/email/templates/layout";
+import {
+  bookingCancelledClientEmail,
+  bookingCancelledProEmail,
+  bookingConfirmationEmail,
+  bookingReminderEmail,
+  bookingRescheduledClientEmail,
+  bookingRescheduledProEmail,
+  checkoutConfirmationEmail,
+  feedbackRequestEmail,
+  paymentFailedEmail,
+  pixPendingEmail,
+  proNewBookingEmail,
+} from "@/lib/email/templates/booking";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-type ConfirmEmailParams = {
+async function send(params: {
   to: string;
-  customerName: string;
-  serviceTitle: string;
-  pageTitle: string;
-  startAt: Date;
-  endAt: Date;
-  timezone: string;
-  priceCents: number;
-  bookingId: string;
-};
-
-export async function sendBookingConfirmation(params: ConfirmEmailParams) {
-  const startLocal = toZonedTime(params.startAt, params.timezone);
-  const endLocal = toZonedTime(params.endAt, params.timezone);
-  const when = `${format(startLocal, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })} · ${format(startLocal, "HH:mm")}–${format(endLocal, "HH:mm")}`;
-
-  const html = `
-    <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
-      <h1 style="font-size:22px;margin-bottom:8px">Agendamento confirmado</h1>
-      <p>Olá, ${params.customerName}!</p>
-      <p>Sua consulta <strong>${params.serviceTitle}</strong> em <strong>${params.pageTitle}</strong> está confirmada.</p>
-      <div style="background:#f7f5f2;border-radius:12px;padding:16px;margin:20px 0">
-        <p style="margin:0 0 8px"><strong>Quando:</strong> ${when}</p>
-        <p style="margin:0 0 8px"><strong>Fuso:</strong> ${params.timezone}</p>
-        <p style="margin:0"><strong>Valor:</strong> ${formatBRL(params.priceCents)}</p>
-      </div>
-      <p style="color:#666;font-size:13px">Código: ${params.bookingId}</p>
-    </div>
-  `;
-
+  subject: string;
+  html: string;
+  tag: string;
+}) {
   if (!resend) {
-    console.log("[email:demo] Booking confirmation →", params.to, when);
-    return { ok: true, demo: true };
+    console.log(`[email:demo] ${params.tag} →`, params.to, params.subject);
+    return { ok: true as const, demo: true };
   }
-
   await resend.emails.send({
-    from: process.env.EMAIL_FROM || "Book Symbius <onboarding@resend.dev>",
+    from: emailFrom(),
     to: params.to,
-    subject: `Confirmado: ${params.serviceTitle}`,
-    html,
+    subject: params.subject,
+    html: params.html,
   });
-  return { ok: true, demo: false };
+  return { ok: true as const, demo: false };
 }
 
-type CheckoutConfirmEmailParams = {
+export async function sendBookingConfirmation(
+  params: Parameters<typeof bookingConfirmationEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = bookingConfirmationEmail(rest);
+  return send({ to, ...tpl, tag: "booking.confirmation" });
+}
+
+export async function sendProNewBooking(
+  params: Parameters<typeof proNewBookingEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = proNewBookingEmail(rest);
+  return send({ to, ...tpl, tag: "pro.new_booking" });
+}
+
+export async function sendBookingReminder(
+  params: Parameters<typeof bookingReminderEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = bookingReminderEmail(rest);
+  return send({ to, ...tpl, tag: "booking.reminder" });
+}
+
+export async function sendBookingCancelledClient(
+  params: Parameters<typeof bookingCancelledClientEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = bookingCancelledClientEmail(rest);
+  return send({ to, ...tpl, tag: "booking.cancelled.client" });
+}
+
+export async function sendBookingCancelledPro(
+  params: Parameters<typeof bookingCancelledProEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = bookingCancelledProEmail(rest);
+  return send({ to, ...tpl, tag: "booking.cancelled.pro" });
+}
+
+export async function sendBookingRescheduledClient(
+  params: Parameters<typeof bookingRescheduledClientEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = bookingRescheduledClientEmail(rest);
+  return send({ to, ...tpl, tag: "booking.rescheduled.client" });
+}
+
+export async function sendBookingRescheduledPro(
+  params: Parameters<typeof bookingRescheduledProEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = bookingRescheduledProEmail(rest);
+  return send({ to, ...tpl, tag: "booking.rescheduled.pro" });
+}
+
+export async function sendPaymentFailed(
+  params: Parameters<typeof paymentFailedEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = paymentFailedEmail(rest);
+  return send({ to, ...tpl, tag: "payment.failed" });
+}
+
+export async function sendPixPending(
+  params: Parameters<typeof pixPendingEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = pixPendingEmail(rest);
+  return send({ to, ...tpl, tag: "payment.pix_pending" });
+}
+
+export async function sendFeedbackRequest(
+  params: Parameters<typeof feedbackRequestEmail>[0] & { to: string },
+) {
+  const { to, ...rest } = params;
+  const tpl = feedbackRequestEmail(rest);
+  return send({ to, ...tpl, tag: "booking.feedback" });
+}
+
+export async function sendCheckoutConfirmation(params: {
   to: string;
   customerName: string;
   productTitle: string;
   linkTitle: string;
   priceCents: number;
   orderId: string;
-};
-
-export async function sendCheckoutConfirmation(params: CheckoutConfirmEmailParams) {
-  const html = `
-    <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
-      <h1 style="font-size:22px;margin-bottom:8px">Pagamento confirmado</h1>
-      <p>Olá, ${params.customerName}!</p>
-      <p>Seu pagamento de <strong>${params.productTitle}</strong> foi confirmado.</p>
-      <div style="background:#f7f5f2;border-radius:12px;padding:16px;margin:20px 0">
-        <p style="margin:0 0 8px"><strong>Produto:</strong> ${params.linkTitle}</p>
-        <p style="margin:0"><strong>Valor:</strong> ${formatBRL(params.priceCents)}</p>
-      </div>
-      <p style="color:#666;font-size:13px">Código: ${params.orderId}</p>
-    </div>
-  `;
-
-  if (!resend) {
-    console.log("[email:demo] Checkout confirmation →", params.to, params.productTitle);
-    return { ok: true, demo: true };
-  }
-
-  await resend.emails.send({
-    from: process.env.EMAIL_FROM || "Book Symbius <onboarding@resend.dev>",
-    to: params.to,
-    subject: `Confirmado: ${params.productTitle}`,
-    html,
-  });
-  return { ok: true, demo: false };
+}) {
+  const { to, ...rest } = params;
+  const tpl = checkoutConfirmationEmail(rest);
+  return send({ to, ...tpl, tag: "checkout.confirmation" });
 }

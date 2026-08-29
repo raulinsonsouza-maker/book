@@ -1,0 +1,158 @@
+import { NextResponse } from "next/server";
+import { addMinutes } from "date-fns";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { assertSlotAvailable, getAvailableDays, getAvailableSlots } from "@/lib/availability";
+import { emitBookingEvent } from "@/lib/events/booking-events";
+
+async function loadByToken(token: string) {
+  return prisma.booking.findFirst({
+    where: { manageToken: token },
+    include: {
+      service: true,
+      bookingPage: {
+        include: { organization: true },
+      },
+      payment: true,
+    },
+  });
+}
+
+function publicBooking(booking: NonNullable<Awaited<ReturnType<typeof loadByToken>>>) {
+  return {
+    id: booking.id,
+    status: booking.status,
+    startAt: booking.startAt,
+    endAt: booking.endAt,
+    timezone: booking.timezone,
+    customerName: booking.customerName,
+    customerEmail: booking.customerEmail,
+    serviceTitle: booking.service.title,
+    durationMinutes: booking.service.durationMinutes,
+    priceCents: booking.service.priceCents,
+    pageTitle: booking.bookingPage.title,
+    pageSlug: booking.bookingPage.slug,
+    orgName: booking.bookingPage.organization.name,
+    meetLink: booking.googleMeetLink,
+    canManage: booking.status === "CONFIRMED",
+  };
+}
+
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ token: string }> },
+) {
+  const { token } = await params;
+  const booking = await loadByToken(token);
+  if (!booking) {
+    return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const date = searchParams.get("date");
+
+  if (date && booking.status === "CONFIRMED") {
+    const slots = await getAvailableSlots({
+      bookingPageId: booking.bookingPageId,
+      serviceId: booking.serviceId,
+      date,
+      timezone: booking.timezone,
+      durationMinutes: booking.service.durationMinutes,
+      bufferBefore: booking.service.bufferBefore,
+      bufferAfter: booking.service.bufferAfter,
+      slotStepMinutes: booking.bookingPage.slotStepMinutes || undefined,
+    });
+    return NextResponse.json({ booking: publicBooking(booking), slots });
+  }
+
+  const days =
+    booking.status === "CONFIRMED"
+      ? await getAvailableDays({
+          bookingPageId: booking.bookingPageId,
+          from: new Date(),
+          timezone: booking.timezone,
+        })
+      : [];
+
+  return NextResponse.json({ booking: publicBooking(booking), availableDays: days });
+}
+
+const actionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("cancel") }),
+  z.object({
+    action: z.literal("reschedule"),
+    startAt: z.string().datetime(),
+  }),
+]);
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ token: string }> },
+) {
+  const { token } = await params;
+  const booking = await loadByToken(token);
+  if (!booking) {
+    return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  }
+  if (booking.status !== "CONFIRMED") {
+    return NextResponse.json(
+      { error: "Só é possível gerenciar agendamentos confirmados" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const body = actionSchema.parse(await req.json());
+
+    if (body.action === "cancel") {
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: "CANCELLED", cancelledAt: new Date() },
+      });
+      await prisma.slotHold.deleteMany({ where: { bookingId: booking.id } });
+      await emitBookingEvent({
+        type: "booking.cancelled",
+        organizationId: booking.bookingPage.organizationId,
+        bookingId: booking.id,
+        dedupeKey: `cancel-${booking.id}`,
+      });
+      const updated = await loadByToken(token);
+      return NextResponse.json({ ok: true, booking: updated ? publicBooking(updated) : null });
+    }
+
+    const startAt = new Date(body.startAt);
+    const endAt = addMinutes(startAt, booking.service.durationMinutes);
+
+    await assertSlotAvailable({
+      bookingPageId: booking.bookingPageId,
+      serviceId: booking.serviceId,
+      startAt,
+      endAt,
+      timezone: booking.timezone,
+      durationMinutes: booking.service.durationMinutes,
+      bufferBefore: booking.service.bufferBefore,
+      bufferAfter: booking.service.bufferAfter,
+      excludeBookingId: booking.id,
+    });
+
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: { startAt, endAt },
+    });
+
+    await emitBookingEvent({
+      type: "booking.rescheduled",
+      organizationId: booking.bookingPage.organizationId,
+      bookingId: booking.id,
+      dedupeKey: `reschedule-${startAt.toISOString()}`,
+    });
+
+    const updated = await loadByToken(token);
+    return NextResponse.json({ ok: true, booking: updated ? publicBooking(updated) : null });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Erro" },
+      { status: 400 },
+    );
+  }
+}

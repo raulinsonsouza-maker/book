@@ -91,11 +91,19 @@ model Organization {
   googleTokenExpiry  DateTime?
   googleEmail        String?
   googleCalendarId   String?       @default("primary")
+  notifyClientConfirmation Boolean @default(true)
+  notifyClientReminder     Boolean @default(true)
+  notifyClientFeedback     Boolean @default(false)
+  notifyProNewBooking      Boolean @default(true)
+  notifyProCancellation    Boolean @default(false)
+  notifyProReschedule      Boolean @default(false)
+  reminderHoursBefore      Int     @default(24)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   memberships        Membership[]
   bookingPages       BookingPage[]
   products           Product[]
+  bookingEventLogs   BookingEventLog[]
 }
 
 model Membership {
@@ -205,16 +213,39 @@ model Booking {
   confirmedAt     DateTime?
   cancelledAt     DateTime?
   googleEventId   String?
+  googleMeetLink  String?
+  manageToken     String?       @unique
+  reminderSentAt  DateTime?
+  feedbackSentAt  DateTime?
+  pixReminderSentAt DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   bookingPage     BookingPage   @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
   service         Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   payment         Payment?
   slotHold        SlotHold?
+  eventLogs       BookingEventLog[]
 
   @@index([bookingPageId, startAt])
   @@index([status, holdExpiresAt])
   @@index([customerEmail])
+  @@index([status, startAt])
+}
+
+model BookingEventLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  bookingId      String?
+  type           String
+  dedupeKey      String
+  payload        String?
+  createdAt      DateTime @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  booking        Booking?     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, type, dedupeKey])
+  @@index([organizationId, createdAt])
+  @@index([type, createdAt])
 }
 
 model Product {

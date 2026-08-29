@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deleteCalendarEvent } from "@/lib/google/calendar";
+import { emitBookingEvent } from "@/lib/events/booking-events";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -67,24 +67,28 @@ export async function PATCH(req: Request) {
         bookingPage: { organizationId: session.user.organizationId },
       },
       include: {
-        bookingPage: { include: { organization: true } },
+        bookingPage: true,
       },
     });
     if (!booking) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+    if (booking.status === "CANCELLED") {
+      return NextResponse.json(booking);
+    }
+
     const updated = await prisma.booking.update({
       where: { id },
       data: { status: "CANCELLED", cancelledAt: new Date() },
     });
     await prisma.slotHold.deleteMany({ where: { bookingId: id } });
 
-    if (booking.googleEventId) {
-      void deleteCalendarEvent({
-        org: booking.bookingPage.organization,
-        eventId: booking.googleEventId,
-      });
-    }
+    await emitBookingEvent({
+      type: "booking.cancelled",
+      organizationId: booking.bookingPage.organizationId,
+      bookingId: id,
+      dedupeKey: `cancel-${id}`,
+    });
 
     return NextResponse.json(updated);
   } catch {

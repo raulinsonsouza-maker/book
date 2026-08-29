@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { assertSlotAvailable, SlotUnavailableError } from "@/lib/availability";
 import { parseBookBody } from "@/lib/book-validation";
 import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
+import { newManageToken } from "@/lib/booking-notify";
 
 const HOLD_MINUTES = 15;
 
@@ -85,6 +86,7 @@ export async function POST(
             ? JSON.stringify(body.customAnswers)
             : null,
           holdExpiresAt,
+          manageToken: newManageToken(),
         },
         include: { service: true, bookingPage: true },
       });

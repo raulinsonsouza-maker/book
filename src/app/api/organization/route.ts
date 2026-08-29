@@ -23,6 +23,13 @@ const schema = z.object({
   mercadoPagoAccessToken: z.string().nullable().optional(),
   mercadoPagoPublicKey: z.string().nullable().optional(),
   asaasApiKey: z.string().nullable().optional(),
+  notifyClientConfirmation: z.boolean().optional(),
+  notifyClientReminder: z.boolean().optional(),
+  notifyClientFeedback: z.boolean().optional(),
+  notifyProNewBooking: z.boolean().optional(),
+  notifyProCancellation: z.boolean().optional(),
+  notifyProReschedule: z.boolean().optional(),
+  reminderHoursBefore: z.union([z.literal(0), z.literal(2), z.literal(12), z.literal(24)]).optional(),
 });
 
 type OrgRow = {
@@ -44,6 +51,13 @@ type OrgRow = {
   asaasAccountEmail: string | null;
   asaasWalletId: string | null;
   asaasConnectedAt: Date | null;
+  notifyClientConfirmation: boolean;
+  notifyClientReminder: boolean;
+  notifyClientFeedback: boolean;
+  notifyProNewBooking: boolean;
+  notifyProCancellation: boolean;
+  notifyProReschedule: boolean;
+  reminderHoursBefore: number;
 };
 
 function serializeOrg(org: OrgRow) {
@@ -74,6 +88,13 @@ function serializeOrg(org: OrgRow) {
     asaasWalletId: org.asaasWalletId ?? null,
     hasAsaasApiKey: Boolean(org.asaasApiKey),
     asaasWebhookUrl: webhookUrl("/api/webhooks/asaas"),
+    notifyClientConfirmation: org.notifyClientConfirmation,
+    notifyClientReminder: org.notifyClientReminder,
+    notifyClientFeedback: org.notifyClientFeedback,
+    notifyProNewBooking: org.notifyProNewBooking,
+    notifyProCancellation: org.notifyProCancellation,
+    notifyProReschedule: org.notifyProReschedule,
+    reminderHoursBefore: org.reminderHoursBefore,
   };
 }
 
@@ -197,6 +218,28 @@ export async function PATCH(req: Request) {
         data.asaasWebhookToken = null;
         data.asaasConnectedAt = null;
       }
+    }
+
+    if (body.notifyClientConfirmation !== undefined) {
+      data.notifyClientConfirmation = body.notifyClientConfirmation;
+    }
+    if (body.notifyClientReminder !== undefined) {
+      data.notifyClientReminder = body.notifyClientReminder;
+    }
+    if (body.notifyClientFeedback !== undefined) {
+      data.notifyClientFeedback = body.notifyClientFeedback;
+    }
+    if (body.notifyProNewBooking !== undefined) {
+      data.notifyProNewBooking = body.notifyProNewBooking;
+    }
+    if (body.notifyProCancellation !== undefined) {
+      data.notifyProCancellation = body.notifyProCancellation;
+    }
+    if (body.notifyProReschedule !== undefined) {
+      data.notifyProReschedule = body.notifyProReschedule;
+    }
+    if (body.reminderHoursBefore !== undefined) {
+      data.reminderHoursBefore = body.reminderHoursBefore;
     }
 
     const org = await prisma.organization.update({
