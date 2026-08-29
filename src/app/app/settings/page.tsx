@@ -69,7 +69,7 @@ export default function SettingsPage() {
       return;
     }
     if (file.size > MAX_LOGO_BYTES) {
-      setError("Logo muito grande — use até ~350 KB (ou uma URL)");
+      setError("Logo muito grande — use até ~350 KB");
       return;
     }
     const reader = new FileReader();
@@ -240,13 +240,7 @@ export default function SettingsPage() {
               </button>
             )}
           </div>
-          <input
-            className="input-field text-sm"
-            placeholder="Ou cole uma URL https://…"
-            value={logoUrl.startsWith("data:") ? "" : logoUrl}
-            onChange={(e) => setLogoUrl(e.target.value.trim())}
-          />
-          <p className="text-xs text-muted">PNG/JPG/WebP até ~350 KB, ou URL pública.</p>
+          <p className="text-xs text-muted">PNG, JPG ou WebP até ~350 KB.</p>
         </div>
 
         <label className="block text-sm">

@@ -125,6 +125,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
   });
   const [paying, setPaying] = useState(false);
   const [businessName, setBusinessName] = useState("");
+  const [showMonthCalendar, setShowMonthCalendar] = useState(false);
 
   const accent =
     funnelConfig?.theme.accentColor ||
@@ -229,6 +230,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
   }, [step, bookingId, payMethod, pixQr, pixLoading, startPix]);
 
   const daySet = useMemo(() => new Set(availableDays), [availableDays]);
+  const upcomingDays = useMemo(() => availableDays.slice(0, 28), [availableDays]);
   const calendarDays = useMemo(() => {
     const start = startOfMonth(month);
     const end = endOfMonth(month);
@@ -247,10 +249,15 @@ export function BookingFunnel({ slug }: { slug: string }) {
   const stepIndex = visibleSteps.findIndex(
     (s) => s.id === (step === "done" ? "payment" : step),
   );
+  const progressPct =
+    step === "done"
+      ? 100
+      : Math.round(((Math.max(stepIndex, 0) + 1) / Math.max(visibleSteps.length, 1)) * 100);
 
   function pickService(s: Service) {
     setService(s);
     setError("");
+    setSelectedSlot(null);
     setStep("datetime");
     if (!selectedDate && availableDays[0]) {
       setSelectedDate(availableDays[0]);
@@ -260,8 +267,19 @@ export function BookingFunnel({ slug }: { slug: string }) {
 
   function pickSlot(slot: Slot) {
     setSelectedSlot(slot);
+    setError("");
+  }
+
+  function confirmSlot() {
+    if (!selectedSlot) return;
     setStep("details");
     setError("");
+  }
+
+  function selectDate(key: string) {
+    setSelectedDate(key);
+    setSelectedSlot(null);
+    setMonth(parseISO(key));
   }
 
   async function refreshSlotsForDate(date: string) {
@@ -512,6 +530,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
       if (services.length > 1) {
         setStep("service");
         setService(null);
+        setSelectedSlot(null);
       }
     } else if (step === "details") setStep("datetime");
     else if (step === "payment") setStep("details");
@@ -519,9 +538,15 @@ export function BookingFunnel({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="dot-grid flex min-h-screen items-center justify-center">
+      <div className="booking-shell flex min-h-dvh items-center justify-center px-4">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-foreground" />
+          <div
+            className="h-9 w-9 animate-spin rounded-full border-2 border-transparent"
+            style={{
+              borderTopColor: accent,
+              borderRightColor: accent,
+            }}
+          />
           <p className="text-sm text-muted">Preparando seu agendamento…</p>
         </div>
       </div>
@@ -530,7 +555,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
 
   if (!page) {
     return (
-      <div className="dot-grid flex min-h-screen items-center justify-center text-sm text-danger">
+      <div className="booking-shell flex min-h-dvh items-center justify-center px-4 text-sm text-danger">
         {error || "Página não encontrada"}
       </div>
     );
@@ -544,580 +569,651 @@ export function BookingFunnel({ slug }: { slug: string }) {
       { locale: ptBR },
     );
 
+  const currentStepLabel =
+    step === "done"
+      ? "Confirmado"
+      : visibleSteps[Math.max(stepIndex, 0)]?.label || "";
+
+  const showDock = step === "datetime" && Boolean(selectedSlot);
+
   return (
     <div
-      className="dot-grid min-h-screen px-4 py-6 sm:py-10"
+      className="booking-shell"
       style={{ "--accent": accent } as React.CSSProperties}
     >
-      <div className="mx-auto w-full max-w-3xl">
-        {/* Progress */}
+      <header className="sticky top-0 z-30 border-b border-black/5 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt=""
+              className="h-9 max-w-[7.5rem] object-contain"
+            />
+          ) : (
+            <div
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[11px] font-bold text-white"
+              style={{ background: accent }}
+            >
+              {(businessName || heroTitle || "BS").slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            {businessName && (
+              <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                {businessName}
+              </p>
+            )}
+            <p className="truncate text-sm font-semibold tracking-tight">
+              {heroTitle}
+            </p>
+          </div>
+          {step !== "done" && (
+            <p className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-medium text-muted">
+              {Math.max(stepIndex, 0) + 1}/{visibleSteps.length}
+            </p>
+          )}
+        </div>
         {step !== "done" && (
-          <div className="mb-5 flex items-center justify-center gap-1 sm:gap-2">
-            {visibleSteps.map((s, i) => {
-              const active = i === stepIndex;
-              const done = i < stepIndex;
-              return (
-                <div key={s.id} className="flex items-center gap-1 sm:gap-2">
-                  {i > 0 && (
-                    <div
-                      className={`h-px w-4 sm:w-8 ${done || active ? "bg-foreground" : "bg-border"}`}
-                    />
-                  )}
-                  <div className="flex items-center gap-1.5">
+          <div className="mx-auto max-w-lg px-4 pb-3">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-foreground">
+                {currentStepLabel}
+              </p>
+              {(service || whenLabel) && (
+                <p className="truncate text-[11px] text-muted">
+                  {[service?.title, whenLabel].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+            <div className="booking-progress" aria-hidden>
+              <span style={{ width: `${progressPct}%` }} />
+            </div>
+          </div>
+        )}
+      </header>
+
+      <main
+        className={`mx-auto w-full max-w-lg px-4 pb-8 pt-5 ${
+          showDock ? "pb-36" : "pb-10"
+        }`}
+      >
+        {step !== "service" && step !== "done" && (
+          <button
+            type="button"
+            onClick={goBack}
+            className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-muted transition hover:text-foreground"
+          >
+            ← Voltar
+          </button>
+        )}
+
+        {error && (
+          <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-danger">
+            {error}
+          </p>
+        )}
+
+        {/* SERVICE */}
+        {step === "service" && (
+          <div className="space-y-4 animate-in">
+            <div>
+              <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
+                O que você precisa?
+              </h1>
+              {heroSubtitle ? (
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  {heroSubtitle}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-muted">
+                  Escolha o atendimento e reserve em poucos toques
+                </p>
+              )}
+            </div>
+
+            {funnelConfig?.blocks && funnelConfig.blocks.length > 0 && (
+              <div className="booking-card p-4">
+                <FunnelLandingBlocks blocks={funnelConfig.blocks} />
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {services.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => pickService(s)}
+                  className="booking-service group"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold tracking-tight">
+                        {s.title}
+                      </p>
+                      {s.description && (
+                        <p className="mt-1 text-sm leading-relaxed text-muted line-clamp-3">
+                          {s.description}
+                        </p>
+                      )}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="tag">{s.durationMinutes} min</span>
+                        <span
+                          className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
+                          style={{ background: accent }}
+                        >
+                          {formatBRL(s.priceCents)}
+                        </span>
+                      </div>
+                    </div>
                     <span
-                      className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${
-                        done || active
-                          ? "bg-foreground text-white"
-                          : "bg-muted-bg text-muted"
-                      }`}
+                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white transition group-hover:scale-105"
+                      style={{ background: accent }}
                     >
-                      {done ? "✓" : i + 1}
-                    </span>
-                    <span
-                      className={`hidden text-xs font-medium sm:inline ${
-                        active ? "text-foreground" : "text-muted"
-                      }`}
-                    >
-                      {s.label}
+                      →
                     </span>
                   </div>
-                </div>
-              );
-            })}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        <div className="surface overflow-hidden shadow-sm">
-          <div className="grid md:grid-cols-[240px_1fr]">
-            {/* Summary sidebar */}
-            <aside className="border-b border-border bg-muted-bg/40 p-5 md:border-b-0 md:border-r">
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={logoUrl}
-                  alt=""
-                  className="mb-3 h-12 max-w-[140px] object-contain"
-                />
-              ) : (
-                <div
-                  className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg text-xs font-bold text-white"
-                  style={{ background: accent }}
-                >
-                  {(businessName || heroTitle || "BS").slice(0, 2).toUpperCase()}
-                </div>
-              )}
-              {businessName && (
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-                  {businessName}
-                </p>
-              )}
-              <h1
-                className={`text-lg font-bold tracking-tight leading-snug ${
-                  businessName ? "mt-1.5" : ""
-                }`}
-              >
-                {heroTitle}
+        {/* DATETIME */}
+        {step === "datetime" && service && (
+          <div className="space-y-5 animate-in">
+            <div>
+              <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
+                Quando funciona pra você?
               </h1>
-              {heroSubtitle && !service && (
-                <p className="mt-2 text-xs leading-relaxed text-muted line-clamp-4">
-                  {heroSubtitle}
+              <p className="mt-2 text-sm text-muted">
+                Toque no dia e depois no horário — tudo em segundos
+              </p>
+            </div>
+
+            <div className="booking-card overflow-hidden">
+              <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+                <p className="text-sm font-semibold tracking-tight">
+                  Dias disponíveis
                 </p>
-              )}
-              {funnelConfig?.blocks && funnelConfig.blocks.length > 0 && (
-                <div className="mt-4">
-                  <FunnelLandingBlocks blocks={funnelConfig.blocks} />
+                <button
+                  type="button"
+                  onClick={() => setShowMonthCalendar((v) => !v)}
+                  className="text-xs font-semibold text-muted underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  {showMonthCalendar ? "Ver faixa" : "Ver mês"}
+                </button>
+              </div>
+
+              {!showMonthCalendar ? (
+                <div className="-mx-0 flex gap-2 overflow-x-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {upcomingDays.length === 0 ? (
+                    <p className="text-sm text-muted">Nenhum dia disponível.</p>
+                  ) : (
+                    upcomingDays.map((key) => {
+                      const d = parseISO(key);
+                      const selected = selectedDate === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => selectDate(key)}
+                          className={`booking-day ${
+                            selected ? "booking-day-selected" : ""
+                          }`}
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+                            {format(d, "EEE", { locale: ptBR })}
+                          </span>
+                          <span className="text-lg font-bold leading-none">
+                            {format(d, "d")}
+                          </span>
+                          <span className="text-[10px] font-medium capitalize opacity-80">
+                            {format(d, "MMM", { locale: ptBR })}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="px-4 py-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setMonth(subMonths(month, 1))}
+                      className="btn-secondary !px-2.5 !py-1.5"
+                      aria-label="Mês anterior"
+                    >
+                      ‹
+                    </button>
+                    <span className="text-sm font-semibold capitalize">
+                      {format(month, "MMMM yyyy", { locale: ptBR })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setMonth(addMonths(month, 1))}
+                      className="btn-secondary !px-2.5 !py-1.5"
+                      aria-label="Próximo mês"
+                    >
+                      ›
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-medium text-muted">
+                    {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+                      <span key={`${d}-${i}`} className="py-1">
+                        {d}
+                      </span>
+                    ))}
+                    {Array.from({ length: padStart }).map((_, i) => (
+                      <span key={`pad-${i}`} />
+                    ))}
+                    {calendarDays.map((day) => {
+                      const key = format(day, "yyyy-MM-dd");
+                      const available = daySet.has(key);
+                      const selected = selectedDate === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          disabled={!available}
+                          onClick={() => {
+                            selectDate(key);
+                            setShowMonthCalendar(false);
+                          }}
+                          className={`aspect-square rounded-xl text-sm font-semibold transition ${
+                            !isSameMonth(day, month) ? "opacity-25" : ""
+                          } ${
+                            selected
+                              ? "text-white"
+                              : available
+                                ? "bg-white ring-1 ring-border hover:bg-muted-bg"
+                                : "text-muted/30"
+                          }`}
+                          style={
+                            selected ? { background: accent } : undefined
+                          }
+                        >
+                          {format(day, "d")}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
+            </div>
 
-              <div className="mt-5 space-y-3 text-sm">
-                {service && (
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
-                      Serviço
+            <div className="booking-card p-4">
+              {selectedDate ? (
+                <>
+                  <p className="text-sm font-semibold capitalize tracking-tight">
+                    {format(parseISO(selectedDate), "EEEE, d 'de' MMMM", {
+                      locale: ptBR,
+                    })}
+                  </p>
+                  {slotsLoading ? (
+                    <div className="mt-5 flex items-center justify-center gap-2 py-8 text-sm text-muted">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground" />
+                      Buscando horários…
+                    </div>
+                  ) : slots.length === 0 ? (
+                    <p className="mt-4 rounded-xl bg-muted-bg px-3 py-5 text-center text-sm text-muted">
+                      Sem horários neste dia. Escolha outra data.
                     </p>
-                    <p className="mt-0.5 font-medium">{service.title}</p>
-                    <p className="text-muted">
-                      {service.durationMinutes} min ·{" "}
-                      {formatBRL(service.priceCents)}
+                  ) : (
+                    <div className="mt-4 space-y-5">
+                      {grouped.morning.length > 0 && (
+                        <div>
+                          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                            Manhã
+                          </p>
+                          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+                            {grouped.morning.map((slot) => (
+                              <button
+                                key={slot.startAt}
+                                type="button"
+                                onClick={() => pickSlot(slot)}
+                                className={`booking-slot ${
+                                  selectedSlot?.startAt === slot.startAt
+                                    ? "booking-slot-selected"
+                                    : "hover:border-foreground/40"
+                                }`}
+                              >
+                                {slot.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {grouped.afternoon.length > 0 && (
+                        <div>
+                          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                            Tarde / noite
+                          </p>
+                          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+                            {grouped.afternoon.map((slot) => (
+                              <button
+                                key={slot.startAt}
+                                type="button"
+                                onClick={() => pickSlot(slot)}
+                                className={`booking-slot ${
+                                  selectedSlot?.startAt === slot.startAt
+                                    ? "booking-slot-selected"
+                                    : "hover:border-foreground/40"
+                                }`}
+                              >
+                                {slot.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="py-6 text-center text-sm text-muted">
+                  Selecione um dia acima para ver os horários
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* DETAILS */}
+        {step === "details" && service && (
+          <form onSubmit={submitDetails} className="space-y-5 animate-in">
+            <div>
+              <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
+                Quase lá
+              </h1>
+              <p className="mt-2 text-sm text-muted">
+                Seus dados para confirmar e enviar o comprovante
+              </p>
+            </div>
+
+            {(service || whenLabel) && (
+              <div className="booking-card flex items-center justify-between gap-3 px-4 py-3.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{service.title}</p>
+                  {whenLabel && (
+                    <p className="mt-0.5 truncate text-xs capitalize text-muted">
+                      {whenLabel}
                     </p>
+                  )}
+                </div>
+                <p className="shrink-0 text-sm font-bold" style={{ color: accent }}>
+                  {formatBRL(service.priceCents)}
+                </p>
+              </div>
+            )}
+
+            <div className="booking-card space-y-4 p-4">
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <FunnelFormFields
+                  fields={formFields}
+                  values={answers}
+                  onChange={(id, v) => setAnswers({ ...answers, [id]: v })}
+                  details={details}
+                  onDetailsChange={(patch) => setDetails({ ...details, ...patch })}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={paying}
+              className="btn-primary w-full !rounded-2xl !py-3.5 text-base"
+            >
+              {paying ? "Reservando horário…" : "Continuar para pagamento"}
+            </button>
+          </form>
+        )}
+
+        {/* PAYMENT */}
+        {step === "payment" && service && (
+          <div className="space-y-5 animate-in">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
+                  Pagamento
+                </h1>
+                <p className="mt-2 text-sm text-muted">
+                  Seguro · via {paymentProviderLabel}
+                </p>
+              </div>
+              <p className="text-2xl font-bold tracking-tight" style={{ color: accent }}>
+                {formatBRL(service.priceCents)}
+              </p>
+            </div>
+
+            {holdExpiresAt && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                <p className="font-semibold">Horário reservado por alguns minutos</p>
+                <p className="mt-1 text-xs text-amber-900/80">
+                  Conclua até {format(new Date(holdExpiresAt), "HH:mm")} para garantir.
+                </p>
+              </div>
+            )}
+
+            {demoPayments && (
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Modo demo — nenhum valor real será cobrado.
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {(["pix", "card"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setPayMethod(m);
+                    setError("");
+                  }}
+                  className={`rounded-2xl border px-3 py-3.5 text-sm font-semibold transition ${
+                    payMethod === m
+                      ? "border-transparent text-white"
+                      : "border-border bg-white hover:bg-muted-bg"
+                  }`}
+                  style={
+                    payMethod === m ? { background: accent } : undefined
+                  }
+                >
+                  {m === "pix" ? "Pix" : "Cartão"}
+                </button>
+              ))}
+            </div>
+
+            {payMethod === "pix" && (
+              <div className="space-y-3">
+                {pixLoading && (
+                  <div className="booking-card flex items-center justify-center gap-2 py-12 text-sm text-muted">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-foreground" />
+                    Gerando Pix…
                   </div>
                 )}
-                {whenLabel && (
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
-                      Quando
+                {pixQr && (
+                  <div className="booking-card space-y-3 p-4">
+                    <p className="text-center text-sm font-medium">
+                      Escaneie o QR ou copie o código
                     </p>
-                    <p className="mt-0.5 font-medium capitalize">{whenLabel}</p>
-                  </div>
-                )}
-                {step === "payment" && holdExpiresAt && (
-                  <div className="rounded-lg border border-border bg-white p-3 text-xs leading-relaxed">
-                    <p className="font-semibold">Horário reservado</p>
-                    <p className="mt-1 text-muted">
-                      Conclua o pagamento até{" "}
-                      {format(new Date(holdExpiresAt), "HH:mm")} para garantir.
+                    <PixQrImage payload={pixQr} base64={pixQrBase64} />
+                    <textarea
+                      readOnly
+                      className="h-20 w-full rounded-xl border border-border bg-muted-bg p-2.5 font-mono text-[11px]"
+                      value={pixQr}
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary w-full !rounded-2xl !py-3"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(pixQr);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1500);
+                      }}
+                    >
+                      {copied ? "Código copiado!" : "Copiar código Pix"}
+                    </button>
+                    {demoPayments && (
+                      <button
+                        type="button"
+                        disabled={paying}
+                        onClick={confirmDemoPix}
+                        className="btn-primary w-full !rounded-2xl !py-3.5"
+                      >
+                        {paying ? "Confirmando…" : "Simular pagamento (demo)"}
+                      </button>
+                    )}
+                    <p className="text-center text-xs text-muted">
+                      Aguardando pagamento — atualiza automaticamente
                     </p>
                   </div>
                 )}
               </div>
-            </aside>
+            )}
 
-            {/* Main */}
-            <div className="p-5 sm:p-6">
-              {error && (
-                <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
-                  {error}
-                </p>
-              )}
-
-              {step !== "service" && step !== "done" && (
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="mb-4 text-sm text-muted transition hover:text-foreground"
-                >
-                  ← Voltar
-                </button>
-              )}
-
-              {/* SERVICE */}
-              {step === "service" && (
-                <div className="space-y-3 animate-in">
-                  <div>
-                    <h2 className="text-xl font-bold tracking-tight">
-                      O que você precisa?
-                    </h2>
-                    <p className="mt-1 text-sm text-muted">
-                      Escolha o tipo de atendimento
-                    </p>
-                  </div>
-                  {services.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => pickService(s)}
-                      className="group flex w-full items-center justify-between gap-3 rounded-lg border border-border p-4 text-left transition hover:border-foreground hover:shadow-sm"
-                    >
-                      <div>
-                        <p className="font-semibold tracking-tight">{s.title}</p>
-                        {s.description && (
-                          <p className="mt-1 text-sm text-muted line-clamp-2">
-                            {s.description}
-                          </p>
-                        )}
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="tag">{s.durationMinutes} min</span>
-                          <span className="tag font-medium">
-                            {formatBRL(s.priceCents)}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-lg text-muted transition group-hover:text-foreground">
-                        →
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* DATETIME */}
-              {step === "datetime" && service && (
-                <div className="space-y-5 animate-in">
-                  <div>
-                    <h2 className="text-xl font-bold tracking-tight">
-                      Escolha data e horário
-                    </h2>
-                    <p className="mt-1 text-sm text-muted">
-                      Dias disponíveis estão destacados
-                    </p>
-                  </div>
-
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <div>
-                      <div className="mb-3 flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => setMonth(subMonths(month, 1))}
-                          className="btn-secondary !px-2.5 !py-1.5"
-                          aria-label="Mês anterior"
-                        >
-                          ‹
-                        </button>
-                        <span className="text-sm font-semibold capitalize">
-                          {format(month, "MMMM yyyy", { locale: ptBR })}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setMonth(addMonths(month, 1))}
-                          className="btn-secondary !px-2.5 !py-1.5"
-                          aria-label="Próximo mês"
-                        >
-                          ›
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted">
-                        {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-                          <span key={`${d}-${i}`} className="py-1">
-                            {d}
-                          </span>
-                        ))}
-                        {Array.from({ length: padStart }).map((_, i) => (
-                          <span key={`pad-${i}`} />
-                        ))}
-                        {calendarDays.map((day) => {
-                          const key = format(day, "yyyy-MM-dd");
-                          const available = daySet.has(key);
-                          const selected = selectedDate === key;
-                          return (
-                            <button
-                              key={key}
-                              type="button"
-                              disabled={!available}
-                              onClick={() => setSelectedDate(key)}
-                              className={`aspect-square rounded-lg text-sm font-medium transition ${
-                                !isSameMonth(day, month) ? "opacity-25" : ""
-                              } ${
-                                selected
-                                  ? "bg-foreground text-white"
-                                  : available
-                                    ? "bg-white hover:bg-muted-bg ring-1 ring-border"
-                                    : "text-muted/30"
-                              }`}
-                            >
-                              {format(day, "d")}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div>
-                      {selectedDate ? (
-                        <>
-                          <p className="mb-3 text-sm font-semibold capitalize">
-                            {format(parseISO(selectedDate), "EEEE, d 'de' MMMM", {
-                              locale: ptBR,
-                            })}
-                          </p>
-                          {slotsLoading ? (
-                            <div className="flex items-center gap-2 text-sm text-muted">
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground" />
-                              Buscando horários…
-                            </div>
-                          ) : slots.length === 0 ? (
-                            <p className="rounded-lg bg-muted-bg px-3 py-4 text-sm text-muted">
-                              Sem horários neste dia. Escolha outra data.
-                            </p>
-                          ) : (
-                            <div className="max-h-72 space-y-4 overflow-y-auto pr-1">
-                              {grouped.morning.length > 0 && (
-                                <div>
-                                  <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted">
-                                    Manhã
-                                  </p>
-                                  <div className="grid grid-cols-3 gap-2">
-                                    {grouped.morning.map((slot) => (
-                                      <button
-                                        key={slot.startAt}
-                                        type="button"
-                                        onClick={() => pickSlot(slot)}
-                                        className="rounded-lg border border-border bg-white py-2.5 text-sm font-medium transition hover:border-foreground hover:bg-foreground hover:text-white"
-                                      >
-                                        {slot.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              {grouped.afternoon.length > 0 && (
-                                <div>
-                                  <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted">
-                                    Tarde / noite
-                                  </p>
-                                  <div className="grid grid-cols-3 gap-2">
-                                    {grouped.afternoon.map((slot) => (
-                                      <button
-                                        key={slot.startAt}
-                                        type="button"
-                                        onClick={() => pickSlot(slot)}
-                                        className="rounded-lg border border-border bg-white py-2.5 text-sm font-medium transition hover:border-foreground hover:bg-foreground hover:text-white"
-                                      >
-                                        {slot.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-sm text-muted">
-                          Selecione um dia no calendário
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* DETAILS */}
-              {step === "details" && service && (
-                <form onSubmit={submitDetails} className="space-y-4 animate-in">
-                  <div>
-                    <h2 className="text-xl font-bold tracking-tight">
-                      Seus dados
-                    </h2>
-                    <p className="mt-1 text-sm text-muted">
-                      Usamos para confirmar e enviar o comprovante
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <FunnelFormFields
-                      fields={formFields}
-                      values={answers}
-                      onChange={(id, v) => setAnswers({ ...answers, [id]: v })}
-                      details={details}
-                      onDetailsChange={(patch) => setDetails({ ...details, ...patch })}
+            {payMethod === "card" && (
+              <form onSubmit={payCard} className="booking-card space-y-3.5 p-4">
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium">Nome no cartão</span>
+                  <input
+                    required
+                    className="input-field"
+                    autoComplete="cc-name"
+                    value={card.holderName}
+                    onChange={(e) =>
+                      setCard({ ...card, holderName: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium">Número</span>
+                  <input
+                    required
+                    inputMode="numeric"
+                    autoComplete="cc-number"
+                    placeholder="0000 0000 0000 0000"
+                    className="input-field"
+                    value={card.cardNumber}
+                    onChange={(e) =>
+                      setCard({
+                        ...card,
+                        cardNumber: formatCardNumber(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">Mês</span>
+                    <input
+                      required
+                      inputMode="numeric"
+                      placeholder="MM"
+                      maxLength={2}
+                      autoComplete="cc-exp-month"
+                      className="input-field"
+                      value={card.expMonth}
+                      onChange={(e) =>
+                        setCard({
+                          ...card,
+                          expMonth: e.target.value.replace(/\D/g, ""),
+                        })
+                      }
                     />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={paying}
-                    className="btn-primary w-full py-3"
-                  >
-                    {paying ? "Reservando horário…" : "Ir para pagamento"}
-                  </button>
-                </form>
-              )}
-
-              {/* PAYMENT */}
-              {step === "payment" && service && (
-                <div className="space-y-4 animate-in">
-                  <div className="flex items-end justify-between gap-3">
-                    <div>
-                      <h2 className="text-xl font-bold tracking-tight">
-                        Pagamento
-                      </h2>
-                      <p className="mt-1 text-sm text-muted">
-                        Seguro · via {paymentProviderLabel}
-                      </p>
-                    </div>
-                    <p className="text-2xl font-bold tracking-tight">
-                      {formatBRL(service.priceCents)}
-                    </p>
-                  </div>
-
-                  {demoPayments && (
-                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                      Modo demo — nenhum valor real será cobrado.
-                    </p>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {(["pix", "card"] as const).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => {
-                          setPayMethod(m);
-                          setError("");
-                        }}
-                        className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition ${
-                          payMethod === m
-                            ? "border-foreground bg-foreground text-white"
-                            : "border-border bg-white hover:bg-muted-bg"
-                        }`}
-                      >
-                        {m === "pix" ? "Pix" : "Cartão"}
-                      </button>
-                    ))}
-                  </div>
-
-                  {payMethod === "pix" && (
-                    <div className="space-y-3">
-                      {pixLoading && (
-                        <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
-                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-foreground" />
-                          Gerando Pix…
-                        </div>
-                      )}
-                      {pixQr && (
-                        <div className="space-y-3 rounded-lg border border-border p-4">
-                          <p className="text-center text-sm font-medium">
-                            Escaneie o QR ou copie o código
-                          </p>
-                          <PixQrImage payload={pixQr} base64={pixQrBase64} />
-                          <textarea
-                            readOnly
-                            className="h-20 w-full rounded-lg border border-border bg-muted-bg p-2 font-mono text-[11px]"
-                            value={pixQr}
-                          />
-                          <button
-                            type="button"
-                            className="btn-secondary w-full"
-                            onClick={async () => {
-                              await navigator.clipboard.writeText(pixQr);
-                              setCopied(true);
-                              setTimeout(() => setCopied(false), 1500);
-                            }}
-                          >
-                            {copied ? "Código copiado!" : "Copiar código Pix"}
-                          </button>
-                          {demoPayments && (
-                            <button
-                              type="button"
-                              disabled={paying}
-                              onClick={confirmDemoPix}
-                              className="btn-primary w-full py-3"
-                            >
-                              {paying
-                                ? "Confirmando…"
-                                : "Simular pagamento (demo)"}
-                            </button>
-                          )}
-                          <p className="text-center text-xs text-muted">
-                            Aguardando pagamento — atualiza automaticamente
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {payMethod === "card" && (
-                    <form onSubmit={payCard} className="space-y-3">
-                      <label className="block text-sm">
-                        <span className="mb-1.5 block font-medium">
-                          Nome no cartão
-                        </span>
-                        <input
-                          required
-                          className="input-field"
-                          value={card.holderName}
-                          onChange={(e) =>
-                            setCard({ ...card, holderName: e.target.value })
-                          }
-                        />
-                      </label>
-                      <label className="block text-sm">
-                        <span className="mb-1.5 block font-medium">Número</span>
-                        <input
-                          required
-                          inputMode="numeric"
-                          placeholder="0000 0000 0000 0000"
-                          className="input-field"
-                          value={card.cardNumber}
-                          onChange={(e) =>
-                            setCard({
-                              ...card,
-                              cardNumber: formatCardNumber(e.target.value),
-                            })
-                          }
-                        />
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <label className="block text-sm">
-                          <span className="mb-1.5 block font-medium">Mês</span>
-                          <input
-                            required
-                            placeholder="MM"
-                            maxLength={2}
-                            className="input-field"
-                            value={card.expMonth}
-                            onChange={(e) =>
-                              setCard({
-                                ...card,
-                                expMonth: e.target.value.replace(/\D/g, ""),
-                              })
-                            }
-                          />
-                        </label>
-                        <label className="block text-sm">
-                          <span className="mb-1.5 block font-medium">Ano</span>
-                          <input
-                            required
-                            placeholder="AA"
-                            maxLength={4}
-                            className="input-field"
-                            value={card.expYear}
-                            onChange={(e) =>
-                              setCard({
-                                ...card,
-                                expYear: e.target.value.replace(/\D/g, ""),
-                              })
-                            }
-                          />
-                        </label>
-                        <label className="block text-sm">
-                          <span className="mb-1.5 block font-medium">CVC</span>
-                          <input
-                            required
-                            maxLength={4}
-                            className="input-field"
-                            value={card.cvv}
-                            onChange={(e) =>
-                              setCard({
-                                ...card,
-                                cvv: e.target.value.replace(/\D/g, ""),
-                              })
-                            }
-                          />
-                        </label>
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={paying}
-                        className="btn-primary w-full py-3"
-                      >
-                        {paying ? "Processando…" : `Pagar ${formatBRL(service.priceCents)}`}
-                      </button>
-                      <p className="text-center text-[11px] text-muted">
-                        Dados do cartão tokenizados · não passam pelo nosso
-                        servidor
-                      </p>
-                    </form>
-                  )}
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">Ano</span>
+                    <input
+                      required
+                      inputMode="numeric"
+                      placeholder="AA"
+                      maxLength={4}
+                      autoComplete="cc-exp-year"
+                      className="input-field"
+                      value={card.expYear}
+                      onChange={(e) =>
+                        setCard({
+                          ...card,
+                          expYear: e.target.value.replace(/\D/g, ""),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">CVC</span>
+                    <input
+                      required
+                      inputMode="numeric"
+                      maxLength={4}
+                      autoComplete="cc-csc"
+                      className="input-field"
+                      value={card.cvv}
+                      onChange={(e) =>
+                        setCard({
+                          ...card,
+                          cvv: e.target.value.replace(/\D/g, ""),
+                        })
+                      }
+                    />
+                  </label>
                 </div>
-              )}
-
-              {/* DONE */}
-              {step === "done" && (
-                <div className="space-y-4 py-4 text-center animate-in">
-                  <div
-                    className="mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl text-white"
-                    style={{ background: accent }}
-                  >
-                    ✓
-                  </div>
-                  <h2 className="text-2xl font-bold tracking-tight">
-                    Tudo certo!
-                  </h2>
-                  <p className="text-sm text-muted">
-                    Agendamento confirmado. Enviamos os detalhes para{" "}
-                    <strong className="text-foreground">
-                      {details.customerEmail}
-                    </strong>
-                    .
-                  </p>
-                  {whenLabel && service && (
-                    <div className="mx-auto max-w-sm rounded-lg border border-border bg-muted-bg/50 p-4 text-left text-sm">
-                      <p className="font-semibold">{service.title}</p>
-                      <p className="mt-1 capitalize text-muted">{whenLabel}</p>
-                      <p className="mt-1 font-medium">
-                        {formatBRL(service.priceCents)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                <button
+                  type="submit"
+                  disabled={paying}
+                  className="btn-primary w-full !rounded-2xl !py-3.5 text-base"
+                >
+                  {paying ? "Processando…" : `Pagar ${formatBRL(service.priceCents)}`}
+                </button>
+                <p className="text-center text-[11px] text-muted">
+                  Dados do cartão tokenizados · não passam pelo nosso servidor
+                </p>
+              </form>
+            )}
           </div>
-        </div>
+        )}
 
-        {(page.websiteUrl || page.instagram) && (
-          <p className="mt-5 text-center text-xs text-muted">
+        {/* DONE */}
+        {step === "done" && (
+          <div className="space-y-5 py-6 text-center animate-in">
+            <div
+              className="mx-auto flex h-16 w-16 items-center justify-center rounded-full text-2xl text-white shadow-lg"
+              style={{
+                background: accent,
+                boxShadow: `0 12px 28px color-mix(in srgb, ${accent} 35%, transparent)`,
+              }}
+            >
+              ✓
+            </div>
+            <div>
+              <h1 className="text-[1.75rem] font-bold tracking-tight">
+                Agendado!
+              </h1>
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+                Confirmação enviada para{" "}
+                <strong className="text-foreground">{details.customerEmail}</strong>
+              </p>
+            </div>
+            {whenLabel && service && (
+              <div className="booking-card mx-auto max-w-sm p-5 text-left text-sm">
+                {businessName && (
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                    {businessName}
+                  </p>
+                )}
+                <p className="mt-1 font-semibold tracking-tight">{service.title}</p>
+                <p className="mt-1 capitalize text-muted">{whenLabel}</p>
+                <p className="mt-3 text-base font-bold" style={{ color: accent }}>
+                  {formatBRL(service.priceCents)}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {(page.websiteUrl || page.instagram) && step !== "datetime" && (
+          <p className="mt-8 text-center text-xs text-muted">
             {page.websiteUrl && (
               <a
                 href={page.websiteUrl}
@@ -1130,7 +1226,35 @@ export function BookingFunnel({ slug }: { slug: string }) {
             {page.instagram}
           </p>
         )}
-      </div>
+      </main>
+
+      {showDock && selectedSlot && service && (
+        <div className="booking-dock fixed inset-x-0 bottom-0 z-40">
+          <div className="mx-auto flex max-w-lg items-center gap-3 px-4 pt-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold tracking-tight">
+                {selectedSlot.label}
+                <span className="font-normal text-muted">
+                  {" "}
+                  ·{" "}
+                  {selectedDate &&
+                    format(parseISO(selectedDate), "d MMM", { locale: ptBR })}
+                </span>
+              </p>
+              <p className="truncate text-xs text-muted">
+                {service.title} · {formatBRL(service.priceCents)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={confirmSlot}
+              className="btn-primary shrink-0 !rounded-2xl !px-5 !py-3"
+            >
+              Continuar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

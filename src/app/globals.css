@@ -373,3 +373,119 @@ button {
 .animate-in {
   animation: fade-up 0.25s ease-out;
 }
+
+/* Public booking funnel — mobile-first */
+.booking-shell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(
+      920px 340px at 50% -12%,
+      color-mix(in srgb, var(--accent) 18%, transparent),
+      transparent 68%
+    ),
+    linear-gradient(180deg, #faf9f7 0%, #f3f1ee 45%, #eceae6 100%);
+}
+
+.booking-progress {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, #e7e5e1);
+}
+
+.booking-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.35s ease;
+}
+
+.booking-card {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 1.25rem;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(15, 15, 15, 0.04),
+    0 12px 32px rgba(15, 15, 15, 0.05);
+}
+
+.booking-day {
+  display: flex;
+  min-width: 4.25rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 0.7rem 0.5rem;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.booking-day:active {
+  transform: scale(0.97);
+}
+
+.booking-day-selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.booking-slot {
+  min-height: 3rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.booking-slot-selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.booking-dock {
+  border-top: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  background: color-mix(in srgb, #ffffff 92%, transparent);
+  backdrop-filter: blur(12px);
+  padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
+}
+
+.booking-service {
+  width: 100%;
+  border-radius: 1.1rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 1rem 1.05rem;
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.booking-service:active {
+  transform: scale(0.985);
+}
+
+.booking-service:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: 0 10px 24px rgba(15, 15, 15, 0.06);
+}
