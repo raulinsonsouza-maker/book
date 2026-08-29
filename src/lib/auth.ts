@@ -9,7 +9,10 @@ async function loadUserContext(userId: string) {
     where: { id: userId },
     include: {
       memberships: {
-        include: { organization: true },
+        include: {
+          organization: true,
+          professional: { select: { id: true, isActive: true } },
+        },
         take: 1,
         orderBy: { createdAt: "asc" },
       },
@@ -24,6 +27,8 @@ async function loadUserContext(userId: string) {
     organizationId: membership?.organizationId,
     organizationName: membership?.organization.name,
     role: membership?.role,
+    businessMode: membership?.organization.businessMode ?? "SOLO",
+    professionalId: membership?.professional?.id ?? null,
   };
 }
 
@@ -116,6 +121,8 @@ export const authOptions: NextAuthOptions = {
           token.organizationId = ctx.organizationId;
           token.organizationName = ctx.organizationName;
           token.role = ctx.role;
+          token.businessMode = ctx.businessMode;
+          token.professionalId = ctx.professionalId;
         }
       }
 
@@ -129,6 +136,8 @@ export const authOptions: NextAuthOptions = {
           | string
           | undefined;
         session.user.role = token.role as string | undefined;
+        session.user.businessMode = token.businessMode as string | undefined;
+        session.user.professionalId = token.professionalId as string | null | undefined;
       }
       return session;
     },

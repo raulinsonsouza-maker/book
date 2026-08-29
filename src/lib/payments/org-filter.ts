@@ -69,6 +69,7 @@ export function buildPaymentWhere(
     method?: PaymentMethod | null;
     bookingPageId?: string | null;
     type?: string | null;
+    professionalId?: string | null;
   },
 ): Prisma.PaymentWhereInput {
   const clauses: Prisma.PaymentWhereInput[] = [
@@ -80,6 +81,12 @@ export function buildPaymentWhere(
       filters.bookingPageId,
     ),
   ];
+
+  if (filters.professionalId) {
+    clauses.push({
+      booking: { professionalId: filters.professionalId },
+    });
+  }
 
   const period = paymentPeriodFilter(filters.from ?? null, filters.to ?? null);
   if (period) clauses.push(period);

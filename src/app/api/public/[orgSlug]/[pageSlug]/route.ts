@@ -1,0 +1,200 @@
+import { NextResponse } from "next/server";
+import {
+  getAvailableDays,
+  getAvailableDaysAnyone,
+  getAvailableSlots,
+  getAvailableSlotsAnyone,
+} from "@/lib/availability";
+import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
+import { resolvePaymentProvider, paymentProviderLabel } from "@/lib/payments/resolve-provider";
+import { resolveBrand } from "@/lib/branding";
+import {
+  findPublicBookingPage,
+  professionalsForService,
+} from "@/lib/public-booking-page";
+
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ orgSlug: string; pageSlug: string }> },
+) {
+  const { orgSlug, pageSlug } = await params;
+  const { searchParams } = new URL(req.url);
+  const date = searchParams.get("date");
+  const serviceId = searchParams.get("serviceId");
+  const professionalId = searchParams.get("professionalId");
+  const anyone = searchParams.get("anyone") === "1";
+
+  const page = await findPublicBookingPage(orgSlug, pageSlug);
+
+  if (!page) {
+    return NextResponse.json({ error: "Página não encontrada" }, { status: 404 });
+  }
+
+  const salonMode = page.organization.businessMode === "SALON";
+
+  if (!date) {
+    const provider = resolvePaymentProvider(page.organization);
+    const brand = resolveBrand({
+      org: page.organization,
+      title: page.title,
+      description: page.description,
+      logoUrl: page.logoUrl,
+      accentColor: page.accentColor,
+    });
+    const mergedFunnel = mergeFunnelConfig(parseFunnelConfig(page.funnelConfig), {
+      title: brand.title,
+      description: brand.description,
+      accentColor: brand.accentColor,
+      logoUrl: brand.logoUrl,
+    });
+
+    // Em SALON, só serviços com pelo menos um profissional vinculado
+    const services = salonMode
+      ? page.services
+          .map((s) => {
+            const pros = professionalsForService(s);
+            return {
+              id: s.id,
+              title: s.title,
+              description: s.description,
+              durationMinutes: s.durationMinutes,
+              priceCents: s.priceCents,
+              customFields: s.customFields,
+              professionals: pros.map((p) => ({
+                id: p.id,
+                displayName: p.displayName,
+                photoUrl: p.photoUrl,
+              })),
+            };
+          })
+          .filter((s) => s.professionals.length > 0)
+      : page.services;
+
+    const days = await getAvailableDays({
+      bookingPageId: page.id,
+      from: new Date(),
+      timezone: page.timezone,
+      // dias gerais: SOLO usa página; SALON sem pro ainda não — dias por pro no passo seguinte
+      professionalId: null,
+    });
+
+    return NextResponse.json({
+      page: {
+        id: page.id,
+        title: brand.title,
+        slug: page.slug,
+        orgSlug: page.organization.slug,
+        description: brand.description,
+        logoUrl: brand.logoUrl,
+        accentColor: brand.accentColor,
+        websiteUrl: page.websiteUrl,
+        instagram: page.instagram,
+        timezone: page.timezone,
+      },
+      brand: {
+        businessName: brand.businessName,
+        logoUrl: brand.logoUrl,
+        accentColor: brand.accentColor,
+        description: brand.description,
+      },
+      funnelConfig: {
+        ...mergedFunnel,
+        theme: {
+          ...mergedFunnel.theme,
+          logoUrl: mergedFunnel.theme.logoUrl || brand.logoUrl || undefined,
+          accentColor: brand.accentColor,
+          heroSubtitle:
+            mergedFunnel.theme.heroSubtitle || brand.description || undefined,
+        },
+      },
+      businessMode: page.organization.businessMode,
+      services,
+      availableDays: days,
+      paymentProvider: provider,
+      paymentProviderLabel: paymentProviderLabel(provider),
+      caktoSdkClientId: page.organization.caktoSdkClientId || null,
+      mercadoPagoPublicKey: page.organization.mercadoPagoPublicKey || null,
+      demoPayments: provider === "DEMO",
+    });
+  }
+
+  if (!serviceId) {
+    return NextResponse.json({ error: "serviceId obrigatório" }, { status: 400 });
+  }
+
+  const service = page.services.find((s) => s.id === serviceId);
+  if (!service) {
+    return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
+  }
+
+  if (salonMode) {
+    const pros = professionalsForService(service);
+    if (pros.length === 0) {
+      return NextResponse.json({ slots: [], timezone: page.timezone });
+    }
+
+    if (anyone) {
+      const [slots, days] = await Promise.all([
+        getAvailableSlotsAnyone({
+          bookingPageId: page.id,
+          serviceId: service.id,
+          date,
+          timezone: page.timezone,
+          durationMinutes: service.durationMinutes,
+          bufferBefore: service.bufferBefore,
+          bufferAfter: service.bufferAfter,
+          professionalIds: pros.map((p) => p.id),
+        }),
+        getAvailableDaysAnyone({
+          bookingPageId: page.id,
+          from: new Date(),
+          timezone: page.timezone,
+          professionalIds: pros.map((p) => p.id),
+        }),
+      ]);
+      return NextResponse.json({
+        slots,
+        availableDays: days,
+        timezone: page.timezone,
+        anyone: true,
+      });
+    }
+
+    if (!professionalId || !pros.some((p) => p.id === professionalId)) {
+      return NextResponse.json({ error: "professionalId obrigatório" }, { status: 400 });
+    }
+
+    const [slots, days] = await Promise.all([
+      getAvailableSlots({
+        bookingPageId: page.id,
+        serviceId: service.id,
+        date,
+        timezone: page.timezone,
+        durationMinutes: service.durationMinutes,
+        bufferBefore: service.bufferBefore,
+        bufferAfter: service.bufferAfter,
+        professionalId,
+      }),
+      getAvailableDays({
+        bookingPageId: page.id,
+        from: new Date(),
+        timezone: page.timezone,
+        professionalId,
+      }),
+    ]);
+
+    return NextResponse.json({ slots, availableDays: days, timezone: page.timezone });
+  }
+
+  const slots = await getAvailableSlots({
+    bookingPageId: page.id,
+    serviceId: service.id,
+    date,
+    timezone: page.timezone,
+    durationMinutes: service.durationMinutes,
+    bufferBefore: service.bufferBefore,
+    bufferAfter: service.bufferAfter,
+  });
+
+  return NextResponse.json({ slots, timezone: page.timezone });
+}

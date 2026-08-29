@@ -13,9 +13,10 @@ type PageItem = {
 type Props = {
   pages: PageItem[];
   appUrl: string;
+  orgSlug: string;
 };
 
-export function DashboardPagesList({ pages, appUrl }: Props) {
+export function DashboardPagesList({ pages, appUrl, orgSlug }: Props) {
   return (
     <div className="dashboard-panel rounded-2xl bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
@@ -56,13 +57,11 @@ export function DashboardPagesList({ pages, appUrl }: Props) {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <CopyLinkButton url={`${appUrl}/p/${p.slug}`} />
-                <Link
-                  href={`/app/pages/${p.id}/builder`}
-                  className="btn-secondary !py-1.5 !text-xs"
-                >
-                  Personalizar
-                </Link>
+                {p.isActive && (
+                  <CopyLinkButton
+                    url={`${appUrl}/p/${orgSlug}/${p.slug}`}
+                  />
+                )}
                 <Link
                   href={`/app/pages/${p.id}`}
                   className="btn-primary !py-1.5 !text-xs"
@@ -73,6 +72,7 @@ export function DashboardPagesList({ pages, appUrl }: Props) {
                   pageId={p.id}
                   pageTitle={p.title}
                   bookingsCount={p._count.bookings}
+                  isActive={p.isActive}
                   compact
                 />
               </div>
@@ -83,3 +83,4 @@ export function DashboardPagesList({ pages, appUrl }: Props) {
     </div>
   );
 }
+

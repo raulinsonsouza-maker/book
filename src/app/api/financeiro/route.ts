@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { buildPaymentWhere } from "@/lib/payments/org-filter";
-import { getAuthorizedOrganizationId } from "@/lib/session";
+import { apiAuthContext, isProfessionalRole } from "@/lib/rbac";
 
 export async function GET(req: Request) {
-  const orgId = await getAuthorizedOrganizationId();
-  if (!orgId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiAuthContext();
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  const orgId = ctx.organizationId;
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
@@ -20,13 +20,18 @@ export async function GET(req: Request) {
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const pageSize = 50;
 
+  const professionalId = isProfessionalRole(ctx.role)
+    ? ctx.professionalId
+    : searchParams.get("professionalId");
+
   const where = buildPaymentWhere(orgId, {
     from,
     to,
     status,
     method,
-    bookingPageId,
-    type,
+    bookingPageId: isProfessionalRole(ctx.role) ? null : bookingPageId,
+    type: isProfessionalRole(ctx.role) ? "booking" : type,
+    professionalId,
   });
 
   const [payments, total, paidAgg, pendingAgg, paidCount] = await Promise.all([

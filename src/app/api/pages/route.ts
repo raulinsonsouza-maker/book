@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       where: { id: session.user.organizationId },
       select: { timezone: true },
     });
-    const slug = await uniqueBookingPageSlug(body.title);
+    const slug = await uniqueBookingPageSlug(session.user.organizationId, body.title);
 
     const page = await prisma.bookingPage.create({
       data: {
@@ -55,11 +55,16 @@ export async function POST(req: Request) {
         timezone: org?.timezone || DEFAULT_TIMEZONE,
         availability: {
           create: [
-            { dayOfWeek: 1, startTime: "09:00", endTime: "18:00" },
-            { dayOfWeek: 2, startTime: "09:00", endTime: "18:00" },
-            { dayOfWeek: 3, startTime: "09:00", endTime: "18:00" },
-            { dayOfWeek: 4, startTime: "09:00", endTime: "18:00" },
-            { dayOfWeek: 5, startTime: "09:00", endTime: "18:00" },
+            { dayOfWeek: 1, startTime: "09:00", endTime: "12:00" },
+            { dayOfWeek: 1, startTime: "13:00", endTime: "18:00" },
+            { dayOfWeek: 2, startTime: "09:00", endTime: "12:00" },
+            { dayOfWeek: 2, startTime: "13:00", endTime: "18:00" },
+            { dayOfWeek: 3, startTime: "09:00", endTime: "12:00" },
+            { dayOfWeek: 3, startTime: "13:00", endTime: "18:00" },
+            { dayOfWeek: 4, startTime: "09:00", endTime: "12:00" },
+            { dayOfWeek: 4, startTime: "13:00", endTime: "18:00" },
+            { dayOfWeek: 5, startTime: "09:00", endTime: "12:00" },
+            { dayOfWeek: 5, startTime: "13:00", endTime: "18:00" },
           ],
         },
       },

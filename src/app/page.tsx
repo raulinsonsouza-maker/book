@@ -74,7 +74,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl px-6 py-16">
             <div className="surface overflow-hidden">
               <div className="border-b border-border bg-muted-bg/50 px-4 py-2.5 text-xs text-muted">
-                /p/sua-pagina · funil público
+                /p/empresa/sua-agenda · funil público
               </div>
               <div className="grid md:grid-cols-2">
                 <div className="space-y-3 border-b border-border p-8 md:border-b-0 md:border-r">

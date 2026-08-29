@@ -14,7 +14,7 @@ export default async function AppLayout({
 
   const org = await prisma.organization.findUnique({
     where: { id: session.user.organizationId },
-    select: { name: true, logoUrl: true },
+    select: { name: true, logoUrl: true, businessMode: true },
   });
 
   return (
@@ -22,6 +22,8 @@ export default async function AppLayout({
       organizationName={org?.name || session.user.organizationName}
       organizationLogoUrl={org?.logoUrl}
       userName={session.user.name}
+      role={session.user.role}
+      businessMode={org?.businessMode || session.user.businessMode || "SOLO"}
     >
       {children}
     </AppShell>

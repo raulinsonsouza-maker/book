@@ -30,6 +30,12 @@ type CustomField = {
   options: string | null;
 };
 
+type ProOption = {
+  id: string;
+  displayName: string;
+  photoUrl: string | null;
+};
+
 type Service = {
   id: string;
   title: string;
@@ -37,6 +43,7 @@ type Service = {
   durationMinutes: number;
   priceCents: number;
   customFields: CustomField[];
+  professionals?: ProOption[];
 };
 
 type PageInfo = {
@@ -52,10 +59,11 @@ type PageInfo = {
 };
 
 type Slot = { startAt: string; endAt: string; label: string };
-type Step = "service" | "datetime" | "details" | "payment" | "done";
+type Step = "service" | "professional" | "datetime" | "details" | "payment" | "done";
 
 const STEP_LABELS: { id: Step; label: string }[] = [
   { id: "service", label: "Serviço" },
+  { id: "professional", label: "Profissional" },
   { id: "datetime", label: "Horário" },
   { id: "details", label: "Dados" },
   { id: "payment", label: "Pagamento" },
@@ -77,7 +85,14 @@ function groupSlots(slots: Slot[]) {
   return { morning, afternoon };
 }
 
-export function BookingFunnel({ slug }: { slug: string }) {
+export function BookingFunnel({
+  orgSlug,
+  pageSlug,
+}: {
+  orgSlug: string;
+  pageSlug: string;
+}) {
+  const apiBase = `/api/public/${orgSlug}/${pageSlug}`;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState<PageInfo | null>(null);
@@ -93,7 +108,10 @@ export function BookingFunnel({ slug }: { slug: string }) {
   const [mercadoPagoPublicKey, setMercadoPagoPublicKey] = useState<string | null>(null);
 
   const [step, setStep] = useState<Step>("service");
+  const [businessMode, setBusinessMode] = useState<"SOLO" | "SALON">("SOLO");
   const [service, setService] = useState<Service | null>(null);
+  const [professional, setProfessional] = useState<ProOption | null>(null);
+  const [anyone, setAnyone] = useState(false);
   const [month, setMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -148,7 +166,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
   }, []);
 
   useEffect(() => {
-    fetch(`/api/public/${slug}`)
+    fetch(`${apiBase}`)
       .then(async (r) => {
         if (!r.ok) throw new Error("Página não encontrada");
         return r.json();
@@ -165,17 +183,23 @@ export function BookingFunnel({ slug }: { slug: string }) {
         setMercadoPagoPublicKey(data.mercadoPagoPublicKey);
         setTimezone(data.page.timezone || DEFAULT_TIMEZONE);
         setBusinessName(data.brand?.businessName || data.page?.businessName || "");
+        const mode = data.businessMode === "SALON" ? "SALON" : "SOLO";
+        setBusinessMode(mode);
 
         // Auto-skip serviço único
         if (data.services?.length === 1) {
           setService(data.services[0]);
-          setStep("datetime");
-          const firstDay = data.availableDays?.[0];
-          if (firstDay) {
-            setSelectedDate(firstDay);
-            setMonth(parseISO(firstDay));
+          if (mode === "SALON") {
+            setStep("professional");
+          } else {
+            setStep("datetime");
+            const firstDay = data.availableDays?.[0];
+            if (firstDay) {
+              setSelectedDate(firstDay);
+              setMonth(parseISO(firstDay));
+            }
           }
-        } else if (data.availableDays?.[0]) {
+        } else if (data.availableDays?.[0] && mode === "SOLO") {
           setSelectedDate(data.availableDays[0]);
           setMonth(parseISO(data.availableDays[0]));
         }
@@ -185,26 +209,64 @@ export function BookingFunnel({ slug }: { slug: string }) {
         setError(e.message);
         setLoading(false);
       });
-  }, [slug]);
+  }, [orgSlug, pageSlug]);
 
   useEffect(() => {
     if (!selectedDate || !service) return;
+    if (businessMode === "SALON" && !anyone && !professional) return;
     setSlotsLoading(true);
     setSelectedSlot(null);
-    fetch(`/api/public/${slug}?date=${selectedDate}&serviceId=${service.id}`)
+    const qs = new URLSearchParams({
+      date: selectedDate,
+      serviceId: service.id,
+    });
+    if (businessMode === "SALON") {
+      if (anyone) qs.set("anyone", "1");
+      else if (professional) qs.set("professionalId", professional.id);
+    }
+    fetch(`${apiBase}?${qs}`)
       .then((r) => r.json())
       .then((data) => {
         setSlots(data.slots || []);
+        if (data.availableDays) setAvailableDays(data.availableDays);
         setSlotsLoading(false);
       })
       .catch(() => setSlotsLoading(false));
-  }, [selectedDate, service, slug]);
+  }, [selectedDate, service, apiBase, businessMode, professional, anyone]);
+
+  // Bootstrap dias disponíveis quando entra no modo profissional
+  useEffect(() => {
+    if (businessMode !== "SALON" || !service) return;
+    if (!anyone && !professional) return;
+    if (selectedDate) return;
+    const today = format(new Date(), "yyyy-MM-dd");
+    const qs = new URLSearchParams({
+      date: today,
+      serviceId: service.id,
+    });
+    if (anyone) qs.set("anyone", "1");
+    else if (professional) qs.set("professionalId", professional.id);
+    fetch(`${apiBase}?${qs}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const days: string[] = data.availableDays || [];
+        if (days.length) {
+          setAvailableDays(days);
+          setSelectedDate(days[0]);
+          setMonth(parseISO(days[0]));
+        } else {
+          setAvailableDays([]);
+        }
+        setSlots(data.slots || []);
+      })
+      .catch(() => undefined);
+  }, [businessMode, service, professional, anyone, selectedDate, apiBase]);
 
   const startPix = useCallback(
     async (id: string) => {
       setPixLoading(true);
       setError("");
-      const res = await fetch(`/api/public/${slug}/pay?method=pix`, {
+      const res = await fetch(`${apiBase}/pay?method=pix`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bookingId: id, fingerprint: `fp_${id}` }),
@@ -218,7 +280,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
       setPixQr(data.qrCode);
       setPixQrBase64(data.qrCodeBase64 || null);
     },
-    [slug],
+    [orgSlug, pageSlug],
   );
 
   // Poll status + auto Pix
@@ -240,11 +302,15 @@ export function BookingFunnel({ slug }: { slug: string }) {
   const grouped = useMemo(() => groupSlots(slots), [slots]);
 
   const visibleSteps = useMemo(() => {
+    let steps = STEP_LABELS;
     if (services.length <= 1) {
-      return STEP_LABELS.filter((s) => s.id !== "service");
+      steps = steps.filter((s) => s.id !== "service");
     }
-    return STEP_LABELS;
-  }, [services.length]);
+    if (businessMode !== "SALON") {
+      steps = steps.filter((s) => s.id !== "professional");
+    }
+    return steps;
+  }, [services.length, businessMode]);
 
   const stepIndex = visibleSteps.findIndex(
     (s) => s.id === (step === "done" ? "payment" : step),
@@ -258,11 +324,27 @@ export function BookingFunnel({ slug }: { slug: string }) {
     setService(s);
     setError("");
     setSelectedSlot(null);
+    setProfessional(null);
+    setAnyone(false);
+    if (businessMode === "SALON") {
+      setStep("professional");
+      return;
+    }
     setStep("datetime");
     if (!selectedDate && availableDays[0]) {
       setSelectedDate(availableDays[0]);
       setMonth(parseISO(availableDays[0]));
     }
+  }
+
+  function pickProfessional(p: ProOption | null, asAnyone = false) {
+    setAnyone(asAnyone);
+    setProfessional(asAnyone ? null : p);
+    setError("");
+    setSelectedSlot(null);
+    setSelectedDate(null);
+    setSlots([]);
+    setStep("datetime");
   }
 
   function pickSlot(slot: Slot) {
@@ -284,11 +366,18 @@ export function BookingFunnel({ slug }: { slug: string }) {
 
   async function refreshSlotsForDate(date: string) {
     if (!service) return;
+    if (businessMode === "SALON" && !anyone && !professional) return;
     setSlotsLoading(true);
     try {
-      const res = await fetch(`/api/public/${slug}?date=${date}&serviceId=${service.id}`);
+      const qs = new URLSearchParams({ date, serviceId: service.id });
+      if (businessMode === "SALON") {
+        if (anyone) qs.set("anyone", "1");
+        else if (professional) qs.set("professionalId", professional.id);
+      }
+      const res = await fetch(`${apiBase}?${qs}`);
       const data = await res.json();
       setSlots(data.slots || []);
+      if (data.availableDays) setAvailableDays(data.availableDays);
     } catch {
       setSlots([]);
     } finally {
@@ -313,7 +402,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
     if (step !== "payment" || payMethod !== "pix" || !bookingId || !pixQr) return;
     const id = setInterval(async () => {
       const res = await fetch(
-        `/api/public/${slug}/status?bookingId=${bookingId}`,
+        `${apiBase}/status?bookingId=${bookingId}`,
       );
       const data = await res.json();
       if (data.status === "CONFIRMED") setStep("done");
@@ -324,7 +413,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
       }
     }, 2500);
     return () => clearInterval(id);
-  }, [step, payMethod, bookingId, pixQr, slug, selectedDate, service]);
+  }, [step, payMethod, bookingId, pixQr, apiBase, selectedDate, service]);
 
   async function submitDetails(e: React.FormEvent) {
     e.preventDefault();
@@ -362,6 +451,13 @@ export function BookingFunnel({ slug }: { slug: string }) {
       timezone,
       customerName: details.customerName,
       customAnswers: Object.keys(customAnswers).length ? customAnswers : undefined,
+      ...(businessMode === "SALON"
+        ? anyone
+          ? { anyone: true }
+          : professional
+            ? { professionalId: professional.id }
+            : {}
+        : {}),
     };
     for (const field of formFields) {
       if (field.preset === "customerEmail") payload.customerEmail = details.customerEmail;
@@ -371,7 +467,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
       }
     }
 
-    const res = await fetch(`/api/public/${slug}/book`, {
+    const res = await fetch(`${apiBase}/book`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -396,7 +492,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
   async function confirmDemoPix() {
     if (!bookingId) return;
     setPaying(true);
-    const res = await fetch(`/api/public/${slug}/pay?method=demo-confirm`, {
+    const res = await fetch(`${apiBase}/pay?method=demo-confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bookingId }),
@@ -501,7 +597,7 @@ export function BookingFunnel({ slug }: { slug: string }) {
       }
     }
 
-    const res = await fetch(`/api/public/${slug}/pay?method=card`, {
+    const res = await fetch(`${apiBase}/pay?method=card`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -526,11 +622,22 @@ export function BookingFunnel({ slug }: { slug: string }) {
 
   function goBack() {
     setError("");
-    if (step === "datetime") {
+    if (step === "professional") {
       if (services.length > 1) {
         setStep("service");
         setService(null);
-        setSelectedSlot(null);
+      }
+      setProfessional(null);
+      setAnyone(false);
+    } else if (step === "datetime") {
+      setSelectedSlot(null);
+      if (businessMode === "SALON") {
+        setStep("professional");
+        setProfessional(null);
+        setAnyone(false);
+      } else if (services.length > 1) {
+        setStep("service");
+        setService(null);
       }
     } else if (step === "details") setStep("datetime");
     else if (step === "payment") setStep("details");
@@ -620,9 +727,17 @@ export function BookingFunnel({ slug }: { slug: string }) {
               <p className="text-xs font-medium text-foreground">
                 {currentStepLabel}
               </p>
-              {(service || whenLabel) && (
+              {(service || professional || anyone || whenLabel) && (
                 <p className="truncate text-[11px] text-muted">
-                  {[service?.title, whenLabel].filter(Boolean).join(" · ")}
+                  {[
+                    service?.title,
+                    anyone
+                      ? "Qualquer disponível"
+                      : professional?.displayName,
+                    whenLabel,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               )}
             </div>
@@ -712,6 +827,71 @@ export function BookingFunnel({ slug }: { slug: string }) {
                     >
                       →
                     </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* PROFESSIONAL */}
+        {step === "professional" && service && (
+          <div className="space-y-4 animate-in">
+            <div>
+              <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
+                Com quem você prefere?
+              </h1>
+              <p className="mt-2 text-sm text-muted">
+                {service.title} · escolha o profissional ou qualquer disponível
+              </p>
+            </div>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => pickProfessional(null, true)}
+                className="booking-service group"
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white"
+                    style={{ background: accent }}
+                  >
+                    ?
+                  </span>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="font-semibold tracking-tight">Qualquer disponível</p>
+                    <p className="text-sm text-muted">Primeiro horário livre entre a equipe</p>
+                  </div>
+                  <span className="text-muted">→</span>
+                </div>
+              </button>
+              {(service.professionals || []).map((pro) => (
+                <button
+                  key={pro.id}
+                  type="button"
+                  onClick={() => pickProfessional(pro)}
+                  className="booking-service group"
+                >
+                  <div className="flex items-center gap-3">
+                    {pro.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={pro.photoUrl}
+                        alt=""
+                        className="h-12 w-12 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                        style={{ background: accent }}
+                      >
+                        {pro.displayName.slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
+                    <p className="min-w-0 flex-1 text-left font-semibold tracking-tight">
+                      {pro.displayName}
+                    </p>
+                    <span className="text-muted">→</span>
                   </div>
                 </button>
               ))}

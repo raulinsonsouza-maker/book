@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SignOutButton } from "@/components/admin/SignOutButton";
+import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import {
   NavIconAccount,
   NavIconBookings,
@@ -16,6 +17,14 @@ import {
   NavIconMenu,
   NavIconPages,
 } from "@/components/admin/NavIcons";
+
+const PRO_BLOCKED_PREFIXES = [
+  "/app/pages",
+  "/app/checkout",
+  "/app/integrations",
+  "/app/professionals",
+  "/app/settings",
+];
 
 type NavItem = {
   href: string;
@@ -34,6 +43,12 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Principal",
     items: [
       { href: "/app", label: "Painel", icon: NavIconHome, match: (p) => p === "/app" },
+      {
+        href: "/app/salao",
+        label: "Gestão à vista",
+        icon: NavIconCalendar,
+        match: (p) => p.startsWith("/app/salao"),
+      },
       {
         href: "/app/agenda/calendario",
         label: "Calendário",
@@ -92,6 +107,7 @@ const NAV_SECTIONS: NavSection[] = [
 
 const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p === "/app", title: "Painel" },
+  { match: (p) => p.startsWith("/app/salao"), title: "Gestão à vista" },
   { match: (p) => p.startsWith("/app/agenda/calendario"), title: "Calendário" },
   { match: (p) => p.startsWith("/app/agenda/listagem"), title: "Agendamentos" },
   { match: (p) => p.startsWith("/app/pages") && p.includes("/builder"), title: "Personalizar agenda" },
@@ -101,6 +117,8 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith("/app/checkout/vendas"), title: "Vendas" },
   { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Produtos" },
   { match: (p) => p.startsWith("/app/checkout"), title: "Checkout" },
+  { match: (p) => p.startsWith("/app/professionals"), title: "Profissionais" },
+  { match: (p) => p.startsWith("/app/profile"), title: "Meu perfil" },
   { match: (p) => p.startsWith("/app/financeiro"), title: "Financeiro" },
   { match: (p) => p.startsWith("/app/integrations"), title: "Integrações" },
   { match: (p) => p.startsWith("/app/settings"), title: "Conta" },
@@ -148,19 +166,153 @@ type Props = {
   organizationName?: string | null;
   organizationLogoUrl?: string | null;
   userName?: string | null;
+  role?: string | null;
+  businessMode?: string | null;
   children: React.ReactNode;
 };
+
+function navForRole(
+  role: string | null | undefined,
+  businessMode: string | null | undefined,
+): NavSection[] {
+  const isPro = role === "PROFESSIONAL";
+  const salon = businessMode === "SALON";
+
+  if (isPro) {
+    return [
+      {
+        title: "Principal",
+        items: [
+          { href: "/app", label: "Painel", icon: NavIconHome, match: (p) => p === "/app" },
+          {
+            href: "/app/salao",
+            label: "Gestão à vista",
+            icon: NavIconCalendar,
+            match: (p) => p.startsWith("/app/salao"),
+          },
+          {
+            href: "/app/agenda/calendario",
+            label: "Calendário",
+            icon: NavIconCalendar,
+            match: (p) => p.startsWith("/app/agenda/calendario"),
+          },
+          {
+            href: "/app/agenda/listagem",
+            label: "Agendamentos",
+            icon: NavIconBookings,
+            match: (p) =>
+              p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
+          },
+          {
+            href: "/app/financeiro",
+            label: "Financeiro",
+            icon: NavIconFinance,
+            match: (p) => p.startsWith("/app/financeiro"),
+          },
+        ],
+      },
+      {
+        title: "Conta",
+        items: [
+          {
+            href: "/app/profile",
+            label: "Meu perfil",
+            icon: NavIconAccount,
+            match: (p) => p.startsWith("/app/profile"),
+          },
+        ],
+      },
+    ];
+  }
+
+  const principal: NavItem[] = [
+    { href: "/app", label: "Painel", icon: NavIconHome, match: (p) => p === "/app" },
+  ];
+  if (salon) {
+    principal.push({
+      href: "/app/salao",
+      label: "Gestão à vista",
+      icon: NavIconCalendar,
+      match: (p) => p.startsWith("/app/salao"),
+    });
+  }
+  principal.push(
+    {
+      href: "/app/agenda/calendario",
+      label: "Calendário",
+      icon: NavIconCalendar,
+      match: (p) => p.startsWith("/app/agenda/calendario"),
+    },
+    {
+      href: "/app/agenda/listagem",
+      label: "Agendamentos",
+      icon: NavIconBookings,
+      match: (p) => p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
+    },
+  );
+
+  const gestao: NavItem[] = [
+    {
+      href: "/app/pages",
+      label: "Agendas",
+      icon: NavIconPages,
+      match: (p) => p.startsWith("/app/pages"),
+    },
+  ];
+  if (salon) {
+    gestao.push({
+      href: "/app/professionals",
+      label: "Profissionais",
+      icon: NavIconBookings,
+      match: (p) => p.startsWith("/app/professionals"),
+    });
+  }
+  gestao.push(
+    {
+      href: "/app/checkout/produtos",
+      label: "Checkout",
+      icon: NavIconCheckout,
+      match: (p) => p.startsWith("/app/checkout"),
+    },
+    {
+      href: "/app/financeiro",
+      label: "Financeiro",
+      icon: NavIconFinance,
+      match: (p) => p.startsWith("/app/financeiro"),
+    },
+  );
+
+  return [
+    { title: "Principal", items: principal },
+    { title: "Gestão", items: gestao },
+    NAV_SECTIONS[2],
+  ];
+}
 
 export function AppShell({
   organizationName,
   organizationLogoUrl,
   userName,
+  role,
+  businessMode,
   children,
 }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isBuilder = pathname.includes("/builder");
+  const isFloor = pathname.startsWith("/app/salao");
   const displayName = organizationName || userName || "Sua conta";
+  const sections = navForRole(role, businessMode);
+  const modeLabel =
+    businessMode === "SALON" ? "Modo Salão" : "Modo Individual";
+
+  useEffect(() => {
+    if (role !== "PROFESSIONAL") return;
+    if (PRO_BLOCKED_PREFIXES.some((p) => pathname.startsWith(p))) {
+      router.replace("/app");
+    }
+  }, [role, pathname, router]);
 
   const closeMobile = () => setMobileOpen(false);
 
@@ -177,8 +329,14 @@ export function AppShell({
         onClick={closeMobile}
       />
 
+      <div className="px-3 pb-1">
+        <span className="inline-flex rounded-full bg-muted-bg px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted ring-1 ring-border">
+          {modeLabel}
+        </span>
+      </div>
+
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
-        {NAV_SECTIONS.map((section) => (
+        {sections.map((section) => (
           <div key={section.title}>
             {section.title && (
               <p className="sidebar-section-label">{section.title}</p>
@@ -202,7 +360,9 @@ export function AppShell({
           <span className="sidebar-user-avatar">{initials(displayName)}</span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
-            <p className="text-[11px] text-muted">Plano ativo</p>
+            <p className="text-[11px] text-muted">
+              {role === "PROFESSIONAL" ? "Profissional" : "Plano ativo"}
+            </p>
           </div>
         </div>
       </div>
@@ -210,6 +370,7 @@ export function AppShell({
   );
 
   return (
+    <ConfirmProvider>
     <div className="admin-shell flex min-h-screen">
       <aside className="admin-sidebar hidden w-[15.5rem] shrink-0 lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-col">
         {sidebar}
@@ -251,10 +412,11 @@ export function AppShell({
             <SignOutButton />
           </div>
         </header>
-        <main className={`admin-main flex-1 ${isBuilder ? "p-0" : "p-4 md:p-6 lg:p-8"}`}>
-          <div className={isBuilder ? "h-full" : "mx-auto max-w-7xl"}>{children}</div>
+        <main className={`admin-main flex-1 ${isBuilder || isFloor ? "p-0" : "p-4 md:p-6 lg:p-8"}`}>
+          <div className={isBuilder || isFloor ? "h-full" : "mx-auto max-w-7xl"}>{children}</div>
         </main>
       </div>
     </div>
+    </ConfirmProvider>
   );
 }

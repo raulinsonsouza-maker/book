@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth";
 import type { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
@@ -8,6 +7,8 @@ declare module "next-auth" {
       organizationId?: string;
       organizationName?: string;
       role?: string;
+      businessMode?: string;
+      professionalId?: string | null;
     };
   }
 }
@@ -18,6 +19,8 @@ declare module "next-auth/jwt" {
     organizationId?: string;
     organizationName?: string;
     role?: string;
+    businessMode?: string;
+    professionalId?: string | null;
   }
 }
 

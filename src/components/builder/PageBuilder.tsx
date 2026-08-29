@@ -14,14 +14,21 @@ type Selection =
 
 type Props = {
   pageId: string;
-  slug: string;
+  orgSlug: string;
+  pageSlug: string;
+  embedded?: boolean;
 };
 
 function newId() {
   return `b_${Date.now().toString(36)}`;
 }
 
-export function PageBuilder({ pageId, slug }: Props) {
+export function PageBuilder({
+  pageId,
+  orgSlug,
+  pageSlug,
+  embedded = false,
+}: Props) {
   const [config, setConfig] = useState<FunnelConfig | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const [mobileTab, setMobileTab] = useState<"palette" | "preview" | "props">("preview");
@@ -103,24 +110,38 @@ export function PageBuilder({ pageId, slug }: Props) {
   const sortedFields = [...config.formFields].sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div
+      className={`flex flex-col ${
+        embedded ? "min-h-[70vh]" : "h-[calc(100vh-3.5rem)]"
+      }`}
+    >
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-white px-4 py-3">
         <div className="flex items-center gap-3">
-          <Link href={`/app/pages/${pageId}`} className="text-sm text-muted hover:text-foreground">
-            ← Editor
-          </Link>
+          {!embedded && (
+            <Link
+              href={`/app/pages/${pageId}`}
+              className="text-sm text-muted hover:text-foreground"
+            >
+              ← Editor
+            </Link>
+          )}
           {msg && <span className="text-xs text-emerald-600">{msg}</span>}
         </div>
         <div className="flex gap-2">
           <a
-            href={`/p/${slug}`}
+            href={`/p/${orgSlug}/${pageSlug}`}
             target="_blank"
             rel="noreferrer"
             className="btn-secondary !py-1.5 text-xs"
           >
             Abrir agenda
           </a>
-          <button type="button" onClick={save} disabled={saving} className="btn-primary !py-1.5 text-xs">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="btn-primary !py-1.5 text-xs"
+          >
             {saving ? "Salvando…" : "Salvar"}
           </button>
         </div>
@@ -261,7 +282,7 @@ export function PageBuilder({ pageId, slug }: Props) {
             mobileTab === "preview" ? "block" : "hidden lg:block"
           }`}
         >
-          <FunnelPreview slug={slug} config={config} />
+          <FunnelPreview slug={pageSlug} config={config} />
         </div>
 
         <aside

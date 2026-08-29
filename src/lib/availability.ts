@@ -18,13 +18,6 @@ import {
 
 export type { Rule } from "@/lib/availability-core";
 
-type Exception = {
-  date: string;
-  isBlocked: boolean;
-  startTime: string | null;
-  endTime: string | null;
-};
-
 export function filterSlotsByBusy<T extends { startAt: string; endAt: string }>(
   slots: T[],
   busy: { start: Date; end: Date }[],
@@ -57,6 +50,7 @@ export async function getBusyIntervals(params: {
   timezone: string;
   bufferBefore: number;
   bufferAfter: number;
+  professionalId?: string | null;
   excludeBookingId?: string;
 }) {
   const dayStart = parseTimeOnDate(params.date, "00:00", params.timezone);
@@ -68,23 +62,29 @@ export async function getBusyIntervals(params: {
     include: { organization: true },
   });
 
-  const bookings = await prisma.booking.findMany({
-    where: {
-      bookingPageId: params.bookingPageId,
-      startAt: { gte: dayStart, lte: dayEnd },
-      ...(params.excludeBookingId ? { id: { not: params.excludeBookingId } } : {}),
-      OR: [
-        { status: "CONFIRMED" },
-        { status: "PENDING_PAYMENT", holdExpiresAt: { gt: now } },
-      ],
-    },
-  });
+  const bookingWhere = {
+    bookingPageId: params.bookingPageId,
+    startAt: { gte: dayStart, lte: dayEnd },
+    ...(params.excludeBookingId ? { id: { not: params.excludeBookingId } } : {}),
+    ...(params.professionalId
+      ? { professionalId: params.professionalId }
+      : {}),
+    OR: [
+      { status: "CONFIRMED" as const },
+      { status: "PENDING_PAYMENT" as const, holdExpiresAt: { gt: now } },
+    ],
+  };
+
+  const bookings = await prisma.booking.findMany({ where: bookingWhere });
 
   const holds = await prisma.slotHold.findMany({
     where: {
       bookingPageId: params.bookingPageId,
       startAt: { gte: dayStart, lte: dayEnd },
       expiresAt: { gt: now },
+      ...(params.professionalId
+        ? { professionalId: params.professionalId }
+        : {}),
       ...(params.excludeBookingId
         ? {
             OR: [{ bookingId: null }, { bookingId: { not: params.excludeBookingId } }],
@@ -104,7 +104,8 @@ export async function getBusyIntervals(params: {
     })),
   ];
 
-  if (page?.organization) {
+  // Google busy só no modo SOLO (calendário único da org)
+  if (page?.organization && !params.professionalId) {
     const { getGoogleBusyIntervals } = await import("@/lib/google/calendar");
     const googleBusy = await getGoogleBusyIntervals({
       org: page.organization,
@@ -122,6 +123,37 @@ export async function getBusyIntervals(params: {
   return intervals;
 }
 
+async function loadRulesAndExceptions(params: {
+  bookingPageId: string;
+  professionalId?: string | null;
+  date?: string;
+}) {
+  if (params.professionalId) {
+    const rules = await prisma.availabilityRule.findMany({
+      where: { professionalId: params.professionalId },
+    });
+    const exceptions = await prisma.availabilityException.findMany({
+      where: {
+        professionalId: params.professionalId,
+        ...(params.date ? { date: params.date } : {}),
+      },
+    });
+    return { rules, exceptions };
+  }
+
+  const rules = await prisma.availabilityRule.findMany({
+    where: { bookingPageId: params.bookingPageId, professionalId: null },
+  });
+  const exceptions = await prisma.availabilityException.findMany({
+    where: {
+      bookingPageId: params.bookingPageId,
+      professionalId: null,
+      ...(params.date ? { date: params.date } : {}),
+    },
+  });
+  return { rules, exceptions };
+}
+
 export async function getTheoreticalSlots(params: {
   bookingPageId: string;
   date: string;
@@ -130,12 +162,12 @@ export async function getTheoreticalSlots(params: {
   bufferBefore?: number;
   bufferAfter?: number;
   slotStepMinutes?: number;
+  professionalId?: string | null;
 }) {
-  const rules = await prisma.availabilityRule.findMany({
-    where: { bookingPageId: params.bookingPageId },
-  });
-  const exceptions = await prisma.availabilityException.findMany({
-    where: { bookingPageId: params.bookingPageId, date: params.date },
+  const { rules, exceptions } = await loadRulesAndExceptions({
+    bookingPageId: params.bookingPageId,
+    professionalId: params.professionalId,
+    date: params.date,
   });
 
   return computeTheoreticalSlots({
@@ -156,13 +188,12 @@ export async function getAvailableDays(params: {
   from: Date;
   days?: number;
   timezone: string;
+  professionalId?: string | null;
 }) {
-  const { bookingPageId, from, timezone, days = 60 } = params;
-  const rules = await prisma.availabilityRule.findMany({
-    where: { bookingPageId },
-  });
-  const exceptions = await prisma.availabilityException.findMany({
-    where: { bookingPageId },
+  const { bookingPageId, from, timezone, days = 60, professionalId } = params;
+  const { rules, exceptions } = await loadRulesAndExceptions({
+    bookingPageId,
+    professionalId,
   });
 
   const available: string[] = [];
@@ -186,16 +217,17 @@ export async function getAvailableSlots(params: {
   bufferBefore?: number;
   bufferAfter?: number;
   slotStepMinutes?: number;
+  professionalId?: string | null;
 }) {
   const {
     bookingPageId,
-    serviceId,
     date,
     timezone,
     durationMinutes,
     bufferBefore = 0,
     bufferAfter = 0,
     slotStepMinutes = 0,
+    professionalId,
   } = params;
 
   const page = await prisma.bookingPage.findUnique({
@@ -216,6 +248,7 @@ export async function getAvailableSlots(params: {
     bufferBefore,
     bufferAfter,
     slotStepMinutes: step,
+    professionalId,
   });
 
   const busy = await getBusyIntervals({
@@ -224,6 +257,7 @@ export async function getAvailableSlots(params: {
     timezone,
     bufferBefore,
     bufferAfter,
+    professionalId,
   });
 
   const available = filterSlotsByBusy(
@@ -232,6 +266,93 @@ export async function getAvailableSlots(params: {
   );
 
   return available.map(({ startAt, endAt, label }) => ({ startAt, endAt, label }));
+}
+
+/** União de dias com pelo menos um slot teórico entre profissionais. */
+export async function getAvailableDaysAnyone(params: {
+  bookingPageId: string;
+  from: Date;
+  days?: number;
+  timezone: string;
+  professionalIds: string[];
+}) {
+  const set = new Set<string>();
+  for (const professionalId of params.professionalIds) {
+    const days = await getAvailableDays({
+      bookingPageId: params.bookingPageId,
+      from: params.from,
+      days: params.days,
+      timezone: params.timezone,
+      professionalId,
+    });
+    for (const d of days) set.add(d);
+  }
+  return [...set].sort();
+}
+
+/** União de slots livres entre profissionais (modo "qualquer disponível"). */
+export async function getAvailableSlotsAnyone(params: {
+  bookingPageId: string;
+  serviceId: string;
+  date: string;
+  timezone: string;
+  durationMinutes: number;
+  bufferBefore?: number;
+  bufferAfter?: number;
+  professionalIds: string[];
+}) {
+  const byStart = new Map<string, { startAt: string; endAt: string; label: string }>();
+
+  for (const professionalId of params.professionalIds) {
+    const slots = await getAvailableSlots({
+      ...params,
+      professionalId,
+    });
+    for (const s of slots) {
+      if (!byStart.has(s.startAt)) byStart.set(s.startAt, s);
+    }
+  }
+
+  return [...byStart.values()].sort(
+    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+  );
+}
+
+/** Escolhe a profissional livre com menor sortOrder para um slot. */
+export async function pickProfessionalForSlot(params: {
+  bookingPageId: string;
+  serviceId: string;
+  startAt: Date;
+  endAt: Date;
+  timezone: string;
+  durationMinutes: number;
+  bufferBefore?: number;
+  bufferAfter?: number;
+  professionalIds: string[];
+}) {
+  const pros = await prisma.professional.findMany({
+    where: {
+      id: { in: params.professionalIds },
+      isActive: true,
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+
+  for (const pro of pros) {
+    const ok = await isSlotAvailable({
+      bookingPageId: params.bookingPageId,
+      serviceId: params.serviceId,
+      startAt: params.startAt,
+      endAt: params.endAt,
+      timezone: params.timezone,
+      durationMinutes: params.durationMinutes,
+      bufferBefore: params.bufferBefore,
+      bufferAfter: params.bufferAfter,
+      professionalId: pro.id,
+    });
+    if (ok) return pro.id;
+  }
+  return null;
 }
 
 export async function assertSlotAvailable(params: {
@@ -244,6 +365,7 @@ export async function assertSlotAvailable(params: {
   bufferBefore?: number;
   bufferAfter?: number;
   excludeBookingId?: string;
+  professionalId?: string | null;
 }) {
   const bufferBefore = params.bufferBefore || 0;
   const bufferAfter = params.bufferAfter || 0;
@@ -265,6 +387,7 @@ export async function assertSlotAvailable(params: {
     bufferBefore,
     bufferAfter,
     slotStepMinutes,
+    professionalId: params.professionalId,
   });
 
   const matchesTheoretical = slots.some(
@@ -286,6 +409,7 @@ export async function assertSlotAvailable(params: {
     bufferBefore,
     bufferAfter,
     excludeBookingId: params.excludeBookingId,
+    professionalId: params.professionalId,
   });
 
   if (intervalsOverlap(params.startAt, params.endAt, busy)) {
@@ -297,6 +421,9 @@ export async function assertSlotAvailable(params: {
   const overlap = await prisma.booking.findFirst({
     where: {
       bookingPageId: params.bookingPageId,
+      ...(params.professionalId
+        ? { professionalId: params.professionalId }
+        : {}),
       ...(params.excludeBookingId ? { id: { not: params.excludeBookingId } } : {}),
       startAt: { lt: params.endAt },
       endAt: { gt: params.startAt },
@@ -324,6 +451,7 @@ export async function isSlotAvailable(params: {
   bufferBefore?: number;
   bufferAfter?: number;
   excludeBookingId?: string;
+  professionalId?: string | null;
 }) {
   try {
     await assertSlotAvailable(params);

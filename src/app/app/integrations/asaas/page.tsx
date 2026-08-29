@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AsaasIcon } from "@/components/icons/AsaasIcon";
 import { ASAAS_ENABLED } from "@/lib/feature-flags";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 type Status = {
   connected: boolean;
@@ -15,6 +16,7 @@ type Status = {
 
 export default function AsaasIntegrationPage() {
   const router = useRouter();
+  const { confirm } = useConfirm();
   const [status, setStatus] = useState<Status | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -60,7 +62,14 @@ export default function AsaasIntegrationPage() {
   }
 
   async function disconnect() {
-    if (!confirm("Desconectar o Asaas?")) return;
+    const ok = await confirm({
+      title: "Desconectar Asaas?",
+      description: "Pagamentos via Asaas param de funcionar até reconectar.",
+      confirmLabel: "Desconectar",
+      cancelLabel: "Manter conectado",
+      tone: "danger",
+    });
+    if (!ok) return;
     setSaving(true);
     await fetch("/api/asaas/status", { method: "DELETE" });
     setStatus((s) =>

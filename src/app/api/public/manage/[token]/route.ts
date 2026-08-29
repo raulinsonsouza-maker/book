@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { addMinutes } from "date-fns";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { assertSlotAvailable, getAvailableDays, getAvailableSlots } from "@/lib/availability";
+import {
+  assertSlotAvailable,
+  getAvailableDays,
+  getAvailableSlots,
+} from "@/lib/availability";
 import { emitBookingEvent } from "@/lib/events/booking-events";
 
 async function loadByToken(token: string) {
@@ -33,8 +37,10 @@ function publicBooking(booking: NonNullable<Awaited<ReturnType<typeof loadByToke
     pageTitle: booking.bookingPage.title,
     pageSlug: booking.bookingPage.slug,
     orgName: booking.bookingPage.organization.name,
+    orgSlug: booking.bookingPage.organization.slug,
     meetLink: booking.googleMeetLink,
-    canManage: booking.status === "CONFIRMED",
+    canReschedule: booking.status === "CONFIRMED",
+    professionalId: booking.professionalId,
   };
 }
 
@@ -50,6 +56,8 @@ export async function GET(
 
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
+  const salon = booking.bookingPage.organization.businessMode === "SALON";
+  const professionalId = salon ? booking.professionalId : null;
 
   if (date && booking.status === "CONFIRMED") {
     const slots = await getAvailableSlots({
@@ -61,6 +69,7 @@ export async function GET(
       bufferBefore: booking.service.bufferBefore,
       bufferAfter: booking.service.bufferAfter,
       slotStepMinutes: booking.bookingPage.slotStepMinutes || undefined,
+      professionalId,
     });
     return NextResponse.json({ booking: publicBooking(booking), slots });
   }
@@ -71,19 +80,20 @@ export async function GET(
           bookingPageId: booking.bookingPageId,
           from: new Date(),
           timezone: booking.timezone,
+          professionalId,
         })
       : [];
 
-  return NextResponse.json({ booking: publicBooking(booking), availableDays: days });
+  return NextResponse.json({
+    booking: publicBooking(booking),
+    availableDays: days,
+  });
 }
 
-const actionSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("cancel") }),
-  z.object({
-    action: z.literal("reschedule"),
-    startAt: z.string().datetime(),
-  }),
-]);
+const actionSchema = z.object({
+  action: z.literal("reschedule"),
+  startAt: z.string().datetime(),
+});
 
 export async function POST(
   req: Request,
@@ -96,32 +106,17 @@ export async function POST(
   }
   if (booking.status !== "CONFIRMED") {
     return NextResponse.json(
-      { error: "Só é possível gerenciar agendamentos confirmados" },
+      { error: "Só é possível remarcar agendamentos confirmados" },
       { status: 400 },
     );
   }
 
   try {
     const body = actionSchema.parse(await req.json());
-
-    if (body.action === "cancel") {
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { status: "CANCELLED", cancelledAt: new Date() },
-      });
-      await prisma.slotHold.deleteMany({ where: { bookingId: booking.id } });
-      await emitBookingEvent({
-        type: "booking.cancelled",
-        organizationId: booking.bookingPage.organizationId,
-        bookingId: booking.id,
-        dedupeKey: `cancel-${booking.id}`,
-      });
-      const updated = await loadByToken(token);
-      return NextResponse.json({ ok: true, booking: updated ? publicBooking(updated) : null });
-    }
-
     const startAt = new Date(body.startAt);
     const endAt = addMinutes(startAt, booking.service.durationMinutes);
+    const salon = booking.bookingPage.organization.businessMode === "SALON";
+    const professionalId = salon ? booking.professionalId : null;
 
     await assertSlotAvailable({
       bookingPageId: booking.bookingPageId,
@@ -133,6 +128,7 @@ export async function POST(
       bufferBefore: booking.service.bufferBefore,
       bufferAfter: booking.service.bufferAfter,
       excludeBookingId: booking.id,
+      professionalId,
     });
 
     await prisma.booking.update({
@@ -148,7 +144,10 @@ export async function POST(
     });
 
     const updated = await loadByToken(token);
-    return NextResponse.json({ ok: true, booking: updated ? publicBooking(updated) : null });
+    return NextResponse.json({
+      ok: true,
+      booking: updated ? publicBooking(updated) : null,
+    });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Erro" },

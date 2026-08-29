@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CAKTO_ENABLED } from "@/lib/feature-flags";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 type Org = {
   caktoClientId: string | null;
@@ -15,6 +16,7 @@ type Org = {
 
 export default function CaktoIntegrationPage() {
   const router = useRouter();
+  const { confirm } = useConfirm();
   const [org, setOrg] = useState<Org | null>(null);
   const [clientId, setClientId] = useState("");
   const [secret, setSecret] = useState("");
@@ -68,7 +70,14 @@ export default function CaktoIntegrationPage() {
   }
 
   async function disconnect() {
-    if (!confirm("Desconectar a Cakto?")) return;
+    const ok = await confirm({
+      title: "Desconectar Cakto?",
+      description: "Pagamentos via Cakto param de funcionar até reconectar.",
+      confirmLabel: "Desconectar",
+      cancelLabel: "Manter conectado",
+      tone: "danger",
+    });
+    if (!ok) return;
     setSaving(true);
     const res = await fetch("/api/organization", {
       method: "PATCH",

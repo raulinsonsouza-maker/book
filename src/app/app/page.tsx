@@ -64,6 +64,27 @@ export default async function AppHomePage() {
         />
       </div>
 
+      {org.businessMode === "SALON" && (
+        <Link
+          href="/app/salao"
+          className="dashboard-panel flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm transition hover:ring-2 hover:ring-foreground/10"
+        >
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+              Operação do dia
+            </p>
+            <h2 className="mt-1 text-base font-semibold tracking-tight">
+              Gestão à vista
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Abra no computador do salão — equipe na lateral, próximo cliente em
+              tempo real. Atualiza sozinho.
+            </p>
+          </div>
+          <span className="btn-primary shrink-0 !text-xs">Abrir painel</span>
+        </Link>
+      )}
+
       <DashboardTrendChart
         months={stats.chartMonths}
         maxValue={stats.maxChart}
@@ -110,7 +131,7 @@ export default async function AppHomePage() {
         </div>
       )}
 
-      <DashboardPagesList pages={stats.pages} appUrl={appUrl} />
+      <DashboardPagesList pages={stats.pages} appUrl={appUrl} orgSlug={org.slug} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ type Org = {
   description: string | null;
   logoUrl: string | null;
   accentColor: string;
+  businessMode: "SOLO" | "SALON";
   notifyClientConfirmation: boolean;
   notifyClientReminder: boolean;
   notifyClientFeedback: boolean;
@@ -39,6 +40,8 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingComms, setSavingComms] = useState(false);
+  const [savingMode, setSavingMode] = useState(false);
+  const [businessMode, setBusinessMode] = useState<"SOLO" | "SALON">("SOLO");
 
   useEffect(() => {
     fetch("/api/organization")
@@ -49,6 +52,7 @@ export default function SettingsPage() {
         setDescription(data.description || "");
         setLogoUrl(data.logoUrl || "");
         setAccentColor(data.accentColor || "#0a0a0a");
+        setBusinessMode(data.businessMode || "SOLO");
         setComms({
           notifyClientConfirmation: data.notifyClientConfirmation,
           notifyClientReminder: data.notifyClientReminder,
@@ -61,6 +65,29 @@ export default function SettingsPage() {
       });
   }, []);
 
+  async function saveMode(next: "SOLO" | "SALON") {
+    setSavingMode(true);
+    setError("");
+    const res = await fetch("/api/organization", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessMode: next }),
+    });
+    const data = await res.json();
+    setSavingMode(false);
+    if (!res.ok) {
+      setError(data.error || "Não foi possível alterar o modo");
+      return;
+    }
+    setBusinessMode(data.businessMode);
+    setOrg(data);
+    setMsg(
+      data.businessMode === "SALON"
+        ? "Modo Salão ativo — cadastre profissionais em Gestão"
+        : "Modo Individual ativo",
+    );
+    setTimeout(() => setMsg(""), 3500);
+  }
   function onLogoFile(file: File | null) {
     setError("");
     if (!file) return;
@@ -149,6 +176,57 @@ export default function SettingsPage() {
         </Link>
         .
       </p>
+
+      <section className="surface space-y-4 p-6">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">Modo de operação</h2>
+          <p className="mt-1 text-xs text-muted">
+            Individual = um calendário por agenda. Salão = vários profissionais com
+            login e agendas próprias.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            disabled={savingMode || businessMode === "SOLO"}
+            onClick={() => saveMode("SOLO")}
+            className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
+              businessMode === "SOLO"
+                ? "border-foreground bg-foreground text-white"
+                : "border-border bg-white hover:bg-muted-bg"
+            }`}
+          >
+            <p className="font-semibold">Individual</p>
+            <p className={`mt-1 text-xs ${businessMode === "SOLO" ? "text-white/80" : "text-muted"}`}>
+              Consultoria / profissional único
+            </p>
+          </button>
+          <button
+            type="button"
+            disabled={savingMode || businessMode === "SALON"}
+            onClick={() => saveMode("SALON")}
+            className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
+              businessMode === "SALON"
+                ? "border-foreground bg-foreground text-white"
+                : "border-border bg-white hover:bg-muted-bg"
+            }`}
+          >
+            <p className="font-semibold">Salão</p>
+            <p className={`mt-1 text-xs ${businessMode === "SALON" ? "text-white/80" : "text-muted"}`}>
+              Equipe, serviços cruzados, funil com escolha de profissional
+            </p>
+          </button>
+        </div>
+        {businessMode === "SALON" && (
+          <p className="text-xs text-muted">
+            Em seguida, cadastre a equipe em{" "}
+            <Link href="/app/professionals" className="font-medium text-foreground underline">
+              Profissionais
+            </Link>
+            .
+          </p>
+        )}
+      </section>
 
       <form onSubmit={saveOrg} className="surface space-y-5 p-6">
         <div>

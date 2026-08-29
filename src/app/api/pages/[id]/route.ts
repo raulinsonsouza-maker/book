@@ -28,8 +28,15 @@ export async function GET(
         include: { customFields: { orderBy: { sortOrder: "asc" } } },
         orderBy: { sortOrder: "asc" },
       },
-      availability: { orderBy: { dayOfWeek: "asc" } },
-      exceptions: { orderBy: { date: "asc" } },
+      availability: {
+        where: { professionalId: null },
+        orderBy: { dayOfWeek: "asc" },
+      },
+      exceptions: {
+        where: { professionalId: null },
+        orderBy: { date: "asc" },
+      },
+      _count: { select: { bookings: true } },
     },
   });
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -65,7 +72,11 @@ export async function PATCH(
     if (body.title !== undefined) {
       const nextSlug = slugify(body.title);
       if (nextSlug && nextSlug !== owned.slug) {
-        data.slug = await uniqueBookingPageSlug(body.title, id);
+        data.slug = await uniqueBookingPageSlug(
+          session.user.organizationId,
+          body.title,
+          id,
+        );
       }
     }
 
@@ -90,6 +101,24 @@ export async function DELETE(
   const { id } = await params;
   const owned = await getOwnedPage(id, session.user.organizationId);
   if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const bookingCount = await prisma.booking.count({
+    where: { bookingPageId: id },
+  });
+
+  if (bookingCount > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Esta agenda tem agendamentos no histórico. Desative o link público em vez de excluir — assim nada se perde.",
+        code: "HAS_BOOKING_HISTORY",
+        bookingCount,
+        canDeactivate: true,
+      },
+      { status: 409 },
+    );
+  }
+
   await prisma.bookingPage.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

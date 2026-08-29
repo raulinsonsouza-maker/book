@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiAuthContext, apiRequireAdmin } from "@/lib/rbac";
 import {
   isAsaasReady,
   isCaktoReady,
@@ -19,6 +18,7 @@ const schema = z.object({
   description: z.string().max(DESCRIPTION_MAX).nullable().optional(),
   logoUrl: z.string().nullable().optional(),
   accentColor: z.string().optional(),
+  businessMode: z.enum(["SOLO", "SALON"]).optional(),
   paymentProvider: z.enum(["CAKTO", "MERCADO_PAGO", "ASAAS"]).optional(),
   caktoClientId: z.string().nullable().optional(),
   caktoClientSecret: z.string().nullable().optional(),
@@ -44,6 +44,7 @@ type OrgRow = {
   description: string | null;
   logoUrl: string | null;
   accentColor: string;
+  businessMode: "SOLO" | "SALON";
   paymentProvider: "CAKTO" | "MERCADO_PAGO" | "ASAAS";
   caktoClientId: string | null;
   caktoSdkClientId: string | null;
@@ -76,6 +77,7 @@ function serializeOrg(org: OrgRow) {
     description: org.description,
     logoUrl: org.logoUrl,
     accentColor: normalizeAccent(org.accentColor),
+    businessMode: org.businessMode,
     paymentProvider: org.paymentProvider,
     caktoClientId: org.caktoClientId,
     caktoSdkClientId: org.caktoSdkClientId,
@@ -109,34 +111,56 @@ function serializeOrg(org: OrgRow) {
 }
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiAuthContext();
+  if ("error" in auth) return auth.error;
   const org = await prisma.organization.findUnique({
-    where: { id: session.user.organizationId },
+    where: { id: auth.ctx.organizationId },
   });
   if (!org) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(serializeOrg(org));
 }
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const admin = await apiRequireAdmin();
+  if ("error" in admin) return admin.error;
+  const { ctx } = admin;
+
   try {
     const raw = await req.json();
     const body = schema.parse(raw);
 
     const current = await prisma.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: ctx.organizationId },
+      include: {
+        _count: {
+          select: { professionals: { where: { isActive: true } } },
+        },
+      },
     });
     if (!current) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     const data: Record<string, unknown> = {};
+
+    if (body.businessMode !== undefined && body.businessMode !== current.businessMode) {
+      if (body.businessMode === "SOLO") {
+        const activePros = await prisma.professional.count({
+          where: { organizationId: ctx.organizationId, isActive: true },
+        });
+        if (activePros > 1) {
+          return NextResponse.json(
+            {
+              error:
+                "Desative os profissionais extras antes de voltar ao modo Individual (no máximo 1 ativo).",
+              code: "TOO_MANY_PROFESSIONALS",
+            },
+            { status: 409 },
+          );
+        }
+      }
+      data.businessMode = body.businessMode;
+    }
 
     if (body.name !== undefined) data.name = body.name;
     if (body.timezone !== undefined) data.timezone = body.timezone;
@@ -274,7 +298,7 @@ export async function PATCH(req: Request) {
     }
 
     const org = await prisma.organization.update({
-      where: { id: session.user.organizationId },
+      where: { id: ctx.organizationId },
       data,
     });
     return NextResponse.json(serializeOrg(org));

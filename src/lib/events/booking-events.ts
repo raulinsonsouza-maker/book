@@ -17,6 +17,7 @@ import {
   manageBookingUrl,
 } from "@/lib/booking-notify";
 import { appUrl } from "@/lib/email/templates/layout";
+import { bookingPublicPath } from "@/lib/booking-page-slug";
 import { deleteCalendarEvent, syncBookingToGoogle } from "@/lib/google/calendar";
 
 export { SlotUnavailableError } from "@/lib/availability";
@@ -64,11 +65,30 @@ async function loadBookingContext(bookingId: string) {
     include: {
       service: true,
       payment: true,
+      professional: {
+        include: {
+          membership: { include: { user: { select: { email: true, name: true } } } },
+        },
+      },
       bookingPage: {
         include: { organization: true },
       },
     },
   });
+}
+
+async function notifyAssignedProfessional(
+  booking: NonNullable<Awaited<ReturnType<typeof loadBookingContext>>>,
+  send: (email: string) => Promise<unknown>,
+) {
+  const proEmail = booking.professional?.membership?.user?.email;
+  if (proEmail) {
+    await send(proEmail);
+    return;
+  }
+  const org = booking.bookingPage.organization;
+  const owner = await getOwnerNotifyEmail(org.id);
+  if (owner?.email) await send(owner.email);
 }
 
 export async function emitBookingEvent(params: EmitParams) {
@@ -132,7 +152,8 @@ async function handleBookingConfirmed(bookingId: string) {
   const token = await ensureManageToken(bookingId);
   const manageUrl = token ? manageBookingUrl(token) : appUrl("/app/agenda/listagem");
   const meetLink = booking.googleMeetLink || synced?.hangoutLink || null;
-  const professionalName = org.name;
+  const professionalName =
+    booking.professional?.displayName || org.name;
 
   if (org.notifyClientConfirmation) {
     await sendBookingConfirmation({
@@ -150,10 +171,9 @@ async function handleBookingConfirmed(bookingId: string) {
   }
 
   if (org.notifyProNewBooking) {
-    const owner = await getOwnerNotifyEmail(org.id);
-    if (owner?.email) {
+    await notifyAssignedProfessional(booking, async (to) => {
       await sendProNewBooking({
-        to: owner.email,
+        to,
         customerName: booking.customerName,
         customerEmail: booking.customerEmail,
         customerPhone: booking.customerPhone,
@@ -164,7 +184,7 @@ async function handleBookingConfirmed(bookingId: string) {
         priceCents: booking.service.priceCents,
         adminUrl: appUrl("/app/agenda/listagem"),
       });
-    }
+    });
   }
 }
 
@@ -181,7 +201,9 @@ async function handleBookingCancelled(bookingId: string) {
     });
   }
 
-  const bookAgainUrl = appUrl(`/p/${booking.bookingPage.slug}`);
+  const bookAgainUrl = appUrl(
+    bookingPublicPath(org.slug, booking.bookingPage.slug),
+  );
 
   await sendBookingCancelledClient({
     to: booking.customerEmail,
@@ -215,7 +237,7 @@ async function handleBookingRescheduled(bookingId: string) {
   if (!booking || booking.status !== "CONFIRMED") return;
   const org = booking.bookingPage.organization;
   const token = await ensureManageToken(bookingId);
-  const manageUrl = token ? manageBookingUrl(token) : appUrl(`/p/${booking.bookingPage.slug}`);
+  const manageUrl = token ? manageBookingUrl(token) : appUrl(bookingPublicPath(org.slug, booking.bookingPage.slug));
 
   await sendBookingRescheduledClient({
     to: booking.customerEmail,
@@ -262,7 +284,7 @@ async function handleBookingReminder(bookingId: string) {
     endAt: booking.endAt,
     timezone: booking.timezone,
     meetLink: booking.googleMeetLink,
-    manageUrl: token ? manageBookingUrl(token) : appUrl(`/p/${booking.bookingPage.slug}`),
+    manageUrl: token ? manageBookingUrl(token) : appUrl(bookingPublicPath(org.slug, booking.bookingPage.slug)),
   });
   await prisma.booking.update({
     where: { id: bookingId },
@@ -282,7 +304,7 @@ async function handleBookingCompleted(bookingId: string) {
     customerName: booking.customerName,
     serviceTitle: booking.service.title,
     professionalName: org.name,
-    feedbackUrl: appUrl(`/p/${booking.bookingPage.slug}`),
+    feedbackUrl: appUrl(bookingPublicPath(org.slug, booking.bookingPage.slug)),
   });
   await prisma.booking.update({
     where: { id: bookingId },
@@ -293,11 +315,12 @@ async function handleBookingCompleted(bookingId: string) {
 async function handlePaymentFailed(bookingId: string) {
   const booking = await loadBookingContext(bookingId);
   if (!booking) return;
+  const org = booking.bookingPage.organization;
   await sendPaymentFailed({
     to: booking.customerEmail,
     customerName: booking.customerName,
     serviceTitle: booking.service.title,
-    retryUrl: appUrl(`/p/${booking.bookingPage.slug}`),
+    retryUrl: appUrl(bookingPublicPath(org.slug, booking.bookingPage.slug)),
   });
 }
 
@@ -307,6 +330,7 @@ async function handlePixPending(bookingId: string) {
   if (booking.status !== "PENDING_PAYMENT") return;
   if (booking.pixReminderSentAt) return;
   if (booking.payment?.status === "PAID") return;
+  const org = booking.bookingPage.organization;
 
   await sendPixPending({
     to: booking.customerEmail,
@@ -315,7 +339,7 @@ async function handlePixPending(bookingId: string) {
     startAt: booking.startAt,
     endAt: booking.endAt,
     timezone: booking.timezone,
-    payUrl: appUrl(`/p/${booking.bookingPage.slug}`),
+    payUrl: appUrl(bookingPublicPath(org.slug, booking.bookingPage.slug)),
   });
   await prisma.booking.update({
     where: { id: bookingId },

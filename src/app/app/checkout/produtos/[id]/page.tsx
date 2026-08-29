@@ -9,6 +9,7 @@ import { defaultProductFormConfig, parseProductFormConfig } from "@/lib/product-
 import { CAKTO_ENABLED } from "@/lib/feature-flags";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 type Product = {
   id: string;
@@ -32,6 +33,7 @@ function inputToCents(value: string) {
 export default function EditProductPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { confirm } = useConfirm();
   const [product, setProduct] = useState<Product | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -97,7 +99,14 @@ export default function EditProductPage() {
   }
 
   async function remove() {
-    if (!confirm("Excluir este produto? Links vinculados também serão removidos.")) return;
+    const ok = await confirm({
+      title: "Excluir este produto?",
+      description: "Links de pagamento vinculados também serão removidos. Não dá para desfazer.",
+      confirmLabel: "Excluir produto",
+      cancelLabel: "Manter",
+      tone: "danger",
+    });
+    if (!ok) return;
     await fetch(`/api/checkout/products/${id}`, { method: "DELETE" });
     router.push("/app/checkout/produtos");
   }

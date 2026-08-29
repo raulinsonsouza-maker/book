@@ -1,29 +1,46 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { emitBookingEvent } from "@/lib/events/booking-events";
+import {
+  apiAuthContext,
+  bookingScopeWhere,
+  isProfessionalRole,
+} from "@/lib/rbac";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiAuthContext();
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const q = searchParams.get("q")?.trim();
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const bookingPageId = searchParams.get("bookingPageId");
+  const professionalIdParam = searchParams.get("professionalId");
+
+  const scope = bookingScopeWhere(ctx);
 
   const bookings = await prisma.booking.findMany({
     where: {
-      bookingPage: {
-        organizationId: session.user.organizationId,
-        ...(bookingPageId ? { id: bookingPageId } : {}),
-      },
-      ...(status ? { status: status as "CONFIRMED" | "PENDING_PAYMENT" | "CANCELLED" | "EXPIRED" } : {}),
+      ...scope,
+      ...(bookingPageId && !isProfessionalRole(ctx.role)
+        ? { bookingPageId }
+        : {}),
+      ...(professionalIdParam && !isProfessionalRole(ctx.role)
+        ? { professionalId: professionalIdParam }
+        : {}),
+      ...(status
+        ? {
+            status: status as
+              | "CONFIRMED"
+              | "PENDING_PAYMENT"
+              | "CANCELLED"
+              | "EXPIRED",
+          }
+        : {}),
       ...(from || to
         ? {
             startAt: {
@@ -44,6 +61,7 @@ export async function GET(req: Request) {
     include: {
       service: true,
       bookingPage: { select: { title: true, slug: true } },
+      professional: { select: { id: true, displayName: true } },
       payment: true,
     },
     orderBy: { startAt: "desc" },
@@ -55,16 +73,16 @@ export async function GET(req: Request) {
 const cancelSchema = z.object({ id: z.string() });
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiAuthContext();
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+
   try {
     const { id } = cancelSchema.parse(await req.json());
     const booking = await prisma.booking.findFirst({
       where: {
         id,
-        bookingPage: { organizationId: session.user.organizationId },
+        ...bookingScopeWhere(ctx),
       },
       include: {
         bookingPage: true,

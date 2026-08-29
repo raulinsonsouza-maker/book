@@ -7,6 +7,7 @@ import { GoogleCalendarIcon } from "@/components/icons/GoogleCalendarIcon";
 import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
 import { IntegrationCard } from "@/components/integrations/IntegrationCard";
 import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 type PaymentProvider = "CAKTO" | "MERCADO_PAGO" | "ASAAS";
 
@@ -32,6 +33,7 @@ function providerLabel(p: PaymentProvider) {
 }
 
 export default function IntegrationsPage() {
+  const { confirm } = useConfirm();
   const [org, setOrg] = useState<Org | null>(null);
   const [google, setGoogle] = useState<GoogleStatus | null>(null);
   const [msg, setMsg] = useState("");
@@ -55,28 +57,56 @@ export default function IntegrationsPage() {
   }, []);
 
   async function disconnectGoogle() {
-    if (!confirm("Desconectar o Google Agenda?")) return;
+    const ok = await confirm({
+      title: "Desconectar Google Agenda?",
+      description: "Novos agendamentos deixam de sincronizar com o Calendar até reconectar.",
+      confirmLabel: "Desconectar",
+      cancelLabel: "Manter conectado",
+      tone: "danger",
+    });
+    if (!ok) return;
     await fetch("/api/google/status", { method: "DELETE" });
     setGoogle((g) => (g ? { ...g, connected: false, email: null } : null));
     setMsg("Google Agenda desconectada");
   }
 
   async function disconnectMercadoPago() {
-    if (!confirm("Desconectar o Mercado Pago?")) return;
+    const ok = await confirm({
+      title: "Desconectar Mercado Pago?",
+      description: "Pix e cartão via Mercado Pago param de funcionar até reconectar.",
+      confirmLabel: "Desconectar",
+      cancelLabel: "Manter conectado",
+      tone: "danger",
+    });
+    if (!ok) return;
     await fetch("/api/mercadopago/status", { method: "DELETE" });
     setOrg(await fetch("/api/organization").then((r) => r.json()));
     setMsg("Mercado Pago desconectado");
   }
 
   async function disconnectAsaas() {
-    if (!confirm("Desconectar o Asaas?")) return;
+    const ok = await confirm({
+      title: "Desconectar Asaas?",
+      description: "Pagamentos via Asaas param de funcionar até reconectar.",
+      confirmLabel: "Desconectar",
+      cancelLabel: "Manter conectado",
+      tone: "danger",
+    });
+    if (!ok) return;
     await fetch("/api/asaas/status", { method: "DELETE" });
     setOrg(await fetch("/api/organization").then((r) => r.json()));
     setMsg("Asaas desconectado");
   }
 
   async function disconnectCakto() {
-    if (!confirm("Desconectar a Cakto?")) return;
+    const ok = await confirm({
+      title: "Desconectar Cakto?",
+      description: "Pagamentos via Cakto param de funcionar até reconectar.",
+      confirmLabel: "Desconectar",
+      cancelLabel: "Manter conectado",
+      tone: "danger",
+    });
+    if (!ok) return;
     const nextProvider =
       org?.paymentProvider === "CAKTO" && org.mercadoPagoConnected
         ? "MERCADO_PAGO"

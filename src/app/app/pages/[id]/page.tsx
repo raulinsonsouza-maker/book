@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { DeletePageButton } from "@/components/admin/DeletePageButton";
 import { WeekHoursSimple } from "@/components/availability/WeekHoursSimple";
+import { PageBuilder } from "@/components/builder/PageBuilder";
+import { bookingPublicUrl } from "@/lib/booking-page-slug";
 import {
   formatBRL,
   maskBRLFromDigits,
@@ -43,8 +45,10 @@ type PageData = {
   websiteUrl: string | null;
   instagram: string | null;
   timezone: string;
+  isActive: boolean;
   services: Service[];
   availability: Rule[];
+  _count?: { bookings: number };
 };
 
 function StepBadge({
@@ -83,6 +87,7 @@ export default function PageEditor() {
   const [paymentProvider, setPaymentProvider] = useState<
     "CAKTO" | "MERCADO_PAGO" | "ASAAS"
   >("CAKTO");
+  const [orgSlug, setOrgSlug] = useState("");
   const [savingMeta, setSavingMeta] = useState(false);
   const [msg, setMsg] = useState("");
   const [addingService, setAddingService] = useState(false);
@@ -111,7 +116,10 @@ export default function PageEditor() {
     load();
     fetch("/api/organization")
       .then((r) => r.json())
-      .then((data) => setPaymentProvider(data.paymentProvider || "CAKTO"));
+      .then((data) => {
+        setPaymentProvider(data.paymentProvider || "CAKTO");
+        setOrgSlug(data.slug || "");
+      });
   }, [id]);
 
   const checklist = useMemo(() => {
@@ -211,10 +219,12 @@ export default function PageEditor() {
     return <p className="text-sm text-muted">Carregando…</p>;
   }
 
-  const publicUrl = `${appUrl}/p/${page.slug}`;
+  const publicUrl = orgSlug
+    ? bookingPublicUrl(orgSlug, page.slug)
+    : `${appUrl}/p/${page.slug}`;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/app/pages" className="text-sm text-muted hover:text-foreground">
           ← Agendas
@@ -222,6 +232,8 @@ export default function PageEditor() {
         <DeletePageButton
           pageId={page.id}
           pageTitle={page.title}
+          bookingsCount={page._count?.bookings ?? 0}
+          isActive={page.isActive}
           redirectTo="/app/pages"
         />
       </div>
@@ -238,7 +250,7 @@ export default function PageEditor() {
           <h1 className="text-lg font-semibold tracking-tight">{page.title}</h1>
           <p className="mt-1 text-sm text-muted">
             Configure em 3 passos. Quando tudo estiver marcado, copie o link e
-            envie ao cliente.
+            envie ao cliente. A personalização do funil fica abaixo.
           </p>
         </div>
 
@@ -497,9 +509,6 @@ export default function PageEditor() {
               value={page.title}
               onChange={(e) => setPage({ ...page, title: e.target.value })}
             />
-            <p className="mt-1.5 text-xs text-muted">
-              Link: <span className="font-mono">/p/{page.slug}</span>
-            </p>
           </label>
           <label className="block text-sm">
             <span className="mb-1.5 block font-medium">
@@ -521,17 +530,26 @@ export default function PageEditor() {
           </button>
         </form>
 
-        <div className="border-t border-border pt-4">
-          <p className="text-xs text-muted">
-            Quer mudar blocos, campos do formulário ou o visual do funil?{" "}
-            <Link
-              href={`/app/pages/${page.id}/builder`}
-              className="font-medium text-foreground underline-offset-2 hover:underline"
-            >
-              Personalizar layout
-            </Link>
+      </section>
+
+      {/* Personalização do funil */}
+      <section id="personalizar" className="surface space-y-4 overflow-hidden p-0">
+        <div className="space-y-1 border-b border-border px-5 py-4">
+          <h2 className="font-semibold tracking-tight">Personalizar funil</h2>
+          <p className="text-sm text-muted">
+            Blocos, campos do formulário e visual que o cliente vê ao agendar.
           </p>
         </div>
+        {orgSlug ? (
+          <PageBuilder
+            pageId={page.id}
+            orgSlug={orgSlug}
+            pageSlug={page.slug}
+            embedded
+          />
+        ) : (
+          <p className="px-5 pb-5 text-sm text-muted">Carregando construtor…</p>
+        )}
       </section>
     </div>
   );

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 type Org = {
   mercadoPagoPublicKey: string | null;
@@ -26,6 +27,7 @@ const POPUP_FEATURES =
   "popup=yes,width=520,height=720,left=100,top=100,scrollbars=yes,resizable=yes";
 
 export default function MercadoPagoIntegrationPage() {
+  const { confirm } = useConfirm();
   const [org, setOrg] = useState<Org | null>(null);
   const [accessToken, setAccessToken] = useState("");
   const [publicKey, setPublicKey] = useState("");
@@ -127,7 +129,14 @@ export default function MercadoPagoIntegrationPage() {
   }
 
   async function disconnect() {
-    if (!confirm("Desconectar o Mercado Pago?")) return;
+    const ok = await confirm({
+      title: "Desconectar Mercado Pago?",
+      description: "Pix e cartão via Mercado Pago param de funcionar até reconectar.",
+      confirmLabel: "Desconectar",
+      cancelLabel: "Manter conectado",
+      tone: "danger",
+    });
+    if (!ok) return;
     setSaving(true);
     await fetch("/api/mercadopago/status", { method: "DELETE" });
     loadOrg();

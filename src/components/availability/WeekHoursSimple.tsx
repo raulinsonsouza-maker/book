@@ -16,7 +16,8 @@ const DAY_LABELS = [
 type Rule = { dayOfWeek: number; startTime: string; endTime: string };
 
 type Props = {
-  pageId: string;
+  pageId?: string;
+  professionalId?: string;
   initialRules: Rule[];
   onSaved?: (rules: Rule[]) => void;
 };
@@ -25,7 +26,12 @@ function dayRules(rules: Rule[], day: number) {
   return rules.filter((r) => r.dayOfWeek === day);
 }
 
-export function WeekHoursSimple({ pageId, initialRules, onSaved }: Props) {
+export function WeekHoursSimple({
+  pageId,
+  professionalId,
+  initialRules,
+  onSaved,
+}: Props) {
   const [rules, setRules] = useState<Rule[]>(() => normalizeRules(initialRules));
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -43,7 +49,8 @@ export function WeekHoursSimple({ pageId, initialRules, onSaved }: Props) {
       if (!enabled) return without;
       return normalizeRules([
         ...without,
-        { dayOfWeek: day, startTime: "09:00", endTime: "18:00" },
+        { dayOfWeek: day, startTime: "09:00", endTime: "12:00" },
+        { dayOfWeek: day, startTime: "13:00", endTime: "18:00" },
       ]);
     });
   }
@@ -88,7 +95,11 @@ export function WeekHoursSimple({ pageId, initialRules, onSaved }: Props) {
     const res = await fetch("/api/availability", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookingPageId: pageId, rules: normalized }),
+      body: JSON.stringify(
+        professionalId
+          ? { professionalId, rules: normalized }
+          : { bookingPageId: pageId, rules: normalized },
+      ),
     });
     setSaving(false);
     if (!res.ok) {
