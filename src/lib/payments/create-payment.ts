@@ -10,6 +10,12 @@ import {
 } from "@/lib/mercadopago/client";
 import { ensureMercadoPagoAccessToken } from "@/lib/mercadopago/oauth";
 import {
+  createAsaasCardPayment,
+  createAsaasPixPayment,
+  isAsaasPaidStatus,
+  parseAsaasCardToken,
+} from "@/lib/asaas/client";
+import {
   createDemoPixPayment,
   createDemoCardPayment,
 } from "@/lib/payments/demo";
@@ -47,7 +53,9 @@ function buildCustomer(
 }
 
 export function dbProvider(provider: ResolvedPaymentProvider): PaymentProvider {
-  return provider === "MERCADO_PAGO" ? "MERCADO_PAGO" : "CAKTO";
+  if (provider === "MERCADO_PAGO") return "MERCADO_PAGO";
+  if (provider === "ASAAS") return "ASAAS";
+  return "CAKTO";
 }
 
 export async function createPixForProvider(params: {
@@ -60,6 +68,22 @@ export async function createPixForProvider(params: {
   metadata?: Record<string, string>;
 }) {
   const { provider, org, customer, item, idempotencyKey, fingerprint, metadata } = params;
+
+  if (provider === "ASAAS" && org.asaasApiKey) {
+    const result = await createAsaasPixPayment({
+      apiKey: org.asaasApiKey,
+      amountCents: item.priceCents,
+      description: item.title,
+      externalReference: customer.id,
+      payer: {
+        email: customer.customerEmail,
+        name: customer.customerName,
+        phone: customer.customerPhone,
+        cpf: customer.customerCpf || undefined,
+      },
+    });
+    return { ...result, demo: false as const };
+  }
 
   if (provider === "MERCADO_PAGO" && org.mercadoPagoAccessToken) {
     const accessToken =
@@ -106,12 +130,44 @@ export async function createCardForProvider(params: {
   fingerprint: string;
   cardToken: string;
   metadata?: Record<string, string>;
+  remoteIp?: string;
 }) {
-  const { provider, org, customer, item, idempotencyKey, fingerprint, cardToken, metadata } =
-    params;
+  const {
+    provider,
+    org,
+    customer,
+    item,
+    idempotencyKey,
+    fingerprint,
+    cardToken,
+    metadata,
+    remoteIp,
+  } = params;
 
   if (cardToken.startsWith("demo_")) {
     return createDemoCardPayment(idempotencyKey);
+  }
+
+  if (provider === "ASAAS" && org.asaasApiKey) {
+    const creditCard = parseAsaasCardToken(cardToken);
+    if (!creditCard) {
+      throw new Error("Dados do cartão inválidos para Asaas");
+    }
+    const result = await createAsaasCardPayment({
+      apiKey: org.asaasApiKey,
+      amountCents: item.priceCents,
+      description: item.title,
+      externalReference: customer.id,
+      creditCard,
+      remoteIp,
+      payer: {
+        email: customer.customerEmail,
+        name: customer.customerName,
+        phone: customer.customerPhone,
+        cpf: customer.customerCpf || undefined,
+      },
+    });
+    return { ...result, demo: false as const };
   }
 
   if (provider === "MERCADO_PAGO" && org.mercadoPagoAccessToken) {
@@ -159,6 +215,9 @@ export function isPaidResult(
   if (result.demo) return true;
   if (provider === "MERCADO_PAGO") {
     return isMercadoPagoPaidStatus(result.status);
+  }
+  if (provider === "ASAAS") {
+    return isAsaasPaidStatus(result.status);
   }
   return ["paid", "approved", "captured", "success"].includes(
     String(result.status).toLowerCase(),

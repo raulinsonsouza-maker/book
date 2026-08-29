@@ -23,6 +23,7 @@ enum BookingStatus {
 enum PaymentProvider {
   CAKTO
   MERCADO_PAGO
+  ASAAS
 }
 
 enum PaymentMethod {
@@ -80,6 +81,11 @@ model Organization {
   mercadoPagoTokenExpiry DateTime?
   mercadoPagoUserId      String?
   mercadoPagoConnectedAt DateTime?
+  asaasApiKey            String?
+  asaasAccountEmail      String?
+  asaasWalletId          String?
+  asaasWebhookToken      String?
+  asaasConnectedAt       DateTime?
   googleAccessToken  String?
   googleRefreshToken String?
   googleTokenExpiry  DateTime?

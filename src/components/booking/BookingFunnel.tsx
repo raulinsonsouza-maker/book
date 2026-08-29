@@ -19,6 +19,7 @@ import { enabledFormFields } from "@/lib/funnel-config";
 import type { FunnelConfig } from "@/types/funnel-config";
 import { FunnelLandingBlocks } from "@/components/booking/FunnelLandingBlocks";
 import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
+import { encodeAsaasCardToken } from "@/lib/asaas/client";
 
 type CustomField = {
   id: string;
@@ -83,7 +84,9 @@ export function BookingFunnel({ slug }: { slug: string }) {
   const [services, setServices] = useState<Service[]>([]);
   const [availableDays, setAvailableDays] = useState<string[]>([]);
   const [demoPayments, setDemoPayments] = useState(true);
-  const [paymentProvider, setPaymentProvider] = useState<"CAKTO" | "MERCADO_PAGO" | "DEMO">("DEMO");
+  const [paymentProvider, setPaymentProvider] = useState<
+    "CAKTO" | "MERCADO_PAGO" | "ASAAS" | "DEMO"
+  >("DEMO");
   const [paymentProviderLabel, setPaymentProviderLabel] = useState("Demo");
   const [caktoSdkClientId, setCaktoSdkClientId] = useState<string | null>(null);
   const [mercadoPagoPublicKey, setMercadoPagoPublicKey] = useState<string | null>(null);
@@ -392,7 +395,21 @@ export function BookingFunnel({ slug }: { slug: string }) {
     setError("");
 
     let cardToken = `demo_${Date.now()}`;
-    if (
+    if (paymentProvider === "ASAAS") {
+      const cpf = details.customerCpf.replace(/\D/g, "");
+      if (!isValidCpf(cpf)) {
+        setPaying(false);
+        setError("Informe um CPF válido para pagar com cartão");
+        return;
+      }
+      cardToken = encodeAsaasCardToken({
+        holderName: card.holderName,
+        number: card.cardNumber,
+        expiryMonth: card.expMonth,
+        expiryYear: card.expYear,
+        ccv: card.cvv,
+      });
+    } else if (
       paymentProvider === "MERCADO_PAGO" &&
       mercadoPagoPublicKey &&
       typeof window !== "undefined"

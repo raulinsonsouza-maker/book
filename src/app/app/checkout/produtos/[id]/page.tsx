@@ -44,7 +44,9 @@ export default function EditProductPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [linkSlug, setLinkSlug] = useState<string | null>(null);
-  const [paymentProvider, setPaymentProvider] = useState<"CAKTO" | "MERCADO_PAGO">("CAKTO");
+  const [paymentProvider, setPaymentProvider] = useState<
+    "CAKTO" | "MERCADO_PAGO" | "ASAAS"
+  >("CAKTO");
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin

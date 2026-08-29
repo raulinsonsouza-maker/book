@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatBRL, isValidCpf } from "@/lib/utils";
 import { enabledProductFormFields } from "@/lib/product-form-config";
 import type { ProductFormConfig } from "@/lib/product-form-config";
@@ -8,12 +8,40 @@ import type { FormFieldConfig } from "@/types/funnel-config";
 import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 import { PaymentStep } from "@/components/payment/PaymentStep";
 import { SuccessStep } from "@/components/payment/SuccessStep";
-
-type Step = "details" | "payment" | "done";
+import { encodeAsaasCardToken } from "@/lib/asaas/client";
 
 function formatCardNumber(value: string) {
   const d = value.replace(/\D/g, "").slice(0, 16);
   return d.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+}
+
+function isFormReady(
+  formFields: FormFieldConfig[],
+  details: {
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    customerCpf: string;
+  },
+  answers: Record<string, string>,
+) {
+  for (const field of formFields) {
+    if (!field.required) continue;
+
+    if (field.preset === "customerName" && !details.customerName.trim()) return false;
+    if (field.preset === "customerEmail") {
+      const email = details.customerEmail.trim();
+      if (!email || !email.includes("@")) return false;
+    }
+    if (field.preset === "customerPhone") {
+      if (details.customerPhone.replace(/\D/g, "").length < 10) return false;
+    }
+    if (field.preset === "customerCpf") {
+      if (!isValidCpf(details.customerCpf)) return false;
+    }
+    if (!field.preset && !answers[field.id]?.trim()) return false;
+  }
+  return true;
 }
 
 export function InstantCheckout({ slug }: { slug: string }) {
@@ -27,12 +55,14 @@ export function InstantCheckout({ slug }: { slug: string }) {
   const [priceCents, setPriceCents] = useState(0);
   const [formConfig, setFormConfig] = useState<ProductFormConfig | null>(null);
   const [demoPayments, setDemoPayments] = useState(true);
-  const [paymentProvider, setPaymentProvider] = useState<"CAKTO" | "MERCADO_PAGO" | "DEMO">("DEMO");
+  const [paymentProvider, setPaymentProvider] = useState<
+    "CAKTO" | "MERCADO_PAGO" | "ASAAS" | "DEMO"
+  >("DEMO");
   const [paymentProviderLabel, setPaymentProviderLabel] = useState("Demo");
   const [caktoSdkClientId, setCaktoSdkClientId] = useState<string | null>(null);
   const [mercadoPagoPublicKey, setMercadoPagoPublicKey] = useState<string | null>(null);
 
-  const [step, setStep] = useState<Step>("details");
+  const [paid, setPaid] = useState(false);
   const [details, setDetails] = useState({
     customerName: "",
     customerEmail: "",
@@ -41,6 +71,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
   });
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [creatingOrder, setCreatingOrder] = useState(false);
 
   const [payMethod, setPayMethod] = useState<"pix" | "card">("pix");
   const [pixQr, setPixQr] = useState<string | null>(null);
@@ -56,6 +87,24 @@ export function InstantCheckout({ slug }: { slug: string }) {
   const [paying, setPaying] = useState(false);
 
   const formFields: FormFieldConfig[] = enabledProductFormFields(formConfig);
+  const formReady = useMemo(
+    () => isFormReady(formFields, details, answers),
+    [formFields, details, answers],
+  );
+
+  const orderFingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        customerName: details.customerName.trim(),
+        customerEmail: details.customerEmail.trim(),
+        customerPhone: details.customerPhone.replace(/\D/g, ""),
+        customerCpf: details.customerCpf.replace(/\D/g, ""),
+        answers,
+      }),
+    [details, answers],
+  );
+  const lastOrderFingerprint = useRef<string | null>(null);
+  const failedFingerprint = useRef<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/public/checkout/${slug}`)
@@ -73,13 +122,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
         setFormConfig(data.formConfig);
         setDemoPayments(data.paymentProvider === "DEMO");
         setPaymentProvider(data.paymentProvider || "DEMO");
-        setPaymentProviderLabel(
-          data.paymentProvider === "MERCADO_PAGO"
-            ? "Mercado Pago"
-            : data.paymentProvider === "CAKTO"
-              ? "Cakto"
-              : "Demo",
-        );
+        setPaymentProviderLabel(data.paymentProviderLabel || "Demo");
         setCaktoSdkClientId(data.caktoSdkClientId);
         setMercadoPagoPublicKey(data.mercadoPagoPublicKey);
         setLoading(false);
@@ -89,6 +132,84 @@ export function InstantCheckout({ slug }: { slug: string }) {
         setLoading(false);
       });
   }, [slug]);
+
+  const createOrder = useCallback(async () => {
+    if (creatingOrder || paid) return;
+
+    setCreatingOrder(true);
+    setError("");
+
+    const customAnswers: Record<string, string> = {};
+    for (const field of formFields) {
+      if (!field.preset && answers[field.id]?.trim()) {
+        customAnswers[field.id] = answers[field.id].trim();
+      }
+    }
+
+    const payload: Record<string, unknown> = {
+      customerName: details.customerName.trim(),
+      customAnswers: Object.keys(customAnswers).length ? customAnswers : undefined,
+    };
+    for (const field of formFields) {
+      if (field.preset === "customerEmail") payload.customerEmail = details.customerEmail.trim();
+      if (field.preset === "customerPhone") {
+        payload.customerPhone = details.customerPhone.replace(/\D/g, "");
+      }
+      if (field.preset === "customerCpf" && details.customerCpf) {
+        payload.customerCpf = details.customerCpf.replace(/\D/g, "");
+      }
+    }
+
+    const res = await fetch(`/api/public/checkout/${slug}/order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    setCreatingOrder(false);
+
+    if (!res.ok) {
+      setError(data.error || "Não foi possível liberar o pagamento");
+      setOrderId(null);
+      setPixQr(null);
+      lastOrderFingerprint.current = null;
+      failedFingerprint.current = orderFingerprint;
+      return;
+    }
+
+    failedFingerprint.current = null;
+    lastOrderFingerprint.current = orderFingerprint;
+    setOrderId(data.orderId);
+    setPixQr(null);
+  }, [
+    answers,
+    creatingOrder,
+    details,
+    formFields,
+    orderFingerprint,
+    paid,
+    slug,
+  ]);
+
+  useEffect(() => {
+    if (paid || !formReady || creatingOrder) return;
+    if (orderId && lastOrderFingerprint.current === orderFingerprint) return;
+    if (failedFingerprint.current === orderFingerprint) return;
+
+    const timer = window.setTimeout(() => {
+      void createOrder();
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [createOrder, creatingOrder, formReady, orderFingerprint, orderId, paid]);
+
+  useEffect(() => {
+    if (!formReady) {
+      setOrderId(null);
+      setPixQr(null);
+      lastOrderFingerprint.current = null;
+      failedFingerprint.current = null;
+    }
+  }, [formReady]);
 
   const startPix = useCallback(
     async (id: string) => {
@@ -111,72 +232,21 @@ export function InstantCheckout({ slug }: { slug: string }) {
   );
 
   useEffect(() => {
-    if (step !== "payment" || !orderId) return;
+    if (!orderId || !formReady || paid) return;
     if (payMethod === "pix" && !pixQr && !pixLoading) {
-      startPix(orderId);
+      void startPix(orderId);
     }
-  }, [step, orderId, payMethod, pixQr, pixLoading, startPix]);
+  }, [formReady, orderId, paid, payMethod, pixQr, pixLoading, startPix]);
 
   useEffect(() => {
-    if (step !== "payment" || payMethod !== "pix" || !orderId || !pixQr) return;
+    if (!orderId || !formReady || paid || payMethod !== "pix" || !pixQr) return;
     const id = setInterval(async () => {
       const res = await fetch(`/api/public/checkout/${slug}/status?orderId=${orderId}`);
       const data = await res.json();
-      if (data.status === "PAID") setStep("done");
+      if (data.status === "PAID") setPaid(true);
     }, 2500);
     return () => clearInterval(id);
-  }, [step, payMethod, orderId, pixQr, slug]);
-
-  async function submitDetails(e: React.FormEvent) {
-    e.preventDefault();
-    const cpfField = formFields.find((f) => f.preset === "customerCpf" && f.enabled);
-    if (cpfField?.required && !isValidCpf(details.customerCpf)) {
-      setError("Informe um CPF válido");
-      return;
-    }
-    for (const field of formFields) {
-      if (!field.preset && field.required && !answers[field.id]?.trim()) {
-        setError(`Preencha: ${field.label}`);
-        return;
-      }
-    }
-
-    setError("");
-    setPaying(true);
-    const customAnswers: Record<string, string> = {};
-    for (const field of formFields) {
-      if (!field.preset && answers[field.id]?.trim()) {
-        customAnswers[field.id] = answers[field.id].trim();
-      }
-    }
-
-    const payload: Record<string, unknown> = {
-      customerName: details.customerName,
-      customAnswers: Object.keys(customAnswers).length ? customAnswers : undefined,
-    };
-    for (const field of formFields) {
-      if (field.preset === "customerEmail") payload.customerEmail = details.customerEmail;
-      if (field.preset === "customerPhone") payload.customerPhone = details.customerPhone.replace(/\D/g, "");
-      if (field.preset === "customerCpf" && details.customerCpf) {
-        payload.customerCpf = details.customerCpf.replace(/\D/g, "");
-      }
-    }
-
-    const res = await fetch(`/api/public/checkout/${slug}/order`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    setPaying(false);
-    if (!res.ok) {
-      setError(data.error || "Não foi possível continuar");
-      return;
-    }
-    setOrderId(data.orderId);
-    setPixQr(null);
-    setStep("payment");
-  }
+  }, [formReady, payMethod, orderId, pixQr, paid, slug]);
 
   async function confirmDemoPix() {
     if (!orderId) return;
@@ -187,7 +257,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
       body: JSON.stringify({ orderId }),
     });
     setPaying(false);
-    if (res.ok) setStep("done");
+    if (res.ok) setPaid(true);
     else {
       const data = await res.json();
       setError(data.error || "Erro");
@@ -201,7 +271,21 @@ export function InstantCheckout({ slug }: { slug: string }) {
     setError("");
 
     let cardToken = `demo_${Date.now()}`;
-    if (paymentProvider === "MERCADO_PAGO" && mercadoPagoPublicKey && typeof window !== "undefined") {
+    if (paymentProvider === "ASAAS") {
+      const cpf = details.customerCpf.replace(/\D/g, "");
+      if (!isValidCpf(cpf)) {
+        setPaying(false);
+        setError("Informe um CPF válido para pagar com cartão");
+        return;
+      }
+      cardToken = encodeAsaasCardToken({
+        holderName: card.holderName,
+        number: card.cardNumber,
+        expiryMonth: card.expMonth,
+        expiryYear: card.expYear,
+        ccv: card.cvv,
+      });
+    } else if (paymentProvider === "MERCADO_PAGO" && mercadoPagoPublicKey && typeof window !== "undefined") {
       try {
         // @ts-expect-error MercadoPago global
         if (!window.MercadoPago) {
@@ -278,7 +362,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
       setError(data.error || "Pagamento recusado");
       return;
     }
-    if (data.status === "PAID") setStep("done");
+    if (data.status === "PAID") setPaid(true);
     else setError(data.message || "Aguardando confirmação");
   }
 
@@ -313,66 +397,94 @@ export function InstantCheckout({ slug }: { slug: string }) {
           <p className="mt-3 text-3xl font-bold">{formatBRL(priceCents)}</p>
         </header>
 
-        <main className="flex-1 rounded-2xl border border-border bg-white p-6 shadow-sm">
+        <main className="flex-1 space-y-4">
           {error && (
-            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
               {error}
             </p>
           )}
 
-          {step === "details" && (
-            <form onSubmit={submitDetails} className="space-y-4">
-              <h2 className="text-lg font-semibold">Seus dados</h2>
-              <FunnelFormFields
-                fields={formFields}
-                details={details}
-                onDetailsChange={(patch) => setDetails({ ...details, ...patch })}
-                values={answers}
-                onChange={(id, value) => setAnswers({ ...answers, [id]: value })}
+          {paid ? (
+            <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+              <SuccessStep
+                customerName={details.customerName}
+                customerEmail={details.customerEmail}
+                productTitle={productTitle}
+                priceCents={priceCents}
               />
-              <button type="submit" disabled={paying} className="btn-primary w-full py-3">
-                {paying ? "Continuando…" : "Ir para pagamento"}
-              </button>
-            </form>
-          )}
+            </div>
+          ) : (
+            <>
+              <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold">Seus dados</h2>
+                <div className="mt-4 space-y-4">
+                  <FunnelFormFields
+                    fields={formFields}
+                    details={details}
+                    onDetailsChange={(patch) => setDetails({ ...details, ...patch })}
+                    values={answers}
+                    onChange={(id, value) => setAnswers({ ...answers, [id]: value })}
+                  />
+                </div>
+              </section>
 
-          {step === "payment" && (
-            <PaymentStep
-              priceCents={priceCents}
-              productTitle={productTitle}
-              paymentProviderLabel={paymentProviderLabel}
-              demoPayments={demoPayments}
-              payMethod={payMethod}
-              onPayMethodChange={(m) => {
-                setPayMethod(m);
-                setError("");
-              }}
-              pixLoading={pixLoading}
-              pixQr={pixQr}
-              copied={copied}
-              onCopyPix={async () => {
-                if (pixQr) {
-                  await navigator.clipboard.writeText(pixQr);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                }
-              }}
-              onDemoConfirm={confirmDemoPix}
-              paying={paying}
-              card={card}
-              onCardChange={setCard}
-              onPayCard={payCard}
-              formatCardNumber={formatCardNumber}
-            />
-          )}
-
-          {step === "done" && (
-            <SuccessStep
-              customerName={details.customerName}
-              customerEmail={details.customerEmail}
-              productTitle={productTitle}
-              priceCents={priceCents}
-            />
+              <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                {!formReady ? (
+                  <div className="space-y-2">
+                    <h2 className="text-lg font-semibold text-muted">Pagamento</h2>
+                    <p className="text-sm text-muted">
+                      Preencha seus dados acima para liberar Pix ou cartão nesta mesma tela.
+                    </p>
+                    <div className="pointer-events-none select-none opacity-40">
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="rounded-lg border border-border bg-muted-bg px-3 py-2.5 text-center text-sm font-semibold">
+                          Pix
+                        </div>
+                        <div className="rounded-lg border border-border px-3 py-2.5 text-center text-sm font-semibold">
+                          Cartão
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : creatingOrder && !orderId ? (
+                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-foreground" />
+                    Liberando pagamento…
+                  </div>
+                ) : orderId ? (
+                  <PaymentStep
+                    priceCents={priceCents}
+                    productTitle={productTitle}
+                    paymentProviderLabel={paymentProviderLabel}
+                    demoPayments={demoPayments}
+                    payMethod={payMethod}
+                    onPayMethodChange={(m) => {
+                      setPayMethod(m);
+                      setError("");
+                      if (m === "card") setPixQr(null);
+                    }}
+                    pixLoading={pixLoading}
+                    pixQr={pixQr}
+                    copied={copied}
+                    onCopyPix={async () => {
+                      if (pixQr) {
+                        await navigator.clipboard.writeText(pixQr);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1500);
+                      }
+                    }}
+                    onDemoConfirm={confirmDemoPix}
+                    paying={paying}
+                    card={card}
+                    onCardChange={setCard}
+                    onPayCard={payCard}
+                    formatCardNumber={formatCardNumber}
+                  />
+                ) : (
+                  <p className="text-sm text-muted">Aguardando liberação do pagamento…</p>
+                )}
+              </section>
+            </>
           )}
         </main>
       </div>

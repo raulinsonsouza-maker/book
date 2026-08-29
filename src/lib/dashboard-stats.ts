@@ -11,8 +11,9 @@ import { ptBR } from "date-fns/locale";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/prisma";
 import { buildPaymentWhere } from "@/lib/payments/org-filter";
-import { CAKTO_ENABLED } from "@/lib/feature-flags";
+import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
 import {
+  isAsaasReady,
   isCaktoReady,
   isMercadoPagoReady,
   resolvePaymentProvider,
@@ -134,6 +135,7 @@ export async function getDashboardStats(organizationId: string, timezone: string
   const integrationsConnected =
     (googleConnected ? 1 : 0) +
     (org && isMercadoPagoReady(org) ? 1 : 0) +
+    (ASAAS_ENABLED && org && isAsaasReady(org) ? 1 : 0) +
     (CAKTO_ENABLED && org && isCaktoReady(org) ? 1 : 0);
 
   const chartMonths = Array.from({ length: 12 }, (_, i) => {

@@ -4,31 +4,33 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
+  isAsaasReady,
   isCaktoReady,
   isMercadoPagoReady,
   webhookUrl,
 } from "@/lib/payments/resolve-provider";
 import { mercadoPagoOAuthConfigured } from "@/lib/mercadopago/oauth";
-import { CAKTO_ENABLED } from "@/lib/feature-flags";
+import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
 
 const schema = z.object({
   name: z.string().min(2).optional(),
   timezone: z.string().optional(),
-  paymentProvider: z.enum(["CAKTO", "MERCADO_PAGO"]).optional(),
+  paymentProvider: z.enum(["CAKTO", "MERCADO_PAGO", "ASAAS"]).optional(),
   caktoClientId: z.string().nullable().optional(),
   caktoClientSecret: z.string().nullable().optional(),
   caktoSdkClientId: z.string().nullable().optional(),
   caktoOfferId: z.string().nullable().optional(),
   mercadoPagoAccessToken: z.string().nullable().optional(),
   mercadoPagoPublicKey: z.string().nullable().optional(),
+  asaasApiKey: z.string().nullable().optional(),
 });
 
-function serializeOrg(org: {
+type OrgRow = {
   id: string;
   name: string;
   slug: string;
   timezone: string;
-  paymentProvider: "CAKTO" | "MERCADO_PAGO";
+  paymentProvider: "CAKTO" | "MERCADO_PAGO" | "ASAAS";
   caktoClientId: string | null;
   caktoSdkClientId: string | null;
   caktoClientSecret: string | null;
@@ -38,7 +40,13 @@ function serializeOrg(org: {
   mercadoPagoRefreshToken?: string | null;
   mercadoPagoUserId?: string | null;
   mercadoPagoConnectedAt?: Date | null;
-}) {
+  asaasApiKey: string | null;
+  asaasAccountEmail: string | null;
+  asaasWalletId: string | null;
+  asaasConnectedAt: Date | null;
+};
+
+function serializeOrg(org: OrgRow) {
   return {
     id: org.id,
     name: org.name,
@@ -60,6 +68,12 @@ function serializeOrg(org: {
     mercadoPagoRedirectUri:
       process.env.MERCADOPAGO_REDIRECT_URI ||
       `${(process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")}/api/mercadopago/callback`,
+    asaasEnabled: ASAAS_ENABLED,
+    asaasConnected: isAsaasReady(org),
+    asaasAccountEmail: org.asaasAccountEmail ?? null,
+    asaasWalletId: org.asaasWalletId ?? null,
+    hasAsaasApiKey: Boolean(org.asaasApiKey),
+    asaasWebhookUrl: webhookUrl("/api/webhooks/asaas"),
   };
 }
 
@@ -117,6 +131,20 @@ export async function PATCH(req: Request) {
           { status: 400 },
         );
       }
+      if (body.paymentProvider === "ASAAS") {
+        if (!ASAAS_ENABLED) {
+          return NextResponse.json(
+            { error: "Integração Asaas indisponível no momento" },
+            { status: 400 },
+          );
+        }
+        if (!isAsaasReady(current)) {
+          return NextResponse.json(
+            { error: "Conecte o Asaas antes de defini-lo como padrão" },
+            { status: 400 },
+          );
+        }
+      }
       data.paymentProvider = body.paymentProvider;
     }
 
@@ -157,6 +185,18 @@ export async function PATCH(req: Request) {
         typeof body.mercadoPagoPublicKey === "string"
           ? body.mercadoPagoPublicKey.trim() || null
           : null;
+    }
+    if ("asaasApiKey" in raw) {
+      data.asaasApiKey =
+        typeof body.asaasApiKey === "string"
+          ? body.asaasApiKey.trim() || null
+          : null;
+      if (!data.asaasApiKey) {
+        data.asaasAccountEmail = null;
+        data.asaasWalletId = null;
+        data.asaasWebhookToken = null;
+        data.asaasConnectedAt = null;
+      }
     }
 
     const org = await prisma.organization.update({

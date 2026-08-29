@@ -47,7 +47,9 @@ export default function PageEditor() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [page, setPage] = useState<PageData | null>(null);
-  const [paymentProvider, setPaymentProvider] = useState<"CAKTO" | "MERCADO_PAGO">("CAKTO");
+  const [paymentProvider, setPaymentProvider] = useState<
+    "CAKTO" | "MERCADO_PAGO" | "ASAAS"
+  >("CAKTO");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [svcForm, setSvcForm] = useState({

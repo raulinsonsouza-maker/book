@@ -2,16 +2,21 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AsaasIcon } from "@/components/icons/AsaasIcon";
 import { GoogleCalendarIcon } from "@/components/icons/GoogleCalendarIcon";
 import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
 import { IntegrationCard } from "@/components/integrations/IntegrationCard";
-import { CAKTO_ENABLED } from "@/lib/feature-flags";
+import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
+
+type PaymentProvider = "CAKTO" | "MERCADO_PAGO" | "ASAAS";
 
 type Org = {
   caktoConnected: boolean;
   mercadoPagoConnected: boolean;
   mercadoPagoUserId: string | null;
-  paymentProvider: "CAKTO" | "MERCADO_PAGO";
+  asaasConnected: boolean;
+  asaasAccountEmail: string | null;
+  paymentProvider: PaymentProvider;
 };
 
 type GoogleStatus = {
@@ -19,6 +24,12 @@ type GoogleStatus = {
   connected: boolean;
   email: string | null;
 };
+
+function providerLabel(p: PaymentProvider) {
+  if (p === "MERCADO_PAGO") return "Mercado Pago";
+  if (p === "ASAAS") return "Asaas";
+  return "Cakto";
+}
 
 export default function IntegrationsPage() {
   const [org, setOrg] = useState<Org | null>(null);
@@ -46,28 +57,32 @@ export default function IntegrationsPage() {
   async function disconnectGoogle() {
     if (!confirm("Desconectar o Google Agenda?")) return;
     await fetch("/api/google/status", { method: "DELETE" });
-    setGoogle((g) =>
-      g ? { ...g, connected: false, email: null } : null,
-    );
+    setGoogle((g) => (g ? { ...g, connected: false, email: null } : null));
     setMsg("Google Agenda desconectada");
   }
 
   async function disconnectMercadoPago() {
     if (!confirm("Desconectar o Mercado Pago?")) return;
     await fetch("/api/mercadopago/status", { method: "DELETE" });
-    const updated = await fetch("/api/organization").then((r) => r.json());
-    setOrg(updated);
+    setOrg(await fetch("/api/organization").then((r) => r.json()));
     setMsg("Mercado Pago desconectado");
+  }
+
+  async function disconnectAsaas() {
+    if (!confirm("Desconectar o Asaas?")) return;
+    await fetch("/api/asaas/status", { method: "DELETE" });
+    setOrg(await fetch("/api/organization").then((r) => r.json()));
+    setMsg("Asaas desconectado");
   }
 
   async function disconnectCakto() {
     if (!confirm("Desconectar a Cakto?")) return;
-
     const nextProvider =
       org?.paymentProvider === "CAKTO" && org.mercadoPagoConnected
         ? "MERCADO_PAGO"
-        : undefined;
-
+        : org?.paymentProvider === "CAKTO" && org.asaasConnected
+          ? "ASAAS"
+          : undefined;
     await fetch("/api/organization", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -79,12 +94,11 @@ export default function IntegrationsPage() {
         ...(nextProvider ? { paymentProvider: nextProvider } : {}),
       }),
     });
-    const updated = await fetch("/api/organization").then((r) => r.json());
-    setOrg(updated);
+    setOrg(await fetch("/api/organization").then((r) => r.json()));
     setMsg("Cakto desconectada");
   }
 
-  async function setDefaultProvider(provider: "CAKTO" | "MERCADO_PAGO") {
+  async function setDefaultProvider(provider: PaymentProvider) {
     if (!org || org.paymentProvider === provider) return;
     setSavingDefault(true);
     setMsg("");
@@ -101,22 +115,23 @@ export default function IntegrationsPage() {
     }
     setOrg(data);
     setMsg(
-      `Provedor padrão alterado para ${provider === "MERCADO_PAGO" ? "Mercado Pago" : "Cakto"}. Agendamentos e checkout rápido usarão esta integração.`,
+      `Provedor padrão: ${providerLabel(provider)}. Agendamentos e checkout rápido usarão esta integração.`,
     );
   }
 
-  const showProviderPicker =
-    CAKTO_ENABLED &&
-    org?.mercadoPagoConnected &&
-    org?.caktoConnected;
+  const connectedPayments = [
+    org?.mercadoPagoConnected ? "mp" : null,
+    ASAAS_ENABLED && org?.asaasConnected ? "asaas" : null,
+    CAKTO_ENABLED && org?.caktoConnected ? "cakto" : null,
+  ].filter(Boolean);
 
-  const mpStatusLabel = org?.mercadoPagoConnected
-    ? showProviderPicker
-      ? org.paymentProvider === "MERCADO_PAGO"
-        ? "Padrão"
-        : "Conectado"
-      : "Ativo"
-    : "Não conectado";
+  const showProviderPicker = connectedPayments.length >= 2;
+
+  function paymentStatus(connected: boolean, isDefault: boolean) {
+    if (!connected) return "Não conectado";
+    if (showProviderPicker) return isDefault ? "Padrão" : "Conectado";
+    return "Ativo";
+  }
 
   return (
     <div className="space-y-6">
@@ -130,7 +145,7 @@ export default function IntegrationsPage() {
         Conecte serviços externos para sincronizar agenda e receber pagamentos.
       </p>
 
-      {showProviderPicker && (
+      {showProviderPicker && org && (
         <div className="surface space-y-4 p-5">
           <div>
             <h2 className="text-base font-semibold tracking-tight">
@@ -144,63 +159,96 @@ export default function IntegrationsPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              disabled={savingDefault}
-              onClick={() => setDefaultProvider("MERCADO_PAGO")}
-              className={`rounded-xl border p-4 text-left transition ${
-                org.paymentProvider === "MERCADO_PAGO"
-                  ? "border-foreground bg-muted-bg ring-1 ring-foreground"
-                  : "border-border bg-white hover:border-foreground/30"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <MercadoPagoIcon size={24} />
-                <div>
-                  <p className="font-medium">Mercado Pago</p>
-                  <p className="text-xs text-muted">Pix e cartão</p>
+            {org.mercadoPagoConnected && (
+              <button
+                type="button"
+                disabled={savingDefault}
+                onClick={() => setDefaultProvider("MERCADO_PAGO")}
+                className={`rounded-xl border p-4 text-left transition ${
+                  org.paymentProvider === "MERCADO_PAGO"
+                    ? "border-foreground bg-muted-bg ring-1 ring-foreground"
+                    : "border-border bg-white hover:border-foreground/30"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <MercadoPagoIcon size={24} />
+                  <div>
+                    <p className="font-medium">Mercado Pago</p>
+                    <p className="text-xs text-muted">Pix e cartão</p>
+                  </div>
                 </div>
-              </div>
-              {org.paymentProvider === "MERCADO_PAGO" && (
-                <span className="mt-3 inline-block text-xs font-medium text-emerald-700">
-                  Padrão ativo
-                </span>
-              )}
-            </button>
+                {org.paymentProvider === "MERCADO_PAGO" && (
+                  <span className="mt-3 inline-block text-xs font-medium text-emerald-700">
+                    Padrão ativo
+                  </span>
+                )}
+              </button>
+            )}
 
-            <button
-              type="button"
-              disabled={savingDefault}
-              onClick={() => setDefaultProvider("CAKTO")}
-              className={`rounded-xl border p-4 text-left transition ${
-                org.paymentProvider === "CAKTO"
-                  ? "border-foreground bg-muted-bg ring-1 ring-foreground"
-                  : "border-border bg-white hover:border-foreground/30"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-50 text-sm font-bold text-emerald-600">
-                  C
-                </span>
-                <div>
-                  <p className="font-medium">Cakto</p>
-                  <p className="text-xs text-muted">Pix e cartão</p>
+            {ASAAS_ENABLED && org.asaasConnected && (
+              <button
+                type="button"
+                disabled={savingDefault}
+                onClick={() => setDefaultProvider("ASAAS")}
+                className={`rounded-xl border p-4 text-left transition ${
+                  org.paymentProvider === "ASAAS"
+                    ? "border-foreground bg-muted-bg ring-1 ring-foreground"
+                    : "border-border bg-white hover:border-foreground/30"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <AsaasIcon size={24} />
+                  <div>
+                    <p className="font-medium">Asaas</p>
+                    <p className="text-xs text-muted">Pix e cartão</p>
+                  </div>
                 </div>
-              </div>
-              {org.paymentProvider === "CAKTO" && (
-                <span className="mt-3 inline-block text-xs font-medium text-emerald-700">
-                  Padrão ativo
-                </span>
-              )}
-            </button>
+                {org.paymentProvider === "ASAAS" && (
+                  <span className="mt-3 inline-block text-xs font-medium text-emerald-700">
+                    Padrão ativo
+                  </span>
+                )}
+              </button>
+            )}
+
+            {CAKTO_ENABLED && org.caktoConnected && (
+              <button
+                type="button"
+                disabled={savingDefault}
+                onClick={() => setDefaultProvider("CAKTO")}
+                className={`rounded-xl border p-4 text-left transition ${
+                  org.paymentProvider === "CAKTO"
+                    ? "border-foreground bg-muted-bg ring-1 ring-foreground"
+                    : "border-border bg-white hover:border-foreground/30"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-50 text-sm font-bold text-emerald-600">
+                    C
+                  </span>
+                  <div>
+                    <p className="font-medium">Cakto</p>
+                    <p className="text-xs text-muted">Pix e cartão</p>
+                  </div>
+                </div>
+                {org.paymentProvider === "CAKTO" && (
+                  <span className="mt-3 inline-block text-xs font-medium text-emerald-700">
+                    Padrão ativo
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {!CAKTO_ENABLED && org?.mercadoPagoConnected && (
+      {!showProviderPicker && org && (org.mercadoPagoConnected || org.asaasConnected) && (
         <p className="surface px-4 py-3 text-sm text-muted">
-          Pagamentos de agendamentos e checkout rápido são processados pelo{" "}
-          <strong className="text-foreground">Mercado Pago</strong>.
+          Pagamentos processados via{" "}
+          <strong className="text-foreground">
+            {providerLabel(org.paymentProvider)}
+          </strong>
+          .
         </p>
       )}
 
@@ -238,7 +286,10 @@ export default function IntegrationsPage() {
         <IntegrationCard
           icon={<MercadoPagoIcon size={28} />}
           title="Mercado Pago"
-          status={mpStatusLabel}
+          status={paymentStatus(
+            Boolean(org?.mercadoPagoConnected),
+            org?.paymentProvider === "MERCADO_PAGO",
+          )}
           statusVariant={org?.mercadoPagoConnected ? "connected" : "disconnected"}
           description="Checkout transparente com Pix e cartão. Pagamento dentro do funil, sem redirecionamento."
           action={
@@ -274,6 +325,49 @@ export default function IntegrationsPage() {
             )
           }
         />
+
+        {ASAAS_ENABLED && (
+          <IntegrationCard
+            icon={<AsaasIcon size={28} />}
+            title="Asaas"
+            status={paymentStatus(
+              Boolean(org?.asaasConnected),
+              org?.paymentProvider === "ASAAS",
+            )}
+            statusVariant={org?.asaasConnected ? "connected" : "disconnected"}
+            description="Pix e cartão via Asaas. Conecte com a API Key da sua conta em poucos passos."
+            action={
+              org?.asaasConnected ? (
+                <div className="space-y-2">
+                  {org.asaasAccountEmail && (
+                    <p className="truncate text-xs text-muted">{org.asaasAccountEmail}</p>
+                  )}
+                  {showProviderPicker && org.paymentProvider !== "ASAAS" && (
+                    <button
+                      type="button"
+                      disabled={savingDefault}
+                      onClick={() => setDefaultProvider("ASAAS")}
+                      className="btn-primary w-full"
+                    >
+                      Usar como padrão
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={disconnectAsaas}
+                    className="btn-secondary w-full text-danger"
+                  >
+                    Desconectar
+                  </button>
+                </div>
+              ) : (
+                <Link href="/app/integrations/asaas" className="btn-primary w-full">
+                  Conectar
+                </Link>
+              )
+            }
+          />
+        )}
 
         {CAKTO_ENABLED && (
           <IntegrationCard

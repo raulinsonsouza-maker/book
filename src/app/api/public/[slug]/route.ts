@@ -30,6 +30,7 @@ export async function GET(
           paymentProvider: true,
           mercadoPagoAccessToken: true,
           mercadoPagoPublicKey: true,
+          asaasApiKey: true,
         },
       },
     },

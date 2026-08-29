@@ -1,6 +1,6 @@
 import { addSeconds } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { CAKTO_ENABLED } from "@/lib/feature-flags";
+import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
 
 export type MercadoPagoOAuthTokens = {
   accessToken: string;
@@ -116,13 +116,18 @@ export async function clearMercadoPagoConnection(organizationId: string) {
       caktoClientId: true,
       caktoClientSecret: true,
       caktoOfferId: true,
+      asaasApiKey: true,
     },
   });
 
+  const wasDefault = org?.paymentProvider === "MERCADO_PAGO";
+  const switchToAsaas =
+    wasDefault && ASAAS_ENABLED && Boolean(org?.asaasApiKey?.trim());
   const switchToCakto =
+    wasDefault &&
+    !switchToAsaas &&
     CAKTO_ENABLED &&
-    org?.paymentProvider === "MERCADO_PAGO" &&
-    Boolean(org.caktoClientId && org.caktoClientSecret && org.caktoOfferId);
+    Boolean(org?.caktoClientId && org.caktoClientSecret && org.caktoOfferId);
 
   await prisma.organization.update({
     where: { id: organizationId },
@@ -133,7 +138,11 @@ export async function clearMercadoPagoConnection(organizationId: string) {
       mercadoPagoTokenExpiry: null,
       mercadoPagoUserId: null,
       mercadoPagoConnectedAt: null,
-      ...(switchToCakto ? { paymentProvider: "CAKTO" } : {}),
+      ...(switchToAsaas
+        ? { paymentProvider: "ASAAS" as const }
+        : switchToCakto
+          ? { paymentProvider: "CAKTO" as const }
+          : {}),
     },
   });
 }
