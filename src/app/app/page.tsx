@@ -12,6 +12,7 @@ import {
   buildUtilizationItems,
 } from "@/components/admin/DashboardUtilization";
 import { DashboardPagesList } from "@/components/admin/DashboardPagesList";
+import { PaymentSetupBanner } from "@/components/admin/PaymentSetupBanner";
 
 export default async function AppHomePage() {
   const { org } = await requireOrg();
@@ -29,19 +30,7 @@ export default async function AppHomePage() {
   return (
     <div className="space-y-6">
       {!stats.paymentReady && (
-        <div className="dashboard-panel flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold tracking-tight">
-              Conecte um provedor de pagamento
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              Conecte Mercado Pago ou Asaas — sem isso, o checkout fica em modo demo.
-            </p>
-          </div>
-          <Link href="/app/integrations" className="btn-primary shrink-0">
-            Configurar integrações
-          </Link>
-        </div>
+        <PaymentSetupBanner organizationId={org.id} />
       )}
 
       {stats.paymentReady && (
