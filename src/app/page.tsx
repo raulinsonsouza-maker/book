@@ -34,7 +34,7 @@ const SEGMENTS = [
   },
   {
     title: "Estúdio e bem-estar",
-    body: "Sessões, retornos e caixa no mesmo fluxo — do encaixe ao Pix.",
+    body: "Sessões, retornos e caixa juntos — do horário marcado ao Pix.",
     image:
       "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=900&q=80",
   },
@@ -439,7 +439,7 @@ export default function HomePage() {
             negócio.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--lp-steel)] md:text-lg">
-            Quem vive de horário marcado merece um fluxo curto: marcar, pagar,
+            Quem vive de horário marcado merece um caminho curto: marcar, pagar,
             confirmar. Sem pedaço espalhado em cinco ferramentas.
           </p>
 
@@ -485,7 +485,7 @@ export default function HomePage() {
                 </span>
               </h2>
               <p className="mt-5 max-w-xl text-base leading-relaxed text-white/60 md:text-lg">
-                Comece o mês com a agenda comprometida e o caixa no mesmo fluxo
+                Comece o mês com a agenda comprometida e o caixa no mesmo lugar
                 do agendamento. Só falta você.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
