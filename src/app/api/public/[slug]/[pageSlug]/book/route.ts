@@ -15,9 +15,9 @@ const HOLD_MINUTES = 15;
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ orgSlug: string; pageSlug: string }> },
+  { params }: { params: Promise<{ slug: string; pageSlug: string }> },
 ) {
-  const { orgSlug, pageSlug } = await params;
+  const { slug: orgSlug, pageSlug } = await params;
   try {
     const raw = await req.json();
     const serviceId = raw.serviceId as string;

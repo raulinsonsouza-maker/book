@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ orgSlug: string; pageSlug: string }> },
+  { params }: { params: Promise<{ slug: string; pageSlug: string }> },
 ) {
-  const { orgSlug, pageSlug } = await params;
+  const { slug: orgSlug, pageSlug } = await params;
   const bookingId = new URL(req.url).searchParams.get("bookingId");
   if (!bookingId) {
     return NextResponse.json({ error: "bookingId obrigatório" }, { status: 400 });

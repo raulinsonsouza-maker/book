@@ -3,8 +3,8 @@ import { BookingFunnel } from "@/components/booking/BookingFunnel";
 export default async function PublicBookingPage({
   params,
 }: {
-  params: Promise<{ orgSlug: string; pageSlug: string }>;
+  params: Promise<{ slug: string; pageSlug: string }>;
 }) {
-  const { orgSlug, pageSlug } = await params;
+  const { slug: orgSlug, pageSlug } = await params;
   return <BookingFunnel orgSlug={orgSlug} pageSlug={pageSlug} />;
 }

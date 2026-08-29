@@ -15,9 +15,9 @@ import {
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ orgSlug: string; pageSlug: string }> },
+  { params }: { params: Promise<{ slug: string; pageSlug: string }> },
 ) {
-  const { orgSlug, pageSlug } = await params;
+  const { slug: orgSlug, pageSlug } = await params;
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
   const serviceId = searchParams.get("serviceId");
