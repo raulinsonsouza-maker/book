@@ -64,7 +64,7 @@ function HeroVisual() {
                   Agenda de hoje
                 </p>
                 <p className="mt-0.5 text-sm font-semibold tracking-tight">
-                  Sexta · equipe em dia
+                  Sexta-feira, 14 de agosto
                 </p>
               </div>
               <span className="rounded-lg bg-[var(--lp-accent-soft)] px-2 py-1 text-[11px] font-bold text-[var(--lp-accent)]">
@@ -73,10 +73,10 @@ function HeroVisual() {
             </div>
             <ul className="mt-4 space-y-2.5">
               {[
-                { t: "09:00", s: "Corte + barba", p: "Diego", ok: true },
+                { t: "09:00", s: "Corte + escova", p: "Ana", ok: true },
                 { t: "10:00", s: "Coloração", p: "Marina", ok: true },
-                { t: "11:30", s: "Esmaltação", p: "Paula", ok: false },
-                { t: "14:30", s: "Limpeza de pele", p: "Carla", ok: true },
+                { t: "11:30", s: "Escova modelada", p: "Paula", ok: false },
+                { t: "14:30", s: "Hidratação", p: "Carla", ok: true },
               ].map((row) => (
                 <li
                   key={row.t}
@@ -110,12 +110,12 @@ function HeroVisual() {
         <div className="lp-float-card absolute right-4 top-4 hidden w-48 md:right-8 md:top-8 md:block">
           <div className="rounded-xl bg-[#0c1222] px-4 py-3.5 text-white shadow-lg">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">
-              No funil
+              Acabou de pagar
             </p>
             <p className="mt-1 font-display text-lg font-bold tracking-tight">
-              R$ 390
+              R$ 180
             </p>
-            <p className="mt-0.5 text-xs text-white/60">Pix confirmado agora</p>
+            <p className="mt-0.5 text-xs text-white/60">Coloração · Pix</p>
           </div>
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function HomePage() {
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-4 px-5 py-6 text-sm font-medium text-[var(--lp-steel)] md:px-6">
             {[
               "Agenda online 24h",
-              "Pix e cartão no funil",
+              "Pix e cartão na hora",
               "Lembretes automáticos",
               "Modo salão",
               "Google Agenda",
@@ -308,8 +308,8 @@ export default function HomePage() {
                 </p>
                 <div className="mt-6 space-y-3">
                   {[
-                    { label: "Serviço", value: "Consulta · 60 min" },
-                    { label: "Quando", value: "Seg, 31 ago · 08:30" },
+                    { label: "Serviço", value: "Coloração · 2h" },
+                    { label: "Quando", value: "Sáb, 15 ago · 10:00" },
                     { label: "Pagar", value: "Pix ou cartão" },
                   ].map((row) => (
                     <div
@@ -322,7 +322,7 @@ export default function HomePage() {
                   ))}
                 </div>
                 <div className="mt-5 rounded-xl bg-[var(--lp-lime)] px-4 py-3.5 text-center text-sm font-bold text-[var(--lp-ink)]">
-                  Confirmar e pagar R$ 390
+                  Confirmar e pagar R$ 180
                 </div>
                 <p className="mt-3 text-center text-xs text-white/40">
                   Horário reservado até o pagamento confirmar
@@ -336,16 +336,17 @@ export default function HomePage() {
                 <span className="font-accent text-[var(--lp-accent)]">outro site.</span>
               </h3>
               <p className="mt-4 text-base leading-relaxed text-[var(--lp-steel)]">
-                Pix e cartão na última tela do agendamento. Mercado Pago ou
-                Asaas. O slot só libera de verdade quando o pagamento confirma.
+                Pix e cartão na mesma tela em que o cliente marca o horário.
+                Mercado Pago ou Asaas. O horário só fica garantido quando o
+                pagamento confirma.
               </p>
               <ul className="mt-6 space-y-3">
                 <li className="lp-check">Pix com QR na hora · cartão em parcelas</li>
                 <li className="lp-check">
-                  Hold do horário enquanto o cliente paga
+                  Horário fica reservado enquanto o cliente paga
                 </li>
                 <li className="lp-check">
-                  Financeiro do painel com receitas e exportação
+                  Você acompanha o que entrou no painel financeiro
                 </li>
               </ul>
               <div className="mt-8 flex flex-wrap items-center gap-6">
@@ -408,8 +409,8 @@ export default function HomePage() {
             <div className="space-y-3">
               {[
                 { who: "Ana", next: "14:00 · Corte + escova", state: "Agora" },
-                { who: "Bruno", next: "14:30 · Barba", state: "Próximo" },
-                { who: "Carla", next: "15:00 · Coloração", state: "Fila" },
+                { who: "Marina", next: "14:30 · Coloração", state: "Próximo" },
+                { who: "Carla", next: "15:00 · Hidratação", state: "Fila" },
               ].map((row) => (
                 <div
                   key={row.who}
