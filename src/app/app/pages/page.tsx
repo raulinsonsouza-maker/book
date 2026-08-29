@@ -50,8 +50,8 @@ export default function PagesAdminPage() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">
-        Monte aqui o seu sistema de agendamento: serviços, horários e o link
-        público para o cliente marcar.
+        Cada agenda tem serviços, horários e um link para o cliente marcar.
+        Abra uma agenda e siga os 3 passos.
       </p>
 
       <form onSubmit={createPage} className="surface flex flex-col gap-3 p-4 sm:flex-row sm:items-center">

@@ -215,7 +215,8 @@ export function AvailabilityEditor({
           ← Voltar para {pageTitle}
         </Link>
         <p className="mt-3 text-sm text-muted">
-          Configure períodos por dia (ex.: manhã e tarde). Fuso:{" "}
+          Opções avançadas: vários períodos por dia, feriados e preview dos
+          slots. A configuração básica fica na tela da agenda. Fuso:{" "}
           {timezoneLabel(timezone)} (automático)
         </p>
       </div>
