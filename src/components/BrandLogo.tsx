@@ -22,9 +22,7 @@ function LogoMark({ size = "md" }: { size?: Size }) {
   const { box, px } = SIZES[size];
 
   return (
-    <span
-      className={`${box} relative inline-flex shrink-0 overflow-hidden rounded-lg bg-black`}
-    >
+    <span className={`${box} relative inline-flex shrink-0`}>
       <Image
         src="/logo.png"
         alt=""
