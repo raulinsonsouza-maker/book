@@ -45,12 +45,9 @@ const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_S
 
 function topPx(iso: string, weekStart: Date) {
   const d = parseISO(iso);
-  const dayIndex = Math.floor(
-    (d.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000),
-  );
   const hours = d.getHours() + d.getMinutes() / 60;
   const top = (hours - HOUR_START) * 48;
-  return { dayIndex, top: Math.max(0, top) };
+  return { top: Math.max(0, top) };
 }
 
 function heightPx(startAt: string, endAt: string) {
@@ -116,15 +113,18 @@ export function WeekCalendar({
   }, [load]);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const showPageFilter = pages.length > 1;
+  const showServiceFilter = services.length > 1;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex gap-2">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setWeekStart(subWeeks(weekStart, 1))}
-            className="btn-secondary !py-1.5"
+            className="btn-secondary !px-2.5 !py-1.5"
+            aria-label="Semana anterior"
           >
             ←
           </button>
@@ -138,77 +138,97 @@ export function WeekCalendar({
           <button
             type="button"
             onClick={() => setWeekStart(addWeeks(weekStart, 1))}
-            className="btn-secondary !py-1.5"
+            className="btn-secondary !px-2.5 !py-1.5"
+            aria-label="Próxima semana"
           >
             →
           </button>
         </div>
-        <span className="text-sm font-medium capitalize">
+
+        <span className="text-sm font-semibold tracking-tight capitalize">
           {format(weekStart, "d MMM", { locale: ptBR })} –{" "}
           {format(weekEnd, "d MMM yyyy", { locale: ptBR })}
         </span>
-        <select
-          className="input-field !w-auto"
-          value={pageId}
-          onChange={(e) => setPageId(e.target.value)}
-        >
-          {pages.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-        <select
-          className="input-field !w-auto"
-          value={serviceId}
-          onChange={(e) => setServiceId(e.target.value)}
-        >
-          {services.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.title}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-2 text-xs text-muted">
-          <input
-            type="checkbox"
-            checked={showSlots}
-            onChange={(e) => setShowSlots(e.target.checked)}
-          />
-          Slots livres
-        </label>
-        <label className="flex items-center gap-2 text-xs text-muted">
-          <input
-            type="checkbox"
-            checked={showGoogle}
-            onChange={(e) => setShowGoogle(e.target.checked)}
-          />
-          Google Agenda
-        </label>
-        {!googleConnected && (
-          <a href="/app/settings" className="text-xs text-muted underline-offset-2 hover:underline">
-            Conectar Google
-          </a>
-        )}
+
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {showPageFilter && (
+            <label className="flex items-center gap-1.5 text-xs text-muted">
+              Página
+              <select
+                className="input-field !w-auto !py-1.5 text-sm"
+                value={pageId}
+                onChange={(e) => setPageId(e.target.value)}
+              >
+                {pages.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {showServiceFilter && (
+            <label className="flex items-center gap-1.5 text-xs text-muted">
+              Serviço
+              <select
+                className="input-field !w-auto !py-1.5 text-sm"
+                value={serviceId}
+                onChange={(e) => setServiceId(e.target.value)}
+              >
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-medium">
+            <input
+              type="checkbox"
+              checked={showSlots}
+              onChange={(e) => setShowSlots(e.target.checked)}
+              className="accent-amber-500"
+            />
+            Livres
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-medium">
+            <input
+              type="checkbox"
+              checked={showGoogle}
+              onChange={(e) => setShowGoogle(e.target.checked)}
+              className="accent-blue-600"
+            />
+            Google
+          </label>
+          {!googleConnected && (
+            <a
+              href="/app/integrations"
+              className="text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
+            >
+              Conectar Google
+            </a>
+          )}
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-[10px] text-muted">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded bg-foreground" />
-          Confirmado
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded border-2 border-dashed border-foreground bg-white" />
-          Aguardando pagamento
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded border-l-2 border-[#4285F4] bg-[#e8f0fe]" />
-          Google Agenda
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded border border-dashed border-time-border bg-time-bg/60" />
-          Slot livre
-        </span>
+      <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-white px-3 py-2.5 shadow-sm">
+        <LegendChip
+          swatch="bg-emerald-600"
+          label="Confirmado"
+        />
+        <LegendChip
+          swatch="border-2 border-dashed border-amber-500 bg-white"
+          label="Aguardando pagamento"
+        />
+        <LegendChip
+          swatch="border-l-[3px] border-blue-600 bg-blue-100"
+          label="Google Agenda"
+        />
+        <LegendChip
+          swatch="border border-amber-300 bg-amber-100"
+          label="Slot livre"
+        />
       </div>
 
       <div className="surface overflow-x-auto">
@@ -235,7 +255,7 @@ export function WeekCalendar({
               </div>
             ))}
           </div>
-          {days.map((day, colIdx) => (
+          {days.map((day) => (
             <div key={day.toISOString()} className="relative border-r border-border">
               {HOURS.map((h) => (
                 <div key={h} className="h-12 border-b border-border bg-white/50" />
@@ -263,7 +283,7 @@ export function WeekCalendar({
                       height: `${heightPx(ev.startAt, ev.endAt)}px`,
                     };
                     const className =
-                      "absolute inset-x-0.5 overflow-hidden rounded border-l-2 border-[#4285F4] bg-[#e8f0fe] px-1 py-0.5 text-[10px] leading-tight text-[#1967d2]";
+                      "absolute inset-x-0.5 z-[2] overflow-hidden rounded border border-blue-200 border-l-[3px] border-l-blue-600 bg-blue-50 px-1 py-0.5 text-[10px] leading-tight text-blue-800";
 
                     if (ev.htmlLink) {
                       return (
@@ -272,7 +292,7 @@ export function WeekCalendar({
                           href={ev.htmlLink}
                           target="_blank"
                           rel="noreferrer"
-                          className={`${className} z-[2] hover:bg-[#d2e3fc]`}
+                          className={`${className} hover:bg-blue-100`}
                           style={style}
                           title={ev.summary}
                         >
@@ -284,7 +304,7 @@ export function WeekCalendar({
                     return (
                       <div
                         key={ev.id}
-                        className={`${className} pointer-events-none z-[2]`}
+                        className={`${className} pointer-events-none`}
                         style={style}
                         title={ev.summary}
                       >
@@ -300,7 +320,7 @@ export function WeekCalendar({
                     return (
                       <div
                         key={`slot-${i}`}
-                        className="absolute inset-x-0.5 rounded border border-dashed border-time-border bg-time-bg/60 px-1 text-[10px] text-time"
+                        className="absolute inset-x-0.5 z-[1] rounded border border-amber-300/80 bg-amber-100/90 px-1 text-[10px] font-medium text-amber-900"
                         style={{
                           top: `${top}px`,
                           height: `${heightPx(s.startAt, s.endAt)}px`,
@@ -311,15 +331,21 @@ export function WeekCalendar({
                     );
                   })}
               {bookings
-                .filter((b) => format(parseISO(b.startAt), "yyyy-MM-dd") === format(day, "yyyy-MM-dd"))
+                .filter(
+                  (b) =>
+                    format(parseISO(b.startAt), "yyyy-MM-dd") ===
+                    format(day, "yyyy-MM-dd"),
+                )
                 .map((b) => {
                   const { top } = topPx(b.startAt, weekStart);
                   const confirmed = b.status === "CONFIRMED";
                   return (
                     <div
                       key={b.id}
-                      className={`absolute inset-x-0.5 overflow-hidden rounded px-1 py-0.5 text-[10px] leading-tight text-white z-[3] ${
-                        confirmed ? "bg-foreground" : "border-2 border-dashed border-foreground bg-white text-foreground"
+                      className={`absolute inset-x-0.5 z-[3] overflow-hidden rounded px-1 py-0.5 text-[10px] leading-tight ${
+                        confirmed
+                          ? "bg-emerald-600 font-medium text-white shadow-sm"
+                          : "border-2 border-dashed border-amber-500 bg-white font-medium text-amber-900"
                       }`}
                       style={{
                         top: `${top}px`,
@@ -336,5 +362,14 @@ export function WeekCalendar({
         </div>
       </div>
     </div>
+  );
+}
+
+function LegendChip({ swatch, label }: { swatch: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-lg bg-[#f7f5f2] px-2.5 py-1.5 text-xs font-medium text-foreground">
+      <span className={`h-3.5 w-3.5 shrink-0 rounded-sm ${swatch}`} />
+      {label}
+    </span>
   );
 }

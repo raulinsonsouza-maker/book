@@ -24,19 +24,10 @@ export default async function AgendaCalendarioPage() {
   const first = withServices[0];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="eyebrow">Agenda</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Calendário</h1>
-        <p className="mt-2 text-sm text-muted">
-          Reservas do Book Symbius, slots livres e eventos da sua Google Agenda.
-        </p>
-      </div>
-      <WeekCalendar
-        pages={withServices.map((p) => ({ id: p.id, title: p.title, slug: p.slug }))}
-        initialPageId={first.id}
-        initialServiceId={first.services[0].id}
-      />
-    </div>
+    <WeekCalendar
+      pages={withServices.map((p) => ({ id: p.id, title: p.title, slug: p.slug }))}
+      initialPageId={first.id}
+      initialServiceId={first.services[0].id}
+    />
   );
 }
