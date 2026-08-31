@@ -201,20 +201,26 @@ function AgendadorInner() {
     }
   }
 
-  async function savePageMetaNow(
-    snapshot = pageRef.current,
-  ): Promise<{ ok: boolean; error?: string }> {
+  async function savePageMetaNow(): Promise<{ ok: boolean; error?: string }> {
+    const snapshot = pageRef.current;
     if (!snapshot) {
       return { ok: false, error: "Página não carregada" };
     }
+
+    const sent = {
+      title: snapshot.title,
+      description: snapshot.description,
+      coverImageUrl: snapshot.coverImageUrl,
+    };
+
     pageMetaAutosaveSkip.current = true;
     const res = await fetch(`/api/pages/${snapshot.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: snapshot.title,
-        description: snapshot.description,
-        coverImageUrl: snapshot.coverImageUrl,
+        title: sent.title,
+        description: sent.description,
+        coverImageUrl: sent.coverImageUrl,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -230,17 +236,22 @@ function AgendadorInner() {
       PageData,
       "title" | "slug" | "description" | "coverImageUrl"
     >;
-    setPage((p) =>
-      p && p.id === snapshot.id
-        ? {
-            ...p,
-            title: updated.title,
-            slug: updated.slug,
-            description: updated.description,
-            coverImageUrl: updated.coverImageUrl ?? null,
-          }
-        : p,
-    );
+    setPage((p) => {
+      if (!p || p.id !== snapshot.id) return p;
+      return {
+        ...p,
+        slug: updated.slug,
+        title: p.title === sent.title ? updated.title : p.title,
+        description:
+          p.description === sent.description
+            ? updated.description
+            : p.description,
+        coverImageUrl:
+          p.coverImageUrl === sent.coverImageUrl
+            ? (updated.coverImageUrl ?? null)
+            : p.coverImageUrl,
+      };
+    });
     return { ok: true };
   }
 
@@ -251,16 +262,18 @@ function AgendadorInner() {
     const service = p?.services.find((s) => s.id === id);
     if (!p || !service) return { ok: true };
 
+    const sent = {
+      title: service.title,
+      description: service.description,
+      imageUrl: service.imageUrl,
+      durationMinutes: service.durationMinutes,
+      priceCents: service.priceCents,
+    };
+
     const res = await fetch(`/api/services/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: service.title,
-        description: service.description,
-        imageUrl: service.imageUrl,
-        durationMinutes: service.durationMinutes,
-        priceCents: service.priceCents,
-      }),
+      body: JSON.stringify(sent),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -276,19 +289,27 @@ function AgendadorInner() {
       current
         ? {
             ...current,
-            services: current.services.map((s) =>
-              s.id === id
-                ? {
-                    ...s,
-                    title: updated.title,
-                    description: updated.description,
-                    imageUrl: updated.imageUrl,
-                    durationMinutes: updated.durationMinutes,
-                    priceCents: updated.priceCents,
-                    isActive: updated.isActive,
-                  }
-                : s,
-            ),
+            services: current.services.map((s) => {
+              if (s.id !== id) return s;
+              if (
+                s.title !== sent.title ||
+                s.description !== sent.description ||
+                s.imageUrl !== sent.imageUrl ||
+                s.durationMinutes !== sent.durationMinutes ||
+                s.priceCents !== sent.priceCents
+              ) {
+                return s;
+              }
+              return {
+                ...s,
+                title: updated.title,
+                description: updated.description,
+                imageUrl: updated.imageUrl,
+                durationMinutes: updated.durationMinutes,
+                priceCents: updated.priceCents,
+                isActive: updated.isActive,
+              };
+            }),
           }
         : current,
     );
@@ -308,8 +329,8 @@ function AgendadorInner() {
     return { ok: true };
   }
 
-  async function saveMetaSilent(snapshot: PageData) {
-    const result = await savePageMetaNow(snapshot);
+  async function saveMetaSilent() {
+    const result = await savePageMetaNow();
     if (!result.ok) {
       setMsg(result.error || "Não foi possível salvar");
     }
@@ -321,9 +342,8 @@ function AgendadorInner() {
       pageMetaAutosaveSkip.current = false;
       return;
     }
-    const snapshot = page;
     const timer = window.setTimeout(() => {
-      void saveMetaSilent(snapshot);
+      void saveMetaSilent();
     }, 500);
     return () => window.clearTimeout(timer);
   }, [page?.title, page?.description, page?.coverImageUrl, page?.id]);

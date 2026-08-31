@@ -330,7 +330,7 @@ export function AgendadorWelcomeEditor({
       void persistFunnel(snapshot);
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [funnelConfig, funnelLoading, persistFunnel, title, description]);
+  }, [funnelConfig, funnelLoading, persistFunnel]);
 
   const editingField = sortedFields.find((f) => f.id === editingFieldId);
 
