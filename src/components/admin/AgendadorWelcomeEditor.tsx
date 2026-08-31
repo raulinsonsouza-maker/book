@@ -476,8 +476,8 @@ export function AgendadorWelcomeEditor({
       >
         <div className="agendador-preview-frame mx-auto max-w-xl overflow-hidden">
           {previewStep === "welcome" ? (
-            <div className="booking-welcome-hero !min-h-[22rem] !rounded-none !shadow-none">
-              <label className="booking-welcome-hero-media agendador-welcome-media-editable cursor-pointer">
+            <div className="booking-welcome-hero booking-welcome-hero--preview">
+              <label className="booking-welcome-hero-visual agendador-welcome-media-editable cursor-pointer">
                 <input
                   type="file"
                   accept="image/*"
@@ -511,13 +511,15 @@ export function AgendadorWelcomeEditor({
                     }}
                   />
                 )}
-                <div className="booking-welcome-hero-scrim" />
+                {coverImageUrl ? (
+                  <div className="booking-welcome-hero-scrim" aria-hidden />
+                ) : null}
                 <span className="agendador-welcome-media-hint">
                   {coverImageUrl ? "Trocar foto" : "Enviar foto de capa"}
                 </span>
               </label>
 
-              <div className="booking-welcome-hero-body">
+              <div className="booking-welcome-hero-panel">
                 {orgLogoUrl && coverImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -526,6 +528,11 @@ export function AgendadorWelcomeEditor({
                     className="booking-welcome-hero-brand pointer-events-none"
                   />
                 ) : null}
+                <span
+                  className="booking-welcome-hero-accent"
+                  style={{ background: orgAccent }}
+                  aria-hidden
+                />
                 <label className="agendador-preview-field">
                   <span className="agendador-preview-field-label !text-white/70">
                     Nome

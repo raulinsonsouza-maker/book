@@ -991,7 +991,7 @@ export function BookingFunnel({
 
   return (
     <div
-      className="booking-shell"
+      className={`booking-shell${step === "welcome" ? " booking-shell--welcome" : ""}`}
       style={{ "--accent": accent } as React.CSSProperties}
     >
       {step !== "welcome" && (
@@ -1052,11 +1052,11 @@ export function BookingFunnel({
       )}
 
       <main
-        className={`mx-auto w-full ${
+        className={
           step === "welcome"
-            ? "max-w-xl px-0 pb-0 pt-0 sm:px-4 sm:pb-10 sm:pt-5"
-            : `max-w-lg px-4 pb-8 pt-5 ${showDock ? "pb-36" : "pb-10"}`
-        }`}
+            ? "booking-welcome-main"
+            : `mx-auto w-full max-w-lg px-4 pb-8 pt-5 ${showDock ? "pb-36" : "pb-10"}`
+        }
       >
         {canGoBack() && (
           <button
@@ -1093,9 +1093,11 @@ export function BookingFunnel({
         )}
 
         {step === "welcome" && services.length > 0 && (
-          <div className="animate-in sm:px-0">
-            <div className="booking-welcome-hero">
-              <div className="booking-welcome-hero-media">
+          <div className="booking-welcome-stage animate-in">
+            <div
+              className={`booking-welcome-hero${welcomeCoverUrl ? "" : " booking-welcome-hero--no-cover"}`}
+            >
+              <div className="booking-welcome-hero-visual">
                 {welcomeCoverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -1120,18 +1122,25 @@ export function BookingFunnel({
                     }}
                   />
                 )}
-                <div className="booking-welcome-hero-scrim" />
+                {welcomeCoverUrl ? (
+                  <div className="booking-welcome-hero-scrim" aria-hidden />
+                ) : null}
               </div>
 
-              <div className="booking-welcome-hero-body">
-                {logoUrl && welcomeCoverUrl && (
+              <div className="booking-welcome-hero-panel">
+                {logoUrl && welcomeCoverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={logoUrl}
                     alt=""
                     className="booking-welcome-hero-brand"
                   />
-                )}
+                ) : null}
+                <span
+                  className="booking-welcome-hero-accent"
+                  style={{ background: accent }}
+                  aria-hidden
+                />
                 <h1 className="booking-welcome-hero-title">
                   {heroTitle || displayName}
                 </h1>
@@ -1141,7 +1150,7 @@ export function BookingFunnel({
 
                 {funnelConfig?.blocks &&
                   funnelConfig.blocks.some((b) => b.type !== "image") && (
-                    <div className="mt-3 opacity-95">
+                    <div className="booking-welcome-hero-blocks">
                       <FunnelLandingBlocks
                         blocks={funnelConfig.blocks.filter(
                           (b) => b.type !== "image",
