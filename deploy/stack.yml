@@ -29,6 +29,7 @@ services:
       MERCADOPAGO_REDIRECT_URI: ${MERCADOPAGO_REDIRECT_URI:-https://book.symbius.com.br/api/mercadopago/callback}
     volumes:
       - book_data:/data
+      - book_uploads:/app/public/uploads
     networks:
       - traefik_proxy
     healthcheck:
@@ -65,3 +66,4 @@ networks:
 
 volumes:
   book_data:
+  book_uploads:

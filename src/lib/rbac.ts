@@ -148,3 +148,14 @@ export function bookingScopeWhere(ctx: {
   }
   return base;
 }
+
+/** Profissional logado só enxerga a própria agenda; admin pode filtrar por query. */
+export function resolveProfessionalScope(
+  ctx: { role: AppRole; professionalId: string | null },
+  requestedProfessionalId?: string | null,
+): string | null {
+  if (isProfessionalRole(ctx.role) && ctx.professionalId) {
+    return ctx.professionalId;
+  }
+  return requestedProfessionalId ?? null;
+}

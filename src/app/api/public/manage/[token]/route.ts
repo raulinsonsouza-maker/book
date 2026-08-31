@@ -50,6 +50,8 @@ function publicBooking(booking: NonNullable<Awaited<ReturnType<typeof loadByToke
     canReschedule: booking.status === "CONFIRMED",
     paymentStatus: booking.payment?.status ?? null,
     professionalId: booking.professionalId,
+    holdExpiresAt: booking.holdExpiresAt?.toISOString() ?? null,
+    serviceId: booking.serviceId,
   };
 }
 

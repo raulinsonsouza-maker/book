@@ -1,29 +1,33 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTheoreticalSlots, getBusyIntervals } from "@/lib/availability";
 import { getGoogleCalendarEvents } from "@/lib/google/calendar";
+import {
+  apiAuthContext,
+  bookingScopeWhere,
+  isProfessionalRole,
+  resolveProfessionalScope,
+} from "@/lib/rbac";
 import { addDays, parseISO, startOfDay, endOfDay } from "date-fns";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await apiAuthContext();
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const bookingPageId = searchParams.get("bookingPageId");
   const serviceId = searchParams.get("serviceId");
+  const professionalIdParam = searchParams.get("professionalId");
 
   if (!from || !to || !bookingPageId || !serviceId) {
     return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
   }
 
   const page = await prisma.bookingPage.findFirst({
-    where: { id: bookingPageId, organizationId: session.user.organizationId },
+    where: { id: bookingPageId, organizationId: ctx.organizationId },
     include: { organization: true },
   });
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -31,14 +35,52 @@ export async function GET(req: Request) {
   const service = await prisma.service.findFirst({
     where: { id: serviceId, bookingPageId: page.id },
   });
-  if (!service) return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
+  if (!service) {
+    return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
+  }
+
+  const professionalId = resolveProfessionalScope(ctx, professionalIdParam);
+
+  if (isProfessionalRole(ctx.role) && ctx.professionalId) {
+    const linked = await prisma.professionalService.findFirst({
+      where: {
+        professionalId: ctx.professionalId,
+        serviceId: service.id,
+        professional: { isActive: true },
+      },
+    });
+    if (!linked) {
+      return NextResponse.json(
+        { error: "Sem permissão para este serviço" },
+        { status: 403 },
+      );
+    }
+  } else if (professionalId) {
+    const pro = await prisma.professional.findFirst({
+      where: {
+        id: professionalId,
+        organizationId: ctx.organizationId,
+        isActive: true,
+      },
+    });
+    if (!pro) {
+      return NextResponse.json(
+        { error: "Profissional não encontrado" },
+        { status: 404 },
+      );
+    }
+  }
 
   const fromDate = parseISO(from);
   const toDate = parseISO(to);
 
   const bookings = await prisma.booking.findMany({
     where: {
+      ...bookingScopeWhere(ctx),
       bookingPageId: page.id,
+      ...(professionalId && !isProfessionalRole(ctx.role)
+        ? { professionalId }
+        : {}),
       startAt: { gte: startOfDay(fromDate), lte: endOfDay(toDate) },
       status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
     },
@@ -64,6 +106,7 @@ export async function GET(req: Request) {
       bufferBefore: service.bufferBefore,
       bufferAfter: service.bufferAfter,
       slotStepMinutes: page.slotStepMinutes,
+      professionalId,
     });
     const busy = await getBusyIntervals({
       bookingPageId: page.id,
@@ -71,6 +114,7 @@ export async function GET(req: Request) {
       timezone: page.timezone,
       bufferBefore: service.bufferBefore,
       bufferAfter: service.bufferAfter,
+      professionalId,
     });
     for (const slot of slots) {
       const s = new Date(slot.startAt);
@@ -93,9 +137,11 @@ export async function GET(req: Request) {
     d = addDays(d, 1);
   }
 
-  const googleConnected = Boolean(
-    page.organization.googleRefreshToken || page.organization.googleAccessToken,
-  );
+  const googleConnected =
+    !professionalId &&
+    Boolean(
+      page.organization.googleRefreshToken || page.organization.googleAccessToken,
+    );
 
   const syncedGoogleIds = new Set(
     bookings.map((b) => b.googleEventId).filter(Boolean) as string[],
@@ -142,5 +188,6 @@ export async function GET(req: Request) {
     googleEvents,
     googleConnected,
     timezone: page.timezone,
+    professionalId,
   });
 }

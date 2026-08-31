@@ -37,6 +37,18 @@ export default async function AppLayout({
     redirect("/onboarding");
   }
 
+  let accountName = session.user.name?.trim() || null;
+  if (!accountName && session.user.role === "PROFESSIONAL" && session.user.professionalId) {
+    const pro = await prisma.professional.findUnique({
+      where: { id: session.user.professionalId },
+      select: { displayName: true },
+    });
+    accountName = pro?.displayName?.trim() || null;
+  }
+  if (!accountName && session.user.email) {
+    accountName = session.user.email.split("@")[0] || null;
+  }
+
   const billing = await checkOrgBillingAccess(session.user.organizationId);
   const platformCfg = await getPlatformConfig();
 
@@ -61,7 +73,7 @@ export default async function AppLayout({
     <AppShell
       organizationName={org?.name || session.user.organizationName}
       organizationLogoUrl={org?.logoUrl}
-      userName={session.user.name}
+      userName={accountName}
       role={session.user.role}
       businessMode={org?.businessMode || session.user.businessMode || "SOLO"}
     >

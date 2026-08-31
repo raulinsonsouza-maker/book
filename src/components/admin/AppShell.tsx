@@ -29,6 +29,7 @@ const PRO_BLOCKED_PREFIXES = [
   "/app/professionals",
   "/app/conta",
   "/app/settings",
+  "/app/salao",
 ];
 
 type NavItem = {
@@ -212,16 +213,6 @@ function navForRole(
   if (isPro) {
     const principal: NavItem[] = [
       { href: "/app", label: "Painel", icon: NavIconHome, match: (p) => p === "/app" },
-    ];
-    if (salon) {
-      principal.push({
-        href: "/app/salao",
-        label: "Gestão à vista",
-        icon: NavIconBookings,
-        match: (p) => p.startsWith("/app/salao"),
-      });
-    }
-    principal.push(
       {
         href: "/app/agenda/calendario",
         label: "Calendário",
@@ -241,7 +232,7 @@ function navForRole(
         icon: NavIconFinance,
         match: (p) => p.startsWith("/app/financeiro"),
       },
-    );
+    ];
     return [
       { title: "Principal", items: principal },
       {
@@ -344,6 +335,7 @@ export function AppShell({
   const isBuilder = pathname.includes("/builder");
   const isFloor = pathname.startsWith("/app/salao");
   const displayName = organizationName || userName || "Sua conta";
+  const accountName = userName || organizationName || "Sua conta";
   const sections = navForRole(role, businessMode);
 
   useEffect(() => {
@@ -390,9 +382,9 @@ export function AppShell({
 
       <div className="sidebar-footer">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="sidebar-user-avatar">{initials(displayName)}</span>
+          <span className="sidebar-user-avatar">{initials(accountName)}</span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+            <p className="truncate text-sm font-medium text-foreground">{accountName}</p>
             <p className="text-[11px] text-muted">
               {role === "PROFESSIONAL"
                 ? "Profissional"

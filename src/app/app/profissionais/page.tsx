@@ -52,6 +52,13 @@ export default function ProfessionalsAdminPage() {
   const [editHours, setEditHours] = useState<
     { dayOfWeek: number; startTime: string; endTime: string }[]
   >([]);
+  const [editProId, setEditProId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    displayName: "",
+    photoUrl: "" as string,
+    serviceIds: [] as string[],
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [loginProId, setLoginProId] = useState<string | null>(null);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -171,6 +178,41 @@ export default function ProfessionalsAdminPage() {
     await load();
   }
 
+  function openEdit(p: Pro) {
+    setEditProId(p.id);
+    setEditForm({
+      displayName: p.displayName,
+      photoUrl: p.photoUrl || "",
+      serviceIds: [...p.serviceIds],
+    });
+    setMsg("");
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editProId) return;
+    setSavingEdit(true);
+    setMsg("");
+    const res = await fetch(`/api/professionals/${editProId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        displayName: editForm.displayName.trim(),
+        photoUrl: editForm.photoUrl || null,
+        serviceIds: editForm.serviceIds,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSavingEdit(false);
+    if (!res.ok) {
+      flash(data.error || "Não foi possível salvar", "err");
+      return;
+    }
+    setEditProId(null);
+    flash("Profissional atualizado");
+    await load();
+  }
+
   function openLogin(p: Pro) {
     setLoginProId(p.id);
     setLoginEmail(isPlaceholderEmail(p.email) ? "" : p.email);
@@ -266,9 +308,10 @@ export default function ProfessionalsAdminPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <AdminPageIntro link={{ href: "/app/servicos", label: "Serviços →" }}>
-        Cadastre a equipe, vincule aos serviços e defina a agenda de cada
-        profissional. A foto aparece no link público quando o cliente escolhe quem
-        atende. Use <strong>Login</strong> para e-mail e senha de acesso.
+        Cadastre a equipe, edite cada profissional, vincule aos serviços e
+        defina a agenda. A foto aparece no link público quando o cliente
+        escolhe quem atende. Use <strong>Login</strong> para e-mail e senha de
+        acesso.
       </AdminPageIntro>
 
       {msg && <AdminFlashMessage tone={msgTone}>{msg}</AdminFlashMessage>}
@@ -417,6 +460,120 @@ export default function ProfessionalsAdminPage() {
         </div>
       )}
 
+      {editProId && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center">
+          <button
+            type="button"
+            aria-label="Fechar"
+            className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+            onClick={() => {
+              if (savingEdit) return;
+              setEditProId(null);
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-pro-title"
+            className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-white p-5 shadow-2xl shadow-black/15 sm:p-6"
+          >
+            <form onSubmit={(e) => void saveEdit(e)} className="space-y-4">
+              <div>
+                <h2
+                  id="edit-pro-title"
+                  className="text-lg font-semibold tracking-tight"
+                >
+                  Editar profissional
+                </h2>
+                <p className="mt-1 text-sm text-muted">
+                  Nome, foto e serviços. Login e horários ficam nos botões da
+                  lista.
+                </p>
+              </div>
+
+              <EntityImagePicker
+                shape="round"
+                fallbackLabel={
+                  editForm.displayName.slice(0, 2).toUpperCase() || "Foto"
+                }
+                value={editForm.photoUrl || null}
+                onChange={(url) =>
+                  setEditForm({ ...editForm, photoUrl: url || "" })
+                }
+                onError={(err) => flash(err, "err")}
+                hint="Aparece na escolha do profissional · PNG, JPG ou WebP"
+              />
+
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium">Nome</span>
+                <input
+                  required
+                  minLength={2}
+                  autoFocus
+                  className="input-field"
+                  value={editForm.displayName}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, displayName: e.target.value })
+                  }
+                />
+              </label>
+
+              {services.length > 0 && (
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">
+                    Serviços que atende
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {services.map((s) => {
+                      const on = editForm.serviceIds.includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() =>
+                            setEditForm({
+                              ...editForm,
+                              serviceIds: on
+                                ? editForm.serviceIds.filter((id) => id !== s.id)
+                                : [...editForm.serviceIds, s.id],
+                            })
+                          }
+                          className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ${
+                            on
+                              ? "bg-foreground text-white ring-foreground"
+                              : "bg-white text-muted ring-border"
+                          }`}
+                        >
+                          {s.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
+
+              <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={savingEdit}
+                  onClick={() => setEditProId(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="btn-primary"
+                >
+                  {savingEdit ? "Salvando…" : "Salvar alterações"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {pros.length === 0 ? (
         <div className="surface p-6 text-sm text-muted">
           Nenhum profissional cadastrado ainda. Clique em{" "}
@@ -461,6 +618,13 @@ export default function ProfessionalsAdminPage() {
                 <>
                   <button
                     type="button"
+                    className="btn-primary !py-1.5 !text-xs"
+                    onClick={() => openEdit(p)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
                     className="btn-secondary !py-1.5 !text-xs"
                     onClick={() => openLogin(p)}
                   >
@@ -487,15 +651,6 @@ export default function ProfessionalsAdminPage() {
                   >
                     Excluir
                   </button>
-                  {p.photoUrl && (
-                    <button
-                      type="button"
-                      className="btn-secondary !py-1.5 !text-xs text-danger"
-                      onClick={() => void savePhoto(p, null)}
-                    >
-                      Remover foto
-                    </button>
-                  )}
                 </>
               }
               footer={

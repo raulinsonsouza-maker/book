@@ -84,6 +84,7 @@ export function buildPaymentWhere(
 
   if (filters.professionalId) {
     clauses.push({
+      bookingId: { not: null },
       booking: { professionalId: filters.professionalId },
     });
   }

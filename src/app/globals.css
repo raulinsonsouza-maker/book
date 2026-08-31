@@ -477,6 +477,132 @@ button {
   padding: 0;
 }
 
+.booking-welcome-hero {
+  position: relative;
+  display: flex;
+  min-height: min(78dvh, 36rem);
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  background: #0c0c0c;
+}
+
+@media (min-width: 640px) {
+  .booking-welcome-hero {
+    min-height: 28rem;
+    border-radius: 1.25rem;
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.12);
+  }
+}
+
+.booking-welcome-hero-media {
+  position: absolute;
+  inset: 0;
+}
+
+.booking-welcome-hero-photo {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.booking-welcome-hero-logo-wrap {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+}
+
+.booking-welcome-hero-logo {
+  max-height: 5.5rem;
+  max-width: 70%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 24px rgb(0 0 0 / 0.35));
+}
+
+.booking-welcome-hero-fallback {
+  height: 100%;
+  width: 100%;
+}
+
+.booking-welcome-hero-scrim {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.82) 0%,
+    rgb(0 0 0 / 0.35) 42%,
+    rgb(0 0 0 / 0.12) 100%
+  );
+}
+
+.booking-welcome-hero-body {
+  position: relative;
+  z-index: 1;
+  padding: 1.75rem 1.35rem 2rem;
+  color: #fff;
+}
+
+@media (min-width: 640px) {
+  .booking-welcome-hero-body {
+    padding: 2rem 1.75rem 2.15rem;
+  }
+}
+
+.booking-welcome-hero-brand {
+  height: 2.25rem;
+  max-width: 8rem;
+  margin-bottom: 0.85rem;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.booking-welcome-hero-title {
+  font-size: clamp(1.65rem, 5vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.booking-welcome-hero-sub {
+  margin-top: 0.55rem;
+  max-width: 22rem;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: rgb(255 255 255 / 0.78);
+}
+
+.booking-welcome-hero-cta {
+  margin-top: 1.35rem;
+  display: inline-flex;
+  min-width: 10.5rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9999px;
+  padding: 0.85rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #fff;
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease;
+}
+
+.booking-welcome-hero-cta:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.booking-welcome-hero-cta:active {
+  transform: translateY(0);
+}
+
 .booking-welcome-split {
   display: grid;
   grid-template-columns: 1fr;
@@ -578,6 +704,78 @@ button {
   scrollbar-width: none;
 }
 
+.agendador-setup-progress {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .agendador-setup-progress {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.agendador-setup-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.agendador-setup-step:hover {
+  color: var(--foreground);
+  background: var(--muted-bg);
+}
+
+.agendador-setup-step-num {
+  display: inline-flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--muted-bg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.agendador-setup-step-done {
+  color: var(--foreground);
+}
+
+.agendador-setup-step-done .agendador-setup-step-num {
+  border-color: rgb(167 243 208);
+  background: rgb(236 253 245);
+  color: rgb(4 120 87);
+}
+
+.agendador-setup-step-current {
+  border-color: color-mix(in srgb, var(--foreground) 35%, var(--border));
+  color: var(--foreground);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.agendador-setup-step-current .agendador-setup-step-num {
+  border-color: var(--foreground);
+  background: var(--foreground);
+  color: #fff;
+}
+
 .agendador-step-tabs::-webkit-scrollbar {
   display: none;
 }
@@ -610,10 +808,12 @@ button {
 
 .agendador-welcome-media-editable {
   cursor: pointer;
+  position: relative;
 }
 
 .agendador-welcome-media-hint {
   position: absolute;
+  z-index: 2;
   inset: 0;
   display: flex;
   align-items: center;
@@ -624,6 +824,7 @@ button {
   font-weight: 600;
   opacity: 0;
   transition: opacity 0.15s ease;
+  pointer-events: none;
 }
 
 .agendador-welcome-media-editable:hover .agendador-welcome-media-hint,

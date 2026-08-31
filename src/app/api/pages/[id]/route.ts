@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uniqueBookingPageSlug } from "@/lib/booking-page-slug";
 import { slugify } from "@/lib/utils";
+import { getAuthContext, isProfessionalRole } from "@/lib/rbac";
 
 async function getOwnedPage(id: string, organizationId: string) {
   return prisma.bookingPage.findFirst({
@@ -21,10 +22,22 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
+  const ctx = await getAuthContext();
+  const proId =
+    ctx && isProfessionalRole(ctx.role) ? ctx.professionalId : null;
+
   const page = await prisma.bookingPage.findFirst({
     where: { id, organizationId: session.user.organizationId },
     include: {
       services: {
+        where: {
+          ...(proId
+            ? {
+                isActive: true,
+                professionals: { some: { professionalId: proId } },
+              }
+            : {}),
+        },
         include: { customFields: { orderBy: { sortOrder: "asc" } } },
         orderBy: { sortOrder: "asc" },
       },
@@ -81,13 +94,31 @@ export async function PATCH(
       }
     }
 
+    // Capa grande via JSON causa falha — use POST /cover (FormData)
+    if (
+      typeof data.coverImageUrl === "string" &&
+      data.coverImageUrl.startsWith("data:")
+    ) {
+      delete data.coverImageUrl;
+    }
+
     const page = await prisma.bookingPage.update({
       where: { id },
       data,
     });
     return NextResponse.json(page);
-  } catch {
-    return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: e.flatten() },
+        { status: 400 },
+      );
+    }
+    console.error("[pages PATCH]", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Erro ao salvar" },
+      { status: 500 },
+    );
   }
 }
 

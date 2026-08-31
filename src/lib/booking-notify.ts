@@ -10,6 +10,15 @@ export function manageBookingUrl(token: string) {
   return appUrl(`/m/${token}`);
 }
 
+export function bookingPaymentUrl(
+  orgSlug: string,
+  pageSlug: string,
+  manageToken: string,
+) {
+  const path = `/p/${orgSlug}/${pageSlug}?resume=${encodeURIComponent(manageToken)}`;
+  return appUrl(path);
+}
+
 export async function ensureManageToken(bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },

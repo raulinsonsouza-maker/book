@@ -10,6 +10,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useCallback, useEffect, useState } from "react";
+import { ManualBookingModal } from "@/components/agenda/ManualBookingModal";
 
 type BookingItem = {
   id: string;
@@ -59,12 +60,18 @@ type Props = {
   pages: PageOption[];
   initialPageId: string;
   initialServiceId: string;
+  professionalId?: string | null;
+  isProfessionalView?: boolean;
+  businessMode?: "SOLO" | "SALON";
 };
 
 export function WeekCalendar({
   pages,
   initialPageId,
   initialServiceId,
+  professionalId = null,
+  isProfessionalView = false,
+  businessMode = "SOLO",
 }: Props) {
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 0 }),
@@ -81,6 +88,7 @@ export function WeekCalendar({
   const [loadingCal, setLoadingCal] = useState(false);
   const [calError, setCalError] = useState("");
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
+  const [manualSlot, setManualSlot] = useState<SlotItem | null>(null);
 
   const weekEnd = addDays(weekStart, 6);
   const from = format(weekStart, "yyyy-MM-dd");
@@ -101,9 +109,14 @@ export function WeekCalendar({
     if (!pageId || !serviceId) return;
     setLoadingCal(true);
     setCalError("");
-    fetch(
-      `/api/agenda/calendar?from=${from}&to=${to}&bookingPageId=${pageId}&serviceId=${serviceId}`,
-    )
+    const params = new URLSearchParams({
+      from,
+      to,
+      bookingPageId: pageId,
+      serviceId,
+    });
+    if (professionalId) params.set("professionalId", professionalId);
+    fetch(`/api/agenda/calendar?${params}`)
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) {
@@ -121,7 +134,7 @@ export function WeekCalendar({
         setCalError("Falha de rede ao carregar o calendário");
       })
       .finally(() => setLoadingCal(false));
-  }, [from, to, pageId, serviceId]);
+  }, [from, to, pageId, serviceId, professionalId]);
 
   useEffect(() => {
     load();
@@ -130,9 +143,22 @@ export function WeekCalendar({
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const showPageFilter = pages.length > 1;
   const showServiceFilter = services.length > 1;
+  const selectedService = services.find((s) => s.id === serviceId);
 
   return (
     <div className="space-y-3">
+      <ManualBookingModal
+        open={Boolean(manualSlot)}
+        slot={manualSlot}
+        serviceTitle={selectedService?.title || "Serviço"}
+        bookingPageId={pageId}
+        serviceId={serviceId}
+        businessMode={businessMode}
+        professionalId={professionalId}
+        isProfessionalView={isProfessionalView}
+        onClose={() => setManualSlot(null)}
+        onCreated={load}
+      />
       {calError && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
           {calError}
@@ -255,7 +281,7 @@ export function WeekCalendar({
             />
             Google
           </label>
-          {!googleConnected && (
+          {!googleConnected && !isProfessionalView && (
             <a
               href="/app/integracoes"
               className="text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
@@ -273,6 +299,11 @@ export function WeekCalendar({
           reservas feitas pelo Book Symbius.
         </p>
       )}
+
+      <p className="rounded-xl border border-border bg-white px-3 py-2 text-xs text-muted">
+        Clique em um horário <strong>livre</strong> (amarelo) para agendar manualmente
+        um cliente — com pagamento no local ou link de pagamento para enviar.
+      </p>
 
       <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-white px-3 py-2.5 shadow-sm">
         <LegendChip
@@ -380,16 +411,22 @@ export function WeekCalendar({
                   .map((s, i) => {
                     const { top } = topPx(s.startAt, weekStart);
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={`slot-${i}`}
-                        className="absolute inset-x-0.5 z-[1] rounded border border-amber-300/80 bg-amber-100/90 px-1 text-[10px] font-medium text-amber-900"
+                        className="absolute inset-x-0.5 z-[1] cursor-pointer rounded border border-amber-300/80 bg-amber-100/90 px-1 text-left text-[10px] font-medium text-amber-900 transition hover:border-amber-500 hover:bg-amber-200/90"
                         style={{
                           top: `${top}px`,
                           height: `${heightPx(s.startAt, s.endAt)}px`,
                         }}
+                        title="Agendar manualmente"
+                        onClick={() => {
+                          setSelectedBooking(null);
+                          setManualSlot(s);
+                        }}
                       >
                         {s.label}
-                      </div>
+                      </button>
                     );
                   })}
               {bookings

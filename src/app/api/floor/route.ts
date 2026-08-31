@@ -13,6 +13,10 @@ export async function GET(req: Request) {
   if ("error" in auth) return auth.error;
   const { ctx } = auth;
 
+  if (isProfessionalRole(ctx.role)) {
+    return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+  }
+
   const org = await prisma.organization.findUnique({
     where: { id: ctx.organizationId },
     select: { timezone: true, businessMode: true, name: true },

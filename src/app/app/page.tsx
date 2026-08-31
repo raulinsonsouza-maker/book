@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 import { requireOrg } from "@/lib/session";
+import { getAuthContext, isProfessionalRole } from "@/lib/rbac";
 import { getDashboardStats } from "@/lib/dashboard-stats";
 import { paymentProviderLabel } from "@/lib/payments/resolve-provider";
 import { DashboardStatCard } from "@/components/admin/DashboardStatCard";
@@ -13,9 +14,110 @@ import {
 } from "@/components/admin/DashboardUtilization";
 import { PaymentSetupBanner } from "@/components/admin/PaymentSetupBanner";
 
+type ProStats = Awaited<ReturnType<typeof getDashboardStats>>;
+
+function ProfessionalHome({
+  stats,
+  userName,
+}: {
+  stats: ProStats;
+  userName?: string | null;
+}) {
+  const firstName = userName?.trim().split(/\s+/)[0];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {firstName ? `Olá, ${firstName}` : "Sua agenda"}
+        </h2>
+        <p className="mt-1 text-sm text-muted">
+          Resumo dos seus agendamentos — somente o que está na sua agenda.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <DashboardStatCard
+          title="Hoje"
+          value={stats.todayCount}
+          href="/app/agenda/calendario"
+          hrefLabel="Ver calendário"
+          variant="blue"
+        />
+        <DashboardStatCard
+          title="Amanhã"
+          value={stats.tomorrowCount}
+          href="/app/agenda/calendario"
+          hrefLabel="Ver calendário"
+          variant="pink"
+        />
+      </div>
+
+      <div className="dashboard-panel rounded-2xl bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold tracking-tight">
+            Próximos na sua agenda
+          </h2>
+          <Link
+            href="/app/agenda/listagem"
+            className="text-xs font-medium text-[#2563eb] hover:underline"
+          >
+            Ver todos
+          </Link>
+        </div>
+
+        {stats.upcoming.length === 0 ? (
+          <p className="mt-4 text-sm text-muted">
+            Nenhum agendamento confirmado nos próximos dias.
+          </p>
+        ) : (
+          <ul className="mt-4 divide-y divide-border">
+            {stats.upcoming.map((b) => {
+              const local = toZonedTime(b.startAt, b.timezone);
+              return (
+                <li
+                  key={b.id}
+                  className="flex items-center justify-between gap-4 py-3 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">{b.customerName}</p>
+                    <p className="truncate text-muted">{b.service.title}</p>
+                  </div>
+                  <p className="shrink-0 text-right text-muted">
+                    {format(local, "dd MMM · HH:mm", { locale: ptBR })}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Link href="/app/agenda/calendario" className="btn-primary !text-sm">
+            Abrir calendário
+          </Link>
+          <Link href="/app/agenda/listagem" className="btn-secondary !text-sm">
+            Lista de agendamentos
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default async function AppHomePage() {
   const { org } = await requireOrg();
-  const stats = await getDashboardStats(org.id, org.timezone);
+  const ctx = await getAuthContext();
+  const isPro = Boolean(
+    ctx && isProfessionalRole(ctx.role) && ctx.professionalId,
+  );
+  const stats = await getDashboardStats(org.id, org.timezone, {
+    professionalId: isPro ? ctx!.professionalId : null,
+  });
+
+  if (isPro) {
+    return <ProfessionalHome stats={stats} userName={ctx?.name} />;
+  }
 
   const chartTotals = stats.chartMonths.reduce(
     (acc, m) => ({

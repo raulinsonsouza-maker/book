@@ -336,6 +336,8 @@ export function AgendadorWelcomeEditor({
 
   const stepHint = (() => {
     switch (previewStep) {
+      case "welcome":
+        return "Foto de capa, nome e texto ficam na barra acima e na prévia. Logo e cores da marca em Conta.";
       case "service":
         return activeServicesList.length === 0 ? (
           <>
@@ -359,7 +361,7 @@ export function AgendadorWelcomeEditor({
           </>
         );
       case "datetime":
-        return "Horários disponíveis vêm da seção “Quando você atende?” abaixo.";
+        return "Os horários livres vêm da seção “Quando você atende?” (passo 2 acima).";
       case "payment":
         return (
           <>
@@ -382,10 +384,11 @@ export function AgendadorWelcomeEditor({
       <div className="flex flex-col gap-4 border-b border-border px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-sm font-semibold tracking-tight">
-            Funil de agendamento
+            Como o cliente vê
           </h2>
           <p className="mt-1 text-xs text-muted">
-            Clique na prévia como um cliente ou use as abas. Logo e cores em{" "}
+            Clique na prévia para editar. Use as abas para ver cada etapa do
+            agendamento. Logo e cores em{" "}
             <Link
               href="/app/conta"
               className="font-medium text-foreground underline-offset-2 hover:underline"
@@ -425,86 +428,142 @@ export function AgendadorWelcomeEditor({
         </div>
       </div>
 
+      {previewStep === "welcome" && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-border bg-[#f7f5f2] px-4 py-3 sm:px-6">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">Foto de capa</p>
+            <p className="text-xs text-muted">
+              Aparece no início do link público · PNG, JPG ou WebP até 2 MB
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="btn-primary !cursor-pointer !text-sm">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="sr-only"
+                onChange={(e) => {
+                  onCoverFile(e.target.files?.[0] ?? null);
+                  e.target.value = "";
+                }}
+              />
+              {coverImageUrl ? "Trocar foto" : "Enviar foto"}
+            </label>
+            {coverImageUrl && (
+              <button
+                type="button"
+                className="btn-secondary !text-sm"
+                onClick={onRemoveCover}
+              >
+                Remover
+              </button>
+            )}
+          </div>
+          {coverImageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={coverImageUrl}
+              alt=""
+              className="h-12 w-16 rounded-md object-cover ring-1 ring-border"
+            />
+          )}
+        </div>
+      )}
+
       <div
         className="agendador-preview-shell p-4 sm:p-6"
         style={{ "--accent": orgAccent } as React.CSSProperties}
       >
         <div className="agendador-preview-frame mx-auto max-w-xl overflow-hidden">
           {previewStep === "welcome" ? (
-            <div className="booking-card booking-welcome-card !rounded-none !border-0 !shadow-none">
-              <div className="booking-welcome-split">
-                <label className="booking-welcome-media agendador-welcome-media-editable">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(e) => {
-                      onCoverFile(e.target.files?.[0] ?? null);
-                      e.target.value = "";
+            <div className="booking-welcome-hero !min-h-[22rem] !rounded-none !shadow-none">
+              <label className="booking-welcome-hero-media agendador-welcome-media-editable cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    onCoverFile(e.target.files?.[0] ?? null);
+                    e.target.value = "";
+                  }}
+                />
+                {coverImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={coverImageUrl}
+                    alt=""
+                    className="booking-welcome-hero-photo"
+                  />
+                ) : orgLogoUrl ? (
+                  <div className="booking-welcome-hero-logo-wrap">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={orgLogoUrl}
+                      alt=""
+                      className="booking-welcome-hero-logo"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="booking-welcome-hero-fallback"
+                    style={{
+                      background: `linear-gradient(145deg, ${orgAccent} 0%, color-mix(in srgb, ${orgAccent} 55%, #111) 100%)`,
                     }}
                   />
-                  {coverImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={coverImageUrl}
-                      alt=""
-                      className="booking-welcome-photo"
-                    />
-                  ) : orgLogoUrl ? (
-                    <div className="booking-welcome-logo-wrap">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={orgLogoUrl} alt="" className="booking-welcome-logo" />
-                    </div>
-                  ) : (
-                    <div
-                      className="booking-welcome-fallback"
-                      style={{ background: orgAccent }}
-                    >
-                      {initials}
-                    </div>
-                  )}
-                  <span className="agendador-welcome-media-hint">
-                    {coverImageUrl ? "Trocar foto" : "Enviar foto"}
+                )}
+                <div className="booking-welcome-hero-scrim" />
+                <span className="agendador-welcome-media-hint">
+                  {coverImageUrl ? "Trocar foto" : "Enviar foto de capa"}
+                </span>
+              </label>
+
+              <div className="booking-welcome-hero-body">
+                {orgLogoUrl && coverImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={orgLogoUrl}
+                    alt=""
+                    className="booking-welcome-hero-brand pointer-events-none"
+                  />
+                ) : null}
+                <label className="agendador-preview-field">
+                  <span className="agendador-preview-field-label !text-white/70">
+                    Nome
                   </span>
+                  <input
+                    value={title}
+                    onChange={(e) => onTitleChange(e.target.value)}
+                    placeholder="Ex.: Barbearia do Raul"
+                    className="agendador-preview-title !bg-transparent !text-white placeholder:!text-white/40"
+                  />
+                </label>
+                <label className="agendador-preview-field mt-2">
+                  <span className="agendador-preview-field-label !text-white/70">
+                    Texto de apoio
+                  </span>
+                  <textarea
+                    value={description}
+                    onChange={(e) => onDescriptionChange(e.target.value)}
+                    placeholder="Uma frase curta"
+                    rows={2}
+                    className="agendador-preview-desc !bg-transparent !text-white/85 placeholder:!text-white/35"
+                  />
                 </label>
 
-                <div className="booking-welcome-body">
-                  <label className="agendador-preview-field">
-                    <span className="agendador-preview-field-label">Nome</span>
-                    <input
-                      value={title}
-                      onChange={(e) => onTitleChange(e.target.value)}
-                      placeholder="Ex.: Barbearia do Raul"
-                      className="agendador-preview-title"
-                    />
-                  </label>
-                  <label className="agendador-preview-field mt-3">
-                    <span className="agendador-preview-field-label">
-                      Texto de apoio
-                    </span>
-                    <textarea
-                      value={description}
-                      onChange={(e) => onDescriptionChange(e.target.value)}
-                      placeholder="Explique o que o cliente encontra ao agendar"
-                      rows={3}
-                      className="agendador-preview-desc"
-                    />
-                  </label>
+                {previewBlocks.length > 0 && (
+                  <div className="mt-2 opacity-95">
+                    <FunnelLandingBlocks blocks={previewBlocks} />
+                  </div>
+                )}
 
-                  {previewBlocks.length > 0 && (
-                    <div className="mt-3 border-t border-border pt-3">
-                      <FunnelLandingBlocks blocks={previewBlocks} />
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={startPreviewBooking}
-                    className="btn-primary mt-4 w-full !rounded-xl !py-3 text-[0.9375rem] sm:w-auto sm:min-w-[11rem]"
-                  >
-                    Iniciar agendamento
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={startPreviewBooking}
+                  className="booking-welcome-hero-cta"
+                  style={{ background: orgAccent }}
+                >
+                  Agendar
+                </button>
               </div>
             </div>
           ) : funnelConfig ? (
@@ -846,18 +905,6 @@ export function AgendadorWelcomeEditor({
 
       {stepHint && (
         <p className="border-t border-border px-6 py-4 text-xs text-muted">{stepHint}</p>
-      )}
-
-      {previewStep === "welcome" && coverImageUrl && (
-        <div className="border-t border-border px-6 py-3 text-right">
-          <button
-            type="button"
-            onClick={onRemoveCover}
-            className="text-xs font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
-          >
-            Remover foto
-          </button>
-        </div>
       )}
 
       {funnelLoading && (

@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { AgendadorWelcomeEditor } from "@/components/admin/AgendadorWelcomeEditor";
-import { readEntityImageFile, MAX_SERVICE_PHOTO_BYTES } from "@/lib/image-upload";
+import {
+  readEntityImageFile,
+  MAX_SERVICE_PHOTO_BYTES,
+  MAX_COVER_BYTES,
+} from "@/lib/image-upload";
 import { DeletePageButton } from "@/components/admin/DeletePageButton";
 import { WeekHoursSimple } from "@/components/availability/WeekHoursSimple";
 import { bookingPublicPath, bookingPublicUrl } from "@/lib/booking-page-slug";
@@ -40,31 +44,41 @@ type PageData = {
   _count?: { bookings: number };
 };
 
-const MAX_COVER_BYTES = 2 * 1024 * 1024;
-
-function readCoverFile(
-  file: File | null,
-  onOk: (dataUrl: string) => void,
-  onError: (msg: string) => void,
-) {
-  if (!file) return;
-  if (!file.type.startsWith("image/")) {
-    onError("Envie uma imagem (PNG, JPG ou WebP)");
-    return;
-  }
-  if (file.size > MAX_COVER_BYTES) {
-    onError("Imagem muito grande — use até 2 MB");
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => onOk(String(reader.result || ""));
-  reader.readAsDataURL(file);
-}
-
 const PRESET_WEEKDAYS: Rule[] = [1, 2, 3, 4, 5].flatMap((dayOfWeek) => [
   { dayOfWeek, startTime: "09:00", endTime: "12:00" },
   { dayOfWeek, startTime: "13:00", endTime: "18:00" },
 ]);
+
+const DAY_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function summarizeHours(rules: Rule[]): string {
+  const open = [0, 1, 2, 3, 4, 5, 6].filter((d) =>
+    rules.some((r) => r.dayOfWeek === d),
+  );
+  if (open.length === 0) return "Nenhum dia aberto";
+
+  const consecutive =
+    open.length > 1 && open.every((d, i) => i === 0 || d === open[i - 1]! + 1);
+  const days = consecutive
+    ? `${DAY_SHORT[open[0]!]}–${DAY_SHORT[open[open.length - 1]!]}`
+    : open.map((d) => DAY_SHORT[d]).join(", ");
+
+  const windows = open.flatMap((d) =>
+    rules
+      .filter((r) => r.dayOfWeek === d)
+      .map((r) => `${r.startTime}–${r.endTime}`),
+  );
+  const uniqueWindows = [...new Set(windows)];
+  if (uniqueWindows.length <= 2 && open.length >= 2) {
+    const sampleDay = open[0]!;
+    const sample = rules
+      .filter((r) => r.dayOfWeek === sampleDay)
+      .map((r) => `${r.startTime}–${r.endTime}`)
+      .join(", ");
+    return `${days} · ${sample}`;
+  }
+  return days;
+}
 
 function AgendadorInner() {
   const router = useRouter();
@@ -83,15 +97,25 @@ function AgendadorInner() {
   const [createTitle, setCreateTitle] = useState("");
   const [createError, setCreateError] = useState("");
   const [msg, setMsg] = useState("");
+  const [hoursOpen, setHoursOpen] = useState(true);
   const pageMetaAutosaveSkip = useRef(true);
   const pageRef = useRef<PageData | null>(null);
   const serviceSaveTimers = useRef<Record<string, number>>({});
+  const hoursInitForPage = useRef<string | null>(null);
 
   pageRef.current = page;
 
   useEffect(() => {
     pageMetaAutosaveSkip.current = true;
   }, [page?.id]);
+
+  useEffect(() => {
+    if (!page) return;
+    if (hoursInitForPage.current === page.id) return;
+    hoursInitForPage.current = page.id;
+    // Já configurado: começa fechado para não ocupar a tela
+    setHoursOpen((page.availability || []).length === 0);
+  }, [page]);
 
   const appUrl =
     typeof window !== "undefined"
@@ -210,7 +234,6 @@ function AgendadorInner() {
     const sent = {
       title: snapshot.title,
       description: snapshot.description,
-      coverImageUrl: snapshot.coverImageUrl,
     };
 
     pageMetaAutosaveSkip.current = true;
@@ -220,7 +243,6 @@ function AgendadorInner() {
       body: JSON.stringify({
         title: sent.title,
         description: sent.description,
-        coverImageUrl: sent.coverImageUrl,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -246,10 +268,6 @@ function AgendadorInner() {
           p.description === sent.description
             ? updated.description
             : p.description,
-        coverImageUrl:
-          p.coverImageUrl === sent.coverImageUrl
-            ? (updated.coverImageUrl ?? null)
-            : p.coverImageUrl,
       };
     });
     return { ok: true };
@@ -346,19 +364,68 @@ function AgendadorInner() {
       void saveMetaSilent();
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [page?.title, page?.description, page?.coverImageUrl, page?.id]);
+    // Capa salva em endpoint próprio — não inclui coverImageUrl aqui
+  }, [page?.title, page?.description, page?.id]);
 
-  function handleCoverFile(file: File | null) {
-    readCoverFile(
+  async function uploadCoverFile(file: File | null) {
+    const snapshot = pageRef.current;
+    if (!file || !snapshot) return;
+
+    readEntityImageFile(
       file,
-      (dataUrl) => {
-        setPage((p) => (p ? { ...p, coverImageUrl: dataUrl } : p));
+      async (dataUrl) => {
+        // prévia imediata
+        setPage((p) => {
+          if (!p) return p;
+          const next = { ...p, coverImageUrl: dataUrl };
+          pageRef.current = next;
+          return next;
+        });
         setMsg("");
+
+        try {
+          const blob = await (await fetch(dataUrl)).blob();
+          const form = new FormData();
+          form.append(
+            "file",
+            new File([blob], "cover.jpg", { type: blob.type || "image/jpeg" }),
+          );
+          const res = await fetch(`/api/pages/${snapshot.id}/cover`, {
+            method: "POST",
+            body: form,
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setMsg(
+              (data as { error?: string }).error ||
+                "Não foi possível salvar a foto",
+            );
+            return;
+          }
+          const url = (data as { coverImageUrl?: string }).coverImageUrl || null;
+          setPage((p) => {
+            if (!p || p.id !== snapshot.id) return p;
+            const next = { ...p, coverImageUrl: url };
+            pageRef.current = next;
+            return next;
+          });
+        } catch {
+          setMsg("Falha de rede ao salvar a foto");
+        }
       },
       (err) => {
-        setMsg(err);
+        setMsg(
+          err === "Imagem muito grande"
+            ? "Imagem muito grande — use até 2 MB"
+            : err,
+        );
       },
+      MAX_COVER_BYTES,
     );
+  }
+
+  function handleCoverFile(file: File | null) {
+    void uploadCoverFile(file);
   }
 
   function scheduleServiceSave(id: string) {
@@ -412,10 +479,20 @@ function AgendadorInner() {
     const res = await fetch("/api/availability", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageId: page.id, rules: PRESET_WEEKDAYS }),
+      body: JSON.stringify({
+        bookingPageId: page.id,
+        rules: PRESET_WEEKDAYS,
+      }),
     });
     if (!res.ok) return;
     setPage((p) => (p ? { ...p, availability: PRESET_WEEKDAYS } : p));
+  }
+
+  function scrollToSection(id: string) {
+    if (id === "agendador-horarios") setHoursOpen(true);
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   if (loading) {
@@ -425,26 +502,44 @@ function AgendadorInner() {
   if (list.length === 0) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
-        <div className="surface space-y-3 p-6">
-          <h1 className="text-xl font-semibold tracking-tight">Agendador</h1>
-          <p className="text-sm text-muted">
-            Crie o link que seus clientes usam para marcar horário. Depois
-            cadastre os serviços e defina quando você atende.
-          </p>
+        <div className="surface space-y-4 p-6">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Agendador</h1>
+            <p className="mt-1 text-sm text-muted">
+              Em poucos minutos seus clientes já podem marcar horário pelo link.
+            </p>
+          </div>
+          <ol className="space-y-2 text-sm text-muted">
+            <li className="flex gap-2">
+              <span className="font-semibold text-foreground">1.</span>
+              Dê um nome à agenda
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold text-foreground">2.</span>
+              Cadastre os serviços
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold text-foreground">3.</span>
+              Defina quando você atende
+            </li>
+          </ol>
           <form onSubmit={(e) => void createPage(e)} className="space-y-3">
-            <input
-              required
-              placeholder="Nome (ex.: Atendimento)"
-              value={createTitle}
-              onChange={(e) => setCreateTitle(e.target.value)}
-              className="input-field"
-            />
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Nome da agenda</span>
+              <input
+                required
+                placeholder="Ex.: Atendimento, Consultório, Unidade Centro"
+                value={createTitle}
+                onChange={(e) => setCreateTitle(e.target.value)}
+                className="input-field"
+              />
+            </label>
             <button
               type="submit"
               disabled={creating}
               className="btn-primary w-full sm:w-auto"
             >
-              {creating ? "Criando…" : "Criar agendador"}
+              {creating ? "Criando…" : "Criar e continuar"}
             </button>
           </form>
           {createError && <p className="text-sm text-danger">{createError}</p>}
@@ -535,20 +630,67 @@ function AgendadorInner() {
     ? bookingPublicUrl(orgSlug, page.slug)
     : `${appUrl}/p/${page.slug}`;
 
+  const setupSteps = [
+    {
+      id: "servicos" as const,
+      label: "Serviços",
+      done: checklist.services,
+      target: "agendador-servicos",
+    },
+    {
+      id: "horarios" as const,
+      label: "Horários",
+      done: checklist.hours,
+      target: "agendador-horarios",
+    },
+    {
+      id: "aparencia" as const,
+      label: "Aparência",
+      done: checklist.name,
+      target: "agendador-aparencia",
+    },
+    {
+      id: "link" as const,
+      label: "Link",
+      done: ready,
+      target: "agendador-link",
+    },
+  ];
+  const currentStepId =
+    setupSteps.find((s) => !s.done)?.id ?? ("link" as const);
+
+  const nextAction = !checklist.services
+    ? {
+        text: "Próximo passo: cadastre pelo menos um serviço.",
+        cta: "Ir para Serviços",
+        href: "/app/servicos" as string | null,
+        target: null as string | null,
+      }
+    : !checklist.hours
+      ? {
+          text: "Próximo passo: defina e salve quando você atende.",
+          cta: "Ver horários",
+          href: null,
+          target: "agendador-horarios",
+        }
+      : !checklist.name
+        ? {
+            text: "Próximo passo: informe o nome da agenda na prévia.",
+            cta: "Editar aparência",
+            href: null,
+            target: "agendador-aparencia",
+          }
+        : null;
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="text-sm text-muted">
-          Link público, horários e personalização do funil de agendamento.
-          Serviços em{" "}
-          <Link
-            href="/app/servicos"
-            className="font-medium text-foreground underline-offset-2 hover:underline"
-          >
-            Serviços
-          </Link>
-          .
-        </p>
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Agendador</h1>
+          <p className="mt-1 text-sm text-muted">
+            Configure o link que seus clientes usam para marcar horário.
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {list.length > 1 && (
             <Link
@@ -579,105 +721,276 @@ function AgendadorInner() {
         </p>
       )}
 
-      {!ready && (
-        <section className="surface space-y-2 p-6">
-          <p className="text-sm font-semibold tracking-tight">Para liberar o link</p>
-          <ul className="space-y-2 text-sm text-muted">
-            {!checklist.services && (
-              <li>
-                · Cadastre um serviço em{" "}
-                <Link
-                  href="/app/servicos"
-                  className="font-medium text-foreground underline-offset-2 hover:underline"
-                >
-                  Serviços
-                </Link>
-              </li>
-            )}
-            {!checklist.hours && (
-              <li>· Defina e salve os horários abaixo</li>
-            )}
-            {!checklist.name && <li>· Informe um nome para a agenda</li>}
-          </ul>
-        </section>
-      )}
+      <nav
+        className="agendador-setup-progress"
+        aria-label="Progresso da configuração"
+      >
+        {setupSteps.map((step, index) => {
+          const isCurrent = step.id === currentStepId;
+          return (
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => scrollToSection(step.target)}
+              className={`agendador-setup-step ${
+                step.done ? "agendador-setup-step-done" : ""
+              } ${isCurrent ? "agendador-setup-step-current" : ""}`}
+            >
+              <span className="agendador-setup-step-num" aria-hidden>
+                {step.done ? "✓" : index + 1}
+              </span>
+              <span>{step.label}</span>
+            </button>
+          );
+        })}
+      </nav>
 
-      <AgendadorWelcomeEditor
-        pageId={page.id}
-        title={page.title}
-        description={page.description || ""}
-        coverImageUrl={page.coverImageUrl}
-        orgLogoUrl={orgLogoUrl}
-        orgAccent={orgAccent}
-        publicUrl={publicUrl}
-        services={page.services.map((s) => ({
-          id: s.id,
-          title: s.title,
-          description: s.description,
-          imageUrl: s.imageUrl,
-          durationMinutes: s.durationMinutes,
-          priceCents: s.priceCents,
-          isActive: s.isActive,
-        }))}
-        businessMode={businessMode}
-        demoPayments={demoPayments}
-        onTitleChange={(value) =>
-          setPage((p) => (p ? { ...p, title: value } : p))
-        }
-        onDescriptionChange={(value) =>
-          setPage((p) => (p ? { ...p, description: value } : p))
-        }
-        onCoverFile={handleCoverFile}
-        onRemoveCover={() =>
-          setPage((p) => (p ? { ...p, coverImageUrl: null } : p))
-        }
-        onServiceChange={handleServiceChange}
-        onServiceImageFile={handleServiceImageFile}
-        onSaveAll={saveAllPageChanges}
-      />
+      <section id="agendador-link" className="scroll-mt-20">
+        {ready ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+            <p className="text-sm font-semibold text-emerald-900">
+              Pronto para compartilhar
+            </p>
+            <p className="mt-1 break-all text-xs text-emerald-800/80">
+              {publicUrl}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <CopyLinkButton url={publicUrl} />
+              <a
+                href={publicUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary !text-sm"
+              >
+                Abrir link
+              </a>
+            </div>
+          </div>
+        ) : nextAction ? (
+          <div className="surface flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted">{nextAction.text}</p>
+            {nextAction.href ? (
+              <Link href={nextAction.href} className="btn-primary shrink-0 !text-sm">
+                {nextAction.cta}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="btn-primary shrink-0 !text-sm"
+                onClick={() =>
+                  nextAction.target && scrollToSection(nextAction.target)
+                }
+              >
+                {nextAction.cta}
+              </button>
+            )}
+          </div>
+        ) : null}
+      </section>
 
-      <section className="surface space-y-4 p-6">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">Quando você atende?</h2>
-          <p className="mt-1 text-xs text-muted">
-            Sem horários salvos, o cliente não vê vagas.
-          </p>
+      <section
+        id="agendador-servicos"
+        className="surface scroll-mt-20 space-y-3 p-6"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+              Passo 1
+            </p>
+            <h2 className="mt-0.5 text-sm font-semibold tracking-tight">
+              Serviços
+            </h2>
+            <p className="mt-1 text-xs text-muted">
+              O que o cliente pode agendar (corte, consulta, etc.).
+            </p>
+          </div>
+          {checklist.services && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+              Pronto
+            </span>
+          )}
         </div>
 
-        {(page.availability || []).length === 0 && (
-          <div className="rounded-xl border border-dashed border-border bg-muted-bg/40 p-4">
-            <p className="text-sm font-medium">Começar mais rápido</p>
+        {!checklist.services ? (
+          <div className="rounded-xl border border-dashed border-border bg-muted-bg/40 p-5 text-center">
+            <p className="text-sm font-medium">Ainda não há serviços ativos</p>
             <p className="mt-1 text-xs text-muted">
-              Modelo seg–sex, 9h–12h e 13h–18h.
+              Cadastre o primeiro serviço para o cliente ver opções no link.
             </p>
-            <button
-              type="button"
-              onClick={() => void applyHoursPreset()}
-              className="btn-secondary mt-3 !text-xs"
+            <Link
+              href="/app/servicos"
+              className="btn-primary mt-4 inline-flex !text-sm"
             >
-              Usar horário comercial
-            </button>
+              Cadastre o primeiro serviço
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm">
+              <span className="font-semibold">{activeServices}</span>{" "}
+              {activeServices === 1 ? "serviço ativo" : "serviços ativos"}
+              <span className="text-muted">
+                {" "}
+                · você também pode editar nome e preço na prévia abaixo
+              </span>
+            </p>
+            <Link
+              href="/app/servicos"
+              className="btn-secondary shrink-0 !text-sm"
+            >
+              Gerenciar em Serviços
+            </Link>
           </div>
         )}
-
-        <WeekHoursSimple
-          pageId={page.id}
-          initialRules={page.availability || []}
-          onSaved={(rules) =>
-            setPage((p) => (p ? { ...p, availability: rules } : p))
-          }
-        />
-
-        <p className="text-xs text-muted">
-          Feriados e exceções?{" "}
-          <Link
-            href={`/app/agendador/${page.id}/availability`}
-            className="font-medium text-foreground underline-offset-2 hover:underline"
-          >
-            Opções avançadas
-          </Link>
-        </p>
       </section>
+
+      <section
+        id="agendador-horarios"
+        className="surface scroll-mt-20 space-y-4 p-6"
+      >
+        <button
+          type="button"
+          className="flex w-full flex-wrap items-start justify-between gap-2 text-left"
+          aria-expanded={hoursOpen}
+          onClick={() => setHoursOpen((o) => !o)}
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+              Passo 2
+            </p>
+            <h2 className="mt-0.5 flex items-center gap-2 text-sm font-semibold tracking-tight">
+              Quando você atende?
+              <span
+                className={`inline-block text-muted transition-transform ${hoursOpen ? "rotate-180" : ""}`}
+                aria-hidden
+              >
+                ▾
+              </span>
+            </h2>
+            {hoursOpen ? (
+              <p className="mt-1 text-xs text-muted">
+                Sem horários salvos, o cliente não vê vagas no link.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-muted">
+                {checklist.hours
+                  ? summarizeHours(page.availability || [])
+                  : "Toque para definir os horários"}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {checklist.hours && (
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                Pronto
+              </span>
+            )}
+            <span className="text-xs font-medium text-muted">
+              {hoursOpen ? "Fechar" : "Abrir"}
+            </span>
+          </div>
+        </button>
+
+        {hoursOpen && (
+          <>
+            {(page.availability || []).length === 0 && (
+              <div className="rounded-xl border border-dashed border-border bg-muted-bg/40 p-4">
+                <p className="text-sm font-medium">Começar mais rápido</p>
+                <p className="mt-1 text-xs text-muted">
+                  Modelo seg–sex, 9h–12h e 13h–18h. Você pode ajustar depois.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void applyHoursPreset()}
+                  className="btn-secondary mt-3 !text-xs"
+                >
+                  Usar horário comercial
+                </button>
+              </div>
+            )}
+
+            <WeekHoursSimple
+              pageId={page.id}
+              initialRules={page.availability || []}
+              onSaved={(rules) =>
+                setPage((p) => (p ? { ...p, availability: rules } : p))
+              }
+            />
+
+            <p className="text-xs text-muted">
+              Feriados e exceções?{" "}
+              <Link
+                href={`/app/agendador/${page.id}/availability`}
+                className="font-medium text-foreground underline-offset-2 hover:underline"
+              >
+                Opções avançadas
+              </Link>
+            </p>
+          </>
+        )}
+      </section>
+
+      <div id="agendador-aparencia" className="scroll-mt-20 space-y-2">
+        <div className="px-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+            Passo 3
+          </p>
+          <p className="mt-0.5 text-xs text-muted">
+            Personalize o que o cliente vê ao abrir o link.
+          </p>
+        </div>
+        <AgendadorWelcomeEditor
+          pageId={page.id}
+          title={page.title}
+          description={page.description || ""}
+          coverImageUrl={page.coverImageUrl}
+          orgLogoUrl={orgLogoUrl}
+          orgAccent={orgAccent}
+          publicUrl={publicUrl}
+          services={page.services.map((s) => ({
+            id: s.id,
+            title: s.title,
+            description: s.description,
+            imageUrl: s.imageUrl,
+            durationMinutes: s.durationMinutes,
+            priceCents: s.priceCents,
+            isActive: s.isActive,
+          }))}
+          businessMode={businessMode}
+          demoPayments={demoPayments}
+          onTitleChange={(value) =>
+            setPage((p) => (p ? { ...p, title: value } : p))
+          }
+          onDescriptionChange={(value) =>
+            setPage((p) => (p ? { ...p, description: value } : p))
+          }
+          onCoverFile={handleCoverFile}
+          onRemoveCover={() => {
+            const snapshot = pageRef.current;
+            setPage((p) => {
+              if (!p) return p;
+              const next = { ...p, coverImageUrl: null };
+              pageRef.current = next;
+              return next;
+            });
+            if (!snapshot) return;
+            void fetch(`/api/pages/${snapshot.id}/cover`, { method: "DELETE" })
+              .then(async (r) => {
+                if (!r.ok) {
+                  const data = await r.json().catch(() => ({}));
+                  setMsg(
+                    (data as { error?: string }).error ||
+                      "Não foi possível remover a foto",
+                  );
+                }
+              })
+              .catch(() => setMsg("Falha de rede ao remover a foto"));
+          }}
+          onServiceChange={handleServiceChange}
+          onServiceImageFile={handleServiceImageFile}
+          onSaveAll={saveAllPageChanges}
+        />
+      </div>
     </div>
   );
 }

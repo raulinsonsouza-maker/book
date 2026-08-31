@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { WeekHoursSimple } from "@/components/availability/WeekHoursSimple";
+import { ProfessionalWeekBlocks } from "@/components/availability/ProfessionalWeekBlocks";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 
 type ProProfile = {
@@ -103,13 +104,22 @@ export default function ProfessionalProfilePage() {
       <section className="surface space-y-3 p-5">
         <h2 className="font-semibold tracking-tight">Meus horários</h2>
         <p className="text-sm text-muted">
-          Estes horários definem quando você aparece disponível para os
-          clientes.
+          Grade semanal padrão — quando você costuma atender.
         </p>
         <WeekHoursSimple
           professionalId={pro.id}
           initialRules={pro.availability}
         />
+      </section>
+
+      <section className="surface space-y-3 p-5">
+        <h2 className="font-semibold tracking-tight">Bloqueios da agenda</h2>
+        <p className="text-sm text-muted">
+          Férias, folgas ou semanas específicas indisponíveis. Vale{" "}
+          <strong>somente para você</strong> — os outros profissionais continuam
+          aparecendo normalmente para os clientes.
+        </p>
+        <ProfessionalWeekBlocks professionalId={pro.id} />
       </section>
     </div>
   );

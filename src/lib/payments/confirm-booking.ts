@@ -29,6 +29,7 @@ export async function confirmBooking(bookingId: string) {
         bufferBefore: existing.service.bufferBefore,
         bufferAfter: existing.service.bufferAfter,
         excludeBookingId: bookingId,
+        professionalId: existing.professionalId,
       });
     } catch (e) {
       if (e instanceof SlotUnavailableError) {

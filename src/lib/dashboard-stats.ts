@@ -36,13 +36,25 @@ function monthBounds(date: Date, timezone: string) {
 
 const ACTIVE_STATUSES = ["CONFIRMED", "PENDING_PAYMENT"] as const;
 
-export async function getDashboardStats(organizationId: string, timezone: string) {
+export type DashboardScope = {
+  professionalId?: string | null;
+};
+
+export async function getDashboardStats(
+  organizationId: string,
+  timezone: string,
+  scope?: DashboardScope,
+) {
   const now = new Date();
   const today = dayBounds(now, timezone);
   const tomorrow = dayBounds(addDays(now, 1), timezone);
   const thisMonth = monthBounds(now, timezone);
 
-  const orgFilter = { bookingPage: { organizationId } };
+  const professionalId = scope?.professionalId ?? null;
+  const orgFilter = {
+    bookingPage: { organizationId },
+    ...(professionalId ? { professionalId } : {}),
+  };
 
   const [
     org,
@@ -72,12 +84,33 @@ export async function getDashboardStats(organizationId: string, timezone: string
         startAt: { gte: tomorrow.start, lte: tomorrow.end },
       },
     }),
-    prisma.bookingPage.count({
-      where: { organizationId, isActive: true },
-    }),
-    prisma.service.count({
-      where: { bookingPage: { organizationId }, isActive: true },
-    }),
+    professionalId
+      ? prisma.bookingPage.count({
+          where: {
+            organizationId,
+            isActive: true,
+            services: {
+              some: {
+                isActive: true,
+                professionals: { some: { professionalId } },
+              },
+            },
+          },
+        })
+      : prisma.bookingPage.count({
+          where: { organizationId, isActive: true },
+        }),
+    professionalId
+      ? prisma.service.count({
+          where: {
+            isActive: true,
+            professionals: { some: { professionalId } },
+            bookingPage: { organizationId },
+          },
+        })
+      : prisma.service.count({
+          where: { bookingPage: { organizationId }, isActive: true },
+        }),
     prisma.booking.count({
       where: {
         ...orgFilter,
@@ -94,7 +127,7 @@ export async function getDashboardStats(organizationId: string, timezone: string
     prisma.payment.aggregate({
       where: {
         AND: [
-          buildPaymentWhere(organizationId, {}),
+          buildPaymentWhere(organizationId, { professionalId }),
           {
             status: "PAID",
             paidAt: { gte: thisMonth.start, lte: thisMonth.end },

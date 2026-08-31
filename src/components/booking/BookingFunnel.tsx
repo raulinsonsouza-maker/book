@@ -97,9 +97,11 @@ function groupSlots(slots: Slot[]) {
 export function BookingFunnel({
   orgSlug,
   pageSlug,
+  resumeToken,
 }: {
   orgSlug: string;
   pageSlug: string;
+  resumeToken?: string | null;
 }) {
   const apiBase = `/api/public/${orgSlug}/${pageSlug}`;
   const [loading, setLoading] = useState(true);
@@ -157,6 +159,7 @@ export function BookingFunnel({
   const [cardMaxInstallments, setCardMaxInstallments] = useState(12);
   const [paying, setPaying] = useState(false);
   const submittingRef = useRef(false);
+  const resumeStartedRef = useRef(false);
   const [checkingPix, setCheckingPix] = useState(false);
   const [pixCheckHint, setPixCheckHint] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -216,7 +219,81 @@ export function BookingFunnel({
         setError(e.message);
         setLoading(false);
       });
-  }, [orgSlug, pageSlug]);
+  }, [orgSlug, pageSlug, apiBase]);
+
+  useEffect(() => {
+    if (!resumeToken || loading || !page || resumeStartedRef.current) return;
+    resumeStartedRef.current = true;
+
+    fetch(`/api/public/manage/${resumeToken}`)
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) {
+          throw new Error(data.error || "Agendamento não encontrado");
+        }
+        const b = data.booking as {
+          id: string;
+          status: string;
+          startAt: string;
+          endAt: string;
+          customerName: string;
+          customerEmail: string;
+          serviceTitle: string;
+          serviceId: string;
+          durationMinutes: number;
+          priceCents: number;
+          pageSlug: string;
+          holdExpiresAt: string | null;
+        };
+
+        if (b.pageSlug !== pageSlug) {
+          throw new Error("Este link não corresponde a esta página de agendamento");
+        }
+
+        setBookingId(b.id);
+        setManageToken(resumeToken);
+        setDetails({
+          customerName: b.customerName,
+          customerEmail: b.customerEmail || "",
+          customerPhone: "",
+          customerCpf: "",
+        });
+        setService({
+          id: b.serviceId,
+          title: b.serviceTitle,
+          description: null,
+          durationMinutes: b.durationMinutes,
+          priceCents: b.priceCents,
+          customFields: [],
+        });
+        setSelectedSlot({
+          startAt: b.startAt,
+          endAt: b.endAt,
+          label: format(parseISO(b.startAt), "HH:mm"),
+        });
+
+        if (b.status === "CONFIRMED") {
+          setStep("done");
+          return;
+        }
+
+        if (b.status !== "PENDING_PAYMENT") {
+          throw new Error("Este agendamento não está aguardando pagamento");
+        }
+
+        if (b.holdExpiresAt && new Date(b.holdExpiresAt) <= new Date()) {
+          throw new Error(
+            "O prazo para pagamento expirou. Peça um novo link à empresa.",
+          );
+        }
+
+        setHoldExpiresAt(b.holdExpiresAt);
+        setStep("payment");
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "Link inválido");
+      });
+  }, [resumeToken, loading, page, pageSlug]);
 
   useEffect(() => {
     if (!selectedDate || !service) return;
@@ -910,15 +987,14 @@ export function BookingFunnel({
   const showBookingProgress = step !== "done" && step !== "welcome";
 
   const displayName = businessName || heroTitle || "Agendamento";
-  const welcomeText =
-    heroSubtitle?.trim() ||
-    "Escolha o serviço, o horário e confirme seu agendamento em poucos passos.";
+  const welcomeText = heroSubtitle?.trim() || "";
 
   return (
     <div
       className="booking-shell"
       style={{ "--accent": accent } as React.CSSProperties}
     >
+      {step !== "welcome" && (
       <header className="sticky top-0 z-30 border-b border-black/5 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
           {logoUrl ? (
@@ -973,11 +1049,14 @@ export function BookingFunnel({
           </div>
         )}
       </header>
+      )}
 
       <main
-        className={`mx-auto w-full px-4 pb-8 pt-5 ${
-          step === "welcome" ? "max-w-xl" : "max-w-lg"
-        } ${showDock ? "pb-36" : "pb-10"}`}
+        className={`mx-auto w-full ${
+          step === "welcome"
+            ? "max-w-xl px-0 pb-0 pt-0 sm:px-4 sm:pb-10 sm:pt-5"
+            : `max-w-lg px-4 pb-8 pt-5 ${showDock ? "pb-36" : "pb-10"}`
+        }`}
       >
         {canGoBack() && (
           <button
@@ -989,14 +1068,8 @@ export function BookingFunnel({
           </button>
         )}
 
-        {error && (
-          <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-danger">
-            {error}
-          </p>
-        )}
-
         {!loading && page && services.length === 0 && step === "welcome" && (
-          <div className="booking-card space-y-2 p-6 text-center">
+          <div className="booking-card mx-4 mt-5 space-y-2 p-6 text-center sm:mx-0">
             <h1 className="text-lg font-semibold tracking-tight">
               Página em configuração
             </h1>
@@ -1007,65 +1080,84 @@ export function BookingFunnel({
           </div>
         )}
 
+        {error && step === "welcome" && (
+          <p className="mx-4 mb-0 mt-4 rounded-2xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-danger sm:mx-0">
+            {error}
+          </p>
+        )}
+
+        {error && step !== "welcome" && (
+          <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-danger">
+            {error}
+          </p>
+        )}
+
         {step === "welcome" && services.length > 0 && (
-          <div className="animate-in">
-            <div className="booking-card booking-welcome-card">
-              <div className="booking-welcome-split">
-                <div className="booking-welcome-media">
-                  {welcomeCoverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+          <div className="animate-in sm:px-0">
+            <div className="booking-welcome-hero">
+              <div className="booking-welcome-hero-media">
+                {welcomeCoverUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={welcomeCoverUrl}
+                    alt=""
+                    className="booking-welcome-hero-photo"
+                  />
+                ) : logoUrl ? (
+                  <div className="booking-welcome-hero-logo-wrap">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={welcomeCoverUrl}
+                      src={logoUrl}
                       alt=""
-                      className="booking-welcome-photo"
+                      className="booking-welcome-hero-logo"
                     />
-                  ) : logoUrl ? (
-                    <div className="booking-welcome-logo-wrap">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={logoUrl} alt="" className="booking-welcome-logo" />
-                    </div>
-                  ) : (
-                    <div
-                      className="booking-welcome-fallback"
-                      style={{ background: accent }}
-                    >
-                      {displayName.slice(0, 2).toUpperCase()}
+                  </div>
+                ) : (
+                  <div
+                    className="booking-welcome-hero-fallback"
+                    style={{
+                      background: `linear-gradient(145deg, ${accent} 0%, color-mix(in srgb, ${accent} 55%, #111) 100%)`,
+                    }}
+                  />
+                )}
+                <div className="booking-welcome-hero-scrim" />
+              </div>
+
+              <div className="booking-welcome-hero-body">
+                {logoUrl && welcomeCoverUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={logoUrl}
+                    alt=""
+                    className="booking-welcome-hero-brand"
+                  />
+                )}
+                <h1 className="booking-welcome-hero-title">
+                  {heroTitle || displayName}
+                </h1>
+                {welcomeText ? (
+                  <p className="booking-welcome-hero-sub">{welcomeText}</p>
+                ) : null}
+
+                {funnelConfig?.blocks &&
+                  funnelConfig.blocks.some((b) => b.type !== "image") && (
+                    <div className="mt-3 opacity-95">
+                      <FunnelLandingBlocks
+                        blocks={funnelConfig.blocks.filter(
+                          (b) => b.type !== "image",
+                        )}
+                      />
                     </div>
                   )}
-                </div>
 
-                <div className="booking-welcome-body">
-                  <h1 className="text-[1.45rem] font-bold leading-tight tracking-tight sm:text-[1.6rem]">
-                    {heroTitle || displayName}
-                  </h1>
-                  <p className="mt-2 text-sm leading-relaxed text-muted">
-                    {welcomeText}
-                  </p>
-
-                  {funnelConfig?.blocks &&
-                    funnelConfig.blocks.some((b) => b.type !== "image") && (
-                      <div className="mt-3 border-t border-border pt-3">
-                        <FunnelLandingBlocks
-                          blocks={funnelConfig.blocks.filter(
-                            (b) => b.type !== "image",
-                          )}
-                        />
-                      </div>
-                    )}
-
-                  <button
-                    type="button"
-                    onClick={startBooking}
-                    className="btn-primary mt-5 w-full !rounded-xl !py-3 text-[0.9375rem] sm:w-auto sm:min-w-[11rem]"
-                  >
-                    Iniciar agendamento
-                  </button>
-                  <p className="mt-2.5 text-xs text-muted">
-                    {services.length === 1
-                      ? "Escolha o melhor horário na próxima etapa"
-                      : `${services.length} serviços disponíveis`}
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={startBooking}
+                  className="booking-welcome-hero-cta"
+                  style={{ background: accent }}
+                >
+                  Agendar
+                </button>
               </div>
             </div>
           </div>

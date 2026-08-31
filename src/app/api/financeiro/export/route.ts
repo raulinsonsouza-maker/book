@@ -3,13 +3,17 @@ import { format } from "date-fns";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { buildPaymentWhere } from "@/lib/payments/org-filter";
-import { apiAuthContext, isProfessionalRole } from "@/lib/rbac";
+import { apiAuthContext, isProfessionalRole, resolveProfessionalScope } from "@/lib/rbac";
 
 export async function GET(req: Request) {
   const auth = await apiAuthContext();
   if ("error" in auth) return auth.error;
   const { ctx } = auth;
   const orgId = ctx.organizationId;
+
+  if (isProfessionalRole(ctx.role) && !ctx.professionalId) {
+    return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+  }
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
@@ -19,9 +23,11 @@ export async function GET(req: Request) {
   const bookingPageId = searchParams.get("bookingPageId");
   const type = searchParams.get("type");
 
-  const professionalId = isProfessionalRole(ctx.role)
-    ? ctx.professionalId
-    : searchParams.get("professionalId");
+  const isPro = isProfessionalRole(ctx.role);
+  const professionalId = resolveProfessionalScope(
+    ctx,
+    searchParams.get("professionalId"),
+  );
 
   const payments = await prisma.payment.findMany({
     where: buildPaymentWhere(orgId, {
@@ -29,8 +35,8 @@ export async function GET(req: Request) {
       to,
       status,
       method,
-      bookingPageId: isProfessionalRole(ctx.role) ? null : bookingPageId,
-      type: isProfessionalRole(ctx.role) ? "booking" : type,
+      bookingPageId: isPro ? null : bookingPageId,
+      type: isPro ? "booking" : type,
       professionalId,
     }),
     include: {
