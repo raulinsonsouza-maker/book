@@ -60,15 +60,29 @@ enum CheckoutOrderStatus {
   EXPIRED
 }
 
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELED
+}
+
+enum PlanInterval {
+  MONTH
+}
+
 model User {
-  id           String       @id @default(cuid())
-  name         String
-  email        String       @unique
-  passwordHash String?
-  googleId     String?      @unique
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  memberships  Membership[]
+  id               String       @id @default(cuid())
+  name             String
+  email            String       @unique
+  passwordHash     String?
+  googleId         String?      @unique
+  isPlatformAdmin  Boolean      @default(false)
+  disabledAt       DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  memberships      Membership[]
 }
 
 model Organization {
@@ -112,6 +126,7 @@ model Organization {
   cardMaxInstallments      Int     @default(12)
   /** Null = wizard de primeiro acesso ainda não concluído. */
   onboardingCompletedAt    DateTime?
+  subscriptionStatus       SubscriptionStatus @default(TRIALING)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   memberships        Membership[]
@@ -119,6 +134,8 @@ model Organization {
   products           Product[]
   bookingEventLogs   BookingEventLog[]
   professionals      Professional[]
+  subscription       Subscription?
+  platformPayments   PlatformPayment[]
 }
 
 model Membership {
@@ -173,6 +190,7 @@ model BookingPage {
   slug           String
   description    String?
   logoUrl        String?
+  coverImageUrl  String?
   accentColor    String              @default("#0a0a0a")
   websiteUrl     String?
   instagram      String?
@@ -197,6 +215,7 @@ model Service {
   bookingPageId   String
   title           String
   description     String?
+  imageUrl        String?
   durationMinutes Int           @default(30)
   priceCents      Int           @default(0)
   caktoOfferId    String?
@@ -406,4 +425,55 @@ model SlotHold {
 
   @@index([bookingPageId, startAt, expiresAt])
   @@index([professionalId, startAt, expiresAt])
+}
+
+model Plan {
+  id                  String        @id @default(cuid())
+  name                String
+  slug                String        @unique
+  priceCents          Int
+  currency            String        @default("BRL")
+  interval            PlanInterval  @default(MONTH)
+  trialDays           Int           @default(14)
+  isActive            Boolean       @default(true)
+  mpPreapprovalPlanId String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  subscriptions       Subscription[]
+}
+
+model Subscription {
+  id               String             @id @default(cuid())
+  organizationId   String             @unique
+  planId           String?
+  status           SubscriptionStatus @default(TRIALING)
+  mpPreapprovalId  String?
+  trialEndsAt      DateTime?
+  currentPeriodEnd DateTime?
+  canceledAt       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan             Plan?              @relation(fields: [planId], references: [id], onDelete: SetNull)
+}
+
+model PlatformConfig {
+  id                  String   @id @default("singleton")
+  defaultTrialDays    Int      @default(14)
+  supportEmail        String?
+  billingBlockMessage String?
+  updatedAt           DateTime @updatedAt
+}
+
+model PlatformPayment {
+  id             String       @id @default(cuid())
+  organizationId String
+  amountCents    Int
+  status         String
+  mpPaymentId    String?
+  description    String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
 }

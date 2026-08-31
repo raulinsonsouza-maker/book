@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -87,7 +88,6 @@ export default function SignupPage() {
               ["name", "Seu nome", "text"],
               ["organizationName", "Nome da empresa", "text"],
               ["email", "E-mail", "email"],
-              ["password", "Senha (mín. 6)", "password"],
             ] as const
           ).map(([key, label, type]) => (
             <label key={key} className="block text-sm">
@@ -95,7 +95,6 @@ export default function SignupPage() {
               <input
                 type={type}
                 required
-                minLength={key === "password" ? 6 : undefined}
                 value={form[key]}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -104,6 +103,18 @@ export default function SignupPage() {
               />
             </label>
           ))}
+          <label className="block text-sm">
+            <span className="mb-1.5 block font-medium">Senha (mín. 6)</span>
+            <PasswordInput
+              required
+              minLength={6}
+              value={form.password}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, password: e.target.value }))
+              }
+              className="input-field"
+            />
+          </label>
           {error && <p className="text-sm text-danger">{error}</p>}
           <p className="text-xs leading-relaxed text-muted">
             Ao criar a conta, você concorda com os{" "}

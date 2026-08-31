@@ -13,6 +13,7 @@ async function ownedService(id: string, organizationId: string) {
 const updateSchema = z.object({
   title: z.string().min(2).optional(),
   description: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
   durationMinutes: z.number().int().min(5).max(480).optional(),
   priceCents: z.number().int().min(0).optional(),
   caktoOfferId: z.string().nullable().optional(),

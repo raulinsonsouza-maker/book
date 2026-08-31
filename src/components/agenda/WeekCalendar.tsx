@@ -257,7 +257,7 @@ export function WeekCalendar({
           </label>
           {!googleConnected && (
             <a
-              href="/app/integrations"
+              href="/app/integracoes"
               className="text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
             >
               Conectar Google

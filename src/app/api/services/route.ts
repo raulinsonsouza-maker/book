@@ -14,7 +14,8 @@ const fieldSchema = z.object({
 const schema = z.object({
   bookingPageId: z.string(),
   title: z.string().min(2),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
   durationMinutes: z.number().int().min(5).max(480),
   priceCents: z.number().int().min(0),
   caktoOfferId: z.string().nullable().optional(),
@@ -22,6 +23,38 @@ const schema = z.object({
   bufferAfter: z.number().int().min(0).optional(),
   customFields: z.array(fieldSchema).optional(),
 });
+
+export async function GET() {
+  const auth = await apiRequireAdmin();
+  if ("error" in auth) return auth.error;
+
+  const services = await prisma.service.findMany({
+    where: { bookingPage: { organizationId: auth.ctx.organizationId } },
+    include: {
+      bookingPage: { select: { id: true, title: true, slug: true } },
+      _count: { select: { bookings: true } },
+    },
+    orderBy: [{ bookingPageId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+
+  return NextResponse.json(
+    services.map((s) => ({
+      id: s.id,
+      bookingPageId: s.bookingPageId,
+      pageTitle: s.bookingPage.title,
+      pageSlug: s.bookingPage.slug,
+      title: s.title,
+      description: s.description,
+      imageUrl: s.imageUrl,
+      durationMinutes: s.durationMinutes,
+      priceCents: s.priceCents,
+      caktoOfferId: s.caktoOfferId,
+      isActive: s.isActive,
+      sortOrder: s.sortOrder,
+      bookingsCount: s._count.bookings,
+    })),
+  );
+}
 
 export async function POST(req: Request) {
   const auth = await apiRequireAdmin();
@@ -47,6 +80,7 @@ export async function POST(req: Request) {
         bookingPageId: body.bookingPageId,
         title: body.title,
         description: body.description,
+        imageUrl: body.imageUrl || null,
         durationMinutes: body.durationMinutes,
         priceCents: body.priceCents,
         caktoOfferId: body.caktoOfferId,

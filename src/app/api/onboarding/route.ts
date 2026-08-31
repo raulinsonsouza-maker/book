@@ -19,7 +19,7 @@ const serviceSchema = z.object({
 
 const schema = z.object({
   name: z.string().min(2).max(120),
-  description: z.string().max(DESCRIPTION_MAX).nullable().optional(),
+  description: z.string().min(2).max(DESCRIPTION_MAX),
   logoUrl: z.string().nullable().optional(),
   accentColor: z.string().optional(),
   businessMode: z.enum(["SOLO", "SALON"]),
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
         .filter(Boolean);
       if (names.length < 1) {
         return NextResponse.json(
-          { error: "No modo Salão, informe ao menos um profissional" },
+          { error: "No modo equipe, informe ao menos um profissional" },
           { status: 400 },
         );
       }
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
         where: { id: orgId },
         data: {
           name: body.name.trim(),
-          description: body.description?.trim() || null,
+          description: body.description.trim(),
           logoUrl: body.logoUrl || null,
           accentColor: normalizeAccent(body.accentColor || "#0a0a0a"),
           businessMode: body.businessMode,

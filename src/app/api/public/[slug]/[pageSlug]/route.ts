@@ -57,6 +57,7 @@ export async function GET(
               id: s.id,
               title: s.title,
               description: s.description,
+              imageUrl: s.imageUrl,
               durationMinutes: s.durationMinutes,
               priceCents: s.priceCents,
               customFields: s.customFields,
@@ -68,7 +69,15 @@ export async function GET(
             };
           })
           .filter((s) => s.professionals.length > 0)
-      : page.services;
+      : page.services.map((s) => ({
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          imageUrl: s.imageUrl,
+          durationMinutes: s.durationMinutes,
+          priceCents: s.priceCents,
+          customFields: s.customFields,
+        }));
 
     const days = await getAvailableDays({
       bookingPageId: page.id,
@@ -86,6 +95,7 @@ export async function GET(
         orgSlug: page.organization.slug,
         description: brand.description,
         logoUrl: brand.logoUrl,
+        coverImageUrl: page.coverImageUrl,
         accentColor: brand.accentColor,
         websiteUrl: page.websiteUrl,
         instagram: page.instagram,

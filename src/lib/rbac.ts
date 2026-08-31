@@ -14,6 +14,54 @@ export function isProfessionalRole(role: string | undefined | null) {
   return role === "PROFESSIONAL";
 }
 
+export async function getSessionUser() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      isPlatformAdmin: true,
+      disabledAt: true,
+    },
+  });
+  if (!user || user.disabledAt) return null;
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    isPlatformAdmin: user.isPlatformAdmin,
+  };
+}
+
+export async function requirePlatformAdmin() {
+  const user = await getSessionUser();
+  if (!user?.isPlatformAdmin) redirect("/login");
+  return user;
+}
+
+export async function apiRequirePlatformAdmin() {
+  const user = await getSessionUser();
+  if (!user) {
+    return {
+      error: NextResponse.json(
+        { error: "Faça login para continuar" },
+        { status: 401 },
+      ),
+    };
+  }
+  if (!user.isPlatformAdmin) {
+    return {
+      error: NextResponse.json({ error: "Acesso restrito" }, { status: 403 }),
+    };
+  }
+  return { user };
+}
+
 export async function getAuthContext() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return null;

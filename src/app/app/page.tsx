@@ -11,13 +11,11 @@ import {
   DashboardUtilization,
   buildUtilizationItems,
 } from "@/components/admin/DashboardUtilization";
-import { DashboardPagesList } from "@/components/admin/DashboardPagesList";
 import { PaymentSetupBanner } from "@/components/admin/PaymentSetupBanner";
 
 export default async function AppHomePage() {
   const { org } = await requireOrg();
   const stats = await getDashboardStats(org.id, org.timezone);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   const chartTotals = stats.chartMonths.reduce(
     (acc, m) => ({
@@ -42,7 +40,7 @@ export default async function AppHomePage() {
             Ainda não há serviços e horários definidos — o link público só mostra
             vagas depois que você concluir a configuração.
           </p>
-          <Link href="/app/pages" className="btn-primary mt-4 inline-flex">
+          <Link href="/app/servicos" className="btn-primary mt-4 inline-flex">
             Ir para Serviços
           </Link>
         </div>
@@ -73,8 +71,8 @@ export default async function AppHomePage() {
         <DashboardStatCard
           title="Links ativos"
           value={stats.activePages}
-          href="/app/pages"
-          hrefLabel="Ver"
+          href="/app/agendador"
+          hrefLabel="Agendador"
           variant="orange"
         />
       </div>
@@ -92,7 +90,7 @@ export default async function AppHomePage() {
               Gestão à vista
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Abra no computador do salão — equipe na lateral, próximo cliente em
+              Abra na recepção ou no balcão — equipe na lateral, próximo cliente em
               tempo real. Atualiza sozinho.
             </p>
           </div>
@@ -145,8 +143,6 @@ export default async function AppHomePage() {
           </ul>
         </div>
       )}
-
-      <DashboardPagesList pages={stats.pages} appUrl={appUrl} orgSlug={org.slug} />
     </div>
   );
 }

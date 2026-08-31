@@ -55,7 +55,6 @@ export async function getDashboardStats(organizationId: string, timezone: string
     monthRevenue,
     googleConnected,
     allBookings,
-    pages,
     upcoming,
   ] = await Promise.all([
     prisma.organization.findUnique({ where: { id: organizationId } }),
@@ -111,13 +110,6 @@ export async function getDashboardStats(organizationId: string, timezone: string
     prisma.booking.findMany({
       where: orgFilter,
       select: { startAt: true, status: true, createdAt: true },
-    }),
-    prisma.bookingPage.findMany({
-      where: { organizationId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        _count: { select: { services: true, bookings: true } },
-      },
     }),
     prisma.booking.findMany({
       where: {
@@ -179,7 +171,6 @@ export async function getDashboardStats(organizationId: string, timezone: string
     integrationsConnected,
     chartMonths,
     maxChart,
-    pages,
     upcoming,
   };
 }

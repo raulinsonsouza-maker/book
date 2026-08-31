@@ -19,10 +19,15 @@ import {
 } from "@/components/admin/NavIcons";
 
 const PRO_BLOCKED_PREFIXES = [
+  "/app/agendador",
   "/app/pages",
+  "/app/servicos",
   "/app/checkout",
+  "/app/integracoes",
   "/app/integrations",
+  "/app/profissionais",
   "/app/professionals",
+  "/app/conta",
   "/app/settings",
 ];
 
@@ -67,10 +72,16 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Gestão",
     items: [
       {
-        href: "/app/pages",
+        href: "/app/agendador",
+        label: "Agendador",
+        icon: NavIconCalendar,
+        match: (p) => p.startsWith("/app/agendador") || p.startsWith("/app/pages"),
+      },
+      {
+        href: "/app/servicos",
         label: "Serviços",
         icon: NavIconPages,
-        match: (p) => p.startsWith("/app/pages"),
+        match: (p) => p.startsWith("/app/servicos"),
       },
       {
         href: "/app/checkout/produtos",
@@ -90,16 +101,17 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Conta",
     items: [
       {
-        href: "/app/integrations",
+        href: "/app/integracoes",
         label: "Integrações",
         icon: NavIconIntegrations,
-        match: (p) => p.startsWith("/app/integrations"),
+        match: (p) =>
+          p.startsWith("/app/integracoes") || p.startsWith("/app/integrations"),
       },
       {
-        href: "/app/settings",
+        href: "/app/conta",
         label: "Conta",
         icon: NavIconAccount,
-        match: (p) => p.startsWith("/app/settings"),
+        match: (p) => p.startsWith("/app/conta") || p.startsWith("/app/settings"),
       },
     ],
   },
@@ -110,18 +122,37 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith("/app/salao"), title: "Gestão à vista" },
   { match: (p) => p.startsWith("/app/agenda/calendario"), title: "Calendário" },
   { match: (p) => p.startsWith("/app/agenda/listagem"), title: "Agendamentos" },
-  { match: (p) => p.startsWith("/app/pages") && p.includes("/builder"), title: "Personalizar página" },
-  { match: (p) => p.startsWith("/app/pages") && p.includes("/availability"), title: "Horários avançados" },
-  { match: (p) => /^\/app\/pages\/[^/]+$/.test(p), title: "Configurar serviços" },
-  { match: (p) => p.startsWith("/app/pages"), title: "Serviços" },
+  { match: (p) => p.startsWith("/app/bookings"), title: "Agendamentos" },
+  { match: (p) => p.startsWith("/app/servicos"), title: "Serviços" },
+  {
+    match: (p) =>
+      p.startsWith("/app/agendador") && p.includes("/availability"),
+    title: "Horários avançados",
+  },
+  { match: (p) => p.startsWith("/app/agendador"), title: "Agendador" },
+  { match: (p) => p.startsWith("/app/pages"), title: "Agendador" },
   { match: (p) => p.startsWith("/app/checkout/vendas"), title: "Vendas" },
   { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Produtos" },
   { match: (p) => p.startsWith("/app/checkout"), title: "Checkout" },
-  { match: (p) => p.startsWith("/app/professionals"), title: "Profissionais" },
-  { match: (p) => p.startsWith("/app/profile"), title: "Meu perfil" },
+  {
+    match: (p) =>
+      p.startsWith("/app/profissionais") || p.startsWith("/app/professionals"),
+    title: "Profissionais",
+  },
+  {
+    match: (p) => p.startsWith("/app/perfil") || p.startsWith("/app/profile"),
+    title: "Meu perfil",
+  },
   { match: (p) => p.startsWith("/app/financeiro"), title: "Financeiro" },
-  { match: (p) => p.startsWith("/app/integrations"), title: "Integrações" },
-  { match: (p) => p.startsWith("/app/settings"), title: "Conta" },
+  {
+    match: (p) =>
+      p.startsWith("/app/integracoes") || p.startsWith("/app/integrations"),
+    title: "Integrações",
+  },
+  {
+    match: (p) => p.startsWith("/app/conta") || p.startsWith("/app/settings"),
+    title: "Conta",
+  },
 ];
 
 function pageTitle(pathname: string) {
@@ -217,10 +248,11 @@ function navForRole(
         title: "Conta",
         items: [
           {
-            href: "/app/profile",
+            href: "/app/perfil",
             label: "Meu perfil",
             icon: NavIconAccount,
-            match: (p) => p.startsWith("/app/profile"),
+            match: (p) =>
+              p.startsWith("/app/perfil") || p.startsWith("/app/profile"),
           },
         ],
       },
@@ -255,18 +287,25 @@ function navForRole(
 
   const gestao: NavItem[] = [
     {
-      href: "/app/pages",
+      href: "/app/agendador",
+      label: "Agendador",
+      icon: NavIconCalendar,
+      match: (p) => p.startsWith("/app/agendador") || p.startsWith("/app/pages"),
+    },
+    {
+      href: "/app/servicos",
       label: "Serviços",
       icon: NavIconPages,
-      match: (p) => p.startsWith("/app/pages"),
+      match: (p) => p.startsWith("/app/servicos"),
     },
   ];
   if (salon) {
     gestao.push({
-      href: "/app/professionals",
+      href: "/app/profissionais",
       label: "Profissionais",
       icon: NavIconBookings,
-      match: (p) => p.startsWith("/app/professionals"),
+      match: (p) =>
+        p.startsWith("/app/profissionais") || p.startsWith("/app/professionals"),
     });
   }
   gestao.push(
@@ -358,7 +397,7 @@ export function AppShell({
               {role === "PROFESSIONAL"
                 ? "Profissional"
                 : businessMode === "SALON"
-                  ? "Salão"
+                  ? "Equipe"
                   : "Individual"}
             </p>
           </div>
@@ -378,40 +417,41 @@ export function AppShell({
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
             aria-label="Fechar menu"
+            className="absolute inset-0 bg-black/40"
             onClick={closeMobile}
           />
-          <aside className="admin-sidebar relative z-50 h-full w-[15.5rem] shadow-2xl">
+          <div className="relative z-10 flex h-full w-[15.5rem] flex-col bg-white shadow-xl">
             {sidebar}
-          </aside>
+          </div>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="admin-header admin-topbar sticky top-0 z-30 flex items-center justify-between gap-4 px-4 md:px-6">
-          <div className="flex min-w-0 items-center gap-3">
+        {!isBuilder && !isFloor && (
+          <header className="admin-topbar sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-white/90 px-4 backdrop-blur md:px-6 lg:px-8">
             <button
               type="button"
-              className="rounded-lg border border-border bg-white p-2 text-muted transition hover:bg-muted-bg hover:text-foreground lg:hidden"
+              className="btn-secondary !px-2 lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Abrir menu"
             >
               <NavIconMenu />
             </button>
-            <h1 className="truncate text-sm font-semibold tracking-tight md:text-base">
+            <h1 className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight">
               {pageTitle(pathname)}
             </h1>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="hidden max-w-[12rem] truncate text-xs text-muted sm:inline">
-              {displayName}
-            </span>
             <SignOutButton />
-          </div>
-        </header>
-        <main className={`admin-main flex-1 ${isBuilder || isFloor ? "p-0" : "p-4 md:p-6 lg:p-8"}`}>
-          <div className={isBuilder || isFloor ? "h-full" : "mx-auto max-w-7xl"}>{children}</div>
+          </header>
+        )}
+        <main
+          className={
+            isBuilder || isFloor
+              ? "flex-1"
+              : "admin-main flex-1 p-4 md:p-6 lg:p-8"
+          }
+        >
+          {children}
         </main>
       </div>
     </div>

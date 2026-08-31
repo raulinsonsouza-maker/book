@@ -633,6 +633,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
                     formatCardNumber={formatCardNumber}
                     holdExpiresAt={holdExpiresAt}
                     holdCountdown={holdCountdown}
+                    holdVariant="payment"
                     installments={installments}
                     onInstallmentsChange={setInstallments}
                     cardMaxInstallments={cardMaxInstallments}

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { provisionOrganization } from "@/lib/onboarding";
+import { createTrialSubscription } from "@/lib/billing/platform";
 
 const schema = z.object({
   organizationName: z.string().min(2),
@@ -33,6 +34,8 @@ export async function POST(req: Request) {
       session.user.id,
       organizationName,
     );
+
+    await createTrialSubscription(result.organizationId);
 
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {

@@ -8,8 +8,7 @@ type Props = {
 };
 
 /**
- * Visível enquanto o painel indica que não há provedor pronto.
- * "Agora não" só esconde na sessão atual; volta na próxima visita.
+ * Opcional — o agendamento funciona sem provedor conectado.
  */
 export function PaymentSetupBanner({ organizationId: _organizationId }: Props) {
   const [dismissed, setDismissed] = useState(false);
@@ -17,14 +16,13 @@ export function PaymentSetupBanner({ organizationId: _organizationId }: Props) {
   if (dismissed) return null;
 
   return (
-    <div className="dashboard-panel flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="dashboard-panel flex flex-col gap-4 rounded-2xl border border-border bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p className="text-sm font-semibold tracking-tight text-amber-950">
-          Conecte um provedor de pagamento
+        <p className="text-sm font-semibold tracking-tight">
+          Receba pagamentos online
         </p>
-        <p className="mt-1 text-sm text-amber-900/80">
-          Sem Mercado Pago ou Asaas, o checkout público fica em modo demo — nenhum
-          valor real é cobrado.
+        <p className="mt-1 text-sm text-muted">
+          Conecte Mercado Pago ou Asaas para cobrar no momento da reserva.
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -35,7 +33,7 @@ export function PaymentSetupBanner({ organizationId: _organizationId }: Props) {
         >
           Agora não
         </button>
-        <Link href="/app/integrations" className="btn-primary">
+        <Link href="/app/integracoes" className="btn-primary">
           Configurar integrações
         </Link>
       </div>

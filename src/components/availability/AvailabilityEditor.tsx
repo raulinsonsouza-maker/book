@@ -206,18 +206,17 @@ export function AvailabilityEditor({
   const dayRules = rulesForDay(rules, selectedDay);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <Link
-          href={`/app/pages/${pageId}`}
-          className="text-sm text-muted hover:text-foreground"
+          href={`/app/agendador?id=${pageId}`}
+          className="text-sm font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
         >
-          ← Voltar para {pageTitle}
+          ← Agendador{pageTitle ? ` · ${pageTitle}` : ""}
         </Link>
         <p className="mt-3 text-sm text-muted">
           Opções avançadas: vários períodos por dia, feriados e preview dos
-          slots. A configuração básica fica na tela da agenda. Fuso:{" "}
-          {timezoneLabel(timezone)} (automático)
+          slots. Fuso: {timezoneLabel(timezone)} (automático)
         </p>
       </div>
 
@@ -228,8 +227,10 @@ export function AvailabilityEditor({
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="surface space-y-4 p-5 lg:col-span-2">
-          <h2 className="font-semibold tracking-tight">Grade semanal</h2>
+        <div className="surface space-y-4 p-6 lg:col-span-2">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">Grade semanal</h2>
+          </div>
           <div className="flex flex-wrap gap-2">
             {DAY_LABELS.map((label, dayOfWeek) => {
               const count = rulesForDay(rules, dayOfWeek).length;

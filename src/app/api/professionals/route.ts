@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   });
   if (org?.businessMode !== "SALON") {
     return NextResponse.json(
-      { error: "Ative o modo Salão em Conta para cadastrar profissionais." },
+      { error: "Ative o modo equipe em Conta para cadastrar profissionais." },
       { status: 400 },
     );
   }

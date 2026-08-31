@@ -119,7 +119,7 @@ export function PageBuilder({
         <div className="flex items-center gap-3">
           {!embedded && (
             <Link
-              href={`/app/pages/${pageId}`}
+              href={`/app/agendador?id=${pageId}`}
               className="text-sm text-muted hover:text-foreground"
             >
               ← Editor

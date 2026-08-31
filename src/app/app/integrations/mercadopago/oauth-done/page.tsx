@@ -1,28 +1,25 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function MercadoPagoOAuthDonePage() {
+function Inner() {
   const router = useRouter();
-
+  const searchParams = useSearchParams();
   useEffect(() => {
-    const status =
-      new URLSearchParams(window.location.search).get("mp") || "error";
-    const payload = { type: "mercadopago-oauth", status };
+    const qs = searchParams.toString();
+    router.replace(
+      `/app/integracoes/mercadopago/oauth-done${qs ? `?${qs}` : ""}`,
+    );
+  }, [router, searchParams]);
+  return <p className="text-sm text-muted">Redirecionando…</p>;
+}
 
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage(payload, window.location.origin);
-      window.close();
-      return;
-    }
-
-    router.replace(`/app/integrations/mercadopago?mp=${status}`);
-  }, [router]);
-
+export default function MercadoPagoOauthRedirectPage() {
   return (
-    <div className="flex min-h-[40vh] items-center justify-center p-6">
-      <p className="text-sm text-muted">Finalizando conexão…</p>
-    </div>
+    <Suspense fallback={<p className="text-sm text-muted">Redirecionando…</p>}>
+      <Inner />
+    </Suspense>
   );
 }

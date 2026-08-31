@@ -44,6 +44,10 @@ export function resolvePaymentProvider(org: OrgPaymentConfig): ResolvedPaymentPr
   return "DEMO";
 }
 
+export function requiresOnlinePayment(org: OrgPaymentConfig): boolean {
+  return resolvePaymentProvider(org) !== "DEMO";
+}
+
 export function paymentProviderLabel(provider: ResolvedPaymentProvider) {
   if (provider === "MERCADO_PAGO") return "Mercado Pago";
   if (provider === "ASAAS") return "Asaas";

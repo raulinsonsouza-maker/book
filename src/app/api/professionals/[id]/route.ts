@@ -55,6 +55,7 @@ const patchSchema = z.object({
   sortOrder: z.number().int().optional(),
   serviceIds: z.array(z.string()).optional(),
   password: z.string().min(6).optional(),
+  email: z.string().email().optional(),
 });
 
 export async function PATCH(
@@ -146,6 +147,25 @@ export async function PATCH(
         await prisma.user.update({
           where: { id: pro.membership.userId },
           data: { name: body.displayName },
+        });
+      }
+      if (body.email) {
+        const email = body.email.toLowerCase().trim();
+        const clash = await prisma.user.findFirst({
+          where: {
+            email,
+            NOT: { id: pro.membership.userId },
+          },
+        });
+        if (clash) {
+          return NextResponse.json(
+            { error: "Já existe uma conta com este e-mail." },
+            { status: 409 },
+          );
+        }
+        await prisma.user.update({
+          where: { id: pro.membership.userId },
+          data: { email },
         });
       }
       if (body.password) {

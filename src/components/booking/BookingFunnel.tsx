@@ -40,6 +40,7 @@ type Service = {
   id: string;
   title: string;
   description: string | null;
+  imageUrl?: string | null;
   durationMinutes: number;
   priceCents: number;
   customFields: CustomField[];
@@ -52,6 +53,7 @@ type PageInfo = {
   slug: string;
   description: string | null;
   logoUrl: string | null;
+  coverImageUrl?: string | null;
   accentColor: string;
   websiteUrl: string | null;
   instagram: string | null;
@@ -59,7 +61,14 @@ type PageInfo = {
 };
 
 type Slot = { startAt: string; endAt: string; label: string };
-type Step = "service" | "professional" | "datetime" | "details" | "payment" | "done";
+type Step =
+  | "welcome"
+  | "service"
+  | "professional"
+  | "datetime"
+  | "details"
+  | "payment"
+  | "done";
 
 const STEP_LABELS: { id: Step; label: string }[] = [
   { id: "service", label: "Serviço" },
@@ -107,7 +116,7 @@ export function BookingFunnel({
   const [caktoSdkClientId, setCaktoSdkClientId] = useState<string | null>(null);
   const [mercadoPagoPublicKey, setMercadoPagoPublicKey] = useState<string | null>(null);
 
-  const [step, setStep] = useState<Step>("service");
+  const [step, setStep] = useState<Step>("welcome");
   const [businessMode, setBusinessMode] = useState<"SOLO" | "SALON">("SOLO");
   const [service, setService] = useState<Service | null>(null);
   const [professional, setProfessional] = useState<ProOption | null>(null);
@@ -196,20 +205,7 @@ export function BookingFunnel({
         const mode = data.businessMode === "SALON" ? "SALON" : "SOLO";
         setBusinessMode(mode);
 
-        // Auto-skip serviço único
-        if (data.services?.length === 1) {
-          setService(data.services[0]);
-          if (mode === "SALON") {
-            setStep("professional");
-          } else {
-            setStep("datetime");
-            const firstDay = data.availableDays?.[0];
-            if (firstDay) {
-              setSelectedDate(firstDay);
-              setMonth(parseISO(firstDay));
-            }
-          }
-        } else if (data.availableDays?.[0] && mode === "SOLO") {
+        if (data.availableDays?.[0] && mode === "SOLO") {
           setSelectedDate(data.availableDays[0]);
           setMonth(parseISO(data.availableDays[0]));
         }
@@ -311,6 +307,15 @@ export function BookingFunnel({
   const padStart = getDay(startOfMonth(month));
   const grouped = useMemo(() => groupSlots(slots), [slots]);
 
+  const welcomeCoverUrl = useMemo(() => {
+    if (page?.coverImageUrl) return page.coverImageUrl;
+    const imageBlock = funnelConfig?.blocks?.find((b) => b.type === "image");
+    if (imageBlock && imageBlock.type === "image" && imageBlock.url) {
+      return imageBlock.url;
+    }
+    return null;
+  }, [page?.coverImageUrl, funnelConfig]);
+
   const visibleSteps = useMemo(() => {
     let steps = STEP_LABELS;
     if (services.length <= 1) {
@@ -319,16 +324,49 @@ export function BookingFunnel({
     if (businessMode !== "SALON") {
       steps = steps.filter((s) => s.id !== "professional");
     }
+    if (demoPayments) {
+      steps = steps.filter((s) => s.id !== "payment");
+    }
     return steps;
-  }, [services.length, businessMode]);
+  }, [services.length, businessMode, demoPayments]);
 
-  const stepIndex = visibleSteps.findIndex(
-    (s) => s.id === (step === "done" ? "payment" : step),
-  );
+  const stepIndex = visibleSteps.findIndex((s) => {
+    if (step === "done") {
+      return s.id === (demoPayments ? "details" : "payment");
+    }
+    return s.id === step;
+  });
   const progressPct =
     step === "done"
       ? 100
-      : Math.round(((Math.max(stepIndex, 0) + 1) / Math.max(visibleSteps.length, 1)) * 100);
+      : step === "welcome"
+        ? 0
+        : Math.round(
+            ((Math.max(stepIndex, 0) + 1) / Math.max(visibleSteps.length, 1)) *
+              100,
+          );
+
+  function startBooking() {
+    setError("");
+    if (services.length === 1) {
+      const s = services[0];
+      setService(s);
+      setSelectedSlot(null);
+      setProfessional(null);
+      setAnyone(false);
+      if (businessMode === "SALON") {
+        setStep("professional");
+        return;
+      }
+      setStep("datetime");
+      if (!selectedDate && availableDays[0]) {
+        setSelectedDate(availableDays[0]);
+        setMonth(parseISO(availableDays[0]));
+      }
+      return;
+    }
+    setStep("service");
+  }
 
   function pickService(s: Service) {
     setService(s);
@@ -622,6 +660,10 @@ export function BookingFunnel({
     setPixQr(null);
     setPixQrBase64(null);
     setAwaitingCardConfirm(false);
+    if (data.skipPayment || data.status === "CONFIRMED") {
+      setStep("done");
+      return;
+    }
     setStep("payment");
   }
 
@@ -767,10 +809,9 @@ export function BookingFunnel({
   }
 
   function canGoBack() {
-    if (step === "professional") return services.length > 1;
-    if (step === "datetime") {
-      return businessMode === "SALON" || services.length > 1;
-    }
+    if (step === "service") return true;
+    if (step === "professional") return true;
+    if (step === "datetime") return true;
     if (step === "details" || step === "payment") return true;
     return false;
   }
@@ -778,22 +819,39 @@ export function BookingFunnel({
   function goBack() {
     if (!canGoBack()) return;
     setError("");
-    if (step === "professional") {
-      setStep("service");
+    if (step === "service") {
+      setStep("welcome");
       setService(null);
+      return;
+    }
+    if (step === "professional") {
       setProfessional(null);
       setAnyone(false);
-    } else if (step === "datetime") {
+      if (services.length <= 1) {
+        setStep("welcome");
+        setService(null);
+      } else {
+        setStep("service");
+        setService(null);
+      }
+      return;
+    }
+    if (step === "datetime") {
       setSelectedSlot(null);
       if (businessMode === "SALON") {
         setStep("professional");
         setProfessional(null);
         setAnyone(false);
+      } else if (services.length <= 1) {
+        setStep("welcome");
+        setService(null);
       } else {
         setStep("service");
         setService(null);
       }
-    } else if (step === "details") setStep("datetime");
+      return;
+    }
+    if (step === "details") setStep("datetime");
     else if (step === "payment") {
       void abandonHold();
       setStep("details");
@@ -839,6 +897,12 @@ export function BookingFunnel({
       : visibleSteps[Math.max(stepIndex, 0)]?.label || "";
 
   const showDock = step === "datetime" && Boolean(selectedSlot);
+  const showBookingProgress = step !== "done" && step !== "welcome";
+
+  const displayName = businessName || heroTitle || "Agendamento";
+  const welcomeText =
+    heroSubtitle?.trim() ||
+    "Escolha o serviço, o horário e confirme seu agendamento em poucos passos.";
 
   return (
     <div
@@ -863,22 +927,17 @@ export function BookingFunnel({
             </div>
           )}
           <div className="min-w-0 flex-1">
-            {businessName && (
-              <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                {businessName}
-              </p>
-            )}
             <p className="truncate text-sm font-semibold tracking-tight">
-              {heroTitle}
+              {heroTitle || displayName}
             </p>
           </div>
-          {step !== "done" && (
+          {showBookingProgress && (
             <p className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-medium text-muted">
               {Math.max(stepIndex, 0) + 1}/{visibleSteps.length}
             </p>
           )}
         </div>
-        {step !== "done" && (
+        {showBookingProgress && (
           <div className="mx-auto max-w-lg px-4 pb-3">
             <div className="mb-1.5 flex items-center justify-between gap-2">
               <p className="text-xs font-medium text-foreground">
@@ -906,9 +965,9 @@ export function BookingFunnel({
       </header>
 
       <main
-        className={`mx-auto w-full max-w-lg px-4 pb-8 pt-5 ${
-          showDock ? "pb-36" : "pb-10"
-        }`}
+        className={`mx-auto w-full px-4 pb-8 pt-5 ${
+          step === "welcome" ? "max-w-xl" : "max-w-lg"
+        } ${showDock ? "pb-36" : "pb-10"}`}
       >
         {canGoBack() && (
           <button
@@ -926,7 +985,7 @@ export function BookingFunnel({
           </p>
         )}
 
-        {!loading && page && services.length === 0 && (
+        {!loading && page && services.length === 0 && step === "welcome" && (
           <div className="booking-card space-y-2 p-6 text-center">
             <h1 className="text-lg font-semibold tracking-tight">
               Página em configuração
@@ -935,6 +994,70 @@ export function BookingFunnel({
               Esta página ainda não tem serviços disponíveis. Volte em breve ou
               fale com {businessName || "a empresa"}.
             </p>
+          </div>
+        )}
+
+        {step === "welcome" && services.length > 0 && (
+          <div className="animate-in">
+            <div className="booking-card booking-welcome-card">
+              <div className="booking-welcome-split">
+                <div className="booking-welcome-media">
+                  {welcomeCoverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={welcomeCoverUrl}
+                      alt=""
+                      className="booking-welcome-photo"
+                    />
+                  ) : logoUrl ? (
+                    <div className="booking-welcome-logo-wrap">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={logoUrl} alt="" className="booking-welcome-logo" />
+                    </div>
+                  ) : (
+                    <div
+                      className="booking-welcome-fallback"
+                      style={{ background: accent }}
+                    >
+                      {displayName.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+
+                <div className="booking-welcome-body">
+                  <h1 className="text-[1.45rem] font-bold leading-tight tracking-tight sm:text-[1.6rem]">
+                    {heroTitle || displayName}
+                  </h1>
+                  <p className="mt-2 text-sm leading-relaxed text-muted">
+                    {welcomeText}
+                  </p>
+
+                  {funnelConfig?.blocks &&
+                    funnelConfig.blocks.some((b) => b.type !== "image") && (
+                      <div className="mt-3 border-t border-border pt-3">
+                        <FunnelLandingBlocks
+                          blocks={funnelConfig.blocks.filter(
+                            (b) => b.type !== "image",
+                          )}
+                        />
+                      </div>
+                    )}
+
+                  <button
+                    type="button"
+                    onClick={startBooking}
+                    className="btn-primary mt-5 w-full !rounded-xl !py-3 text-[0.9375rem] sm:w-auto sm:min-w-[11rem]"
+                  >
+                    Iniciar agendamento
+                  </button>
+                  <p className="mt-2.5 text-xs text-muted">
+                    {services.length === 1
+                      ? "Escolha o melhor horário na próxima etapa"
+                      : `${services.length} serviços disponíveis`}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -969,32 +1092,42 @@ export function BookingFunnel({
                   onClick={() => pickService(s)}
                   className="booking-service group"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="booking-service-thumb">
+                      {s.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={s.imageUrl} alt="" />
+                      ) : (
+                        <span aria-hidden>{s.title.slice(0, 1).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
                       <p className="text-base font-semibold tracking-tight">
                         {s.title}
                       </p>
                       {s.description && (
-                        <p className="mt-1 text-sm leading-relaxed text-muted line-clamp-3">
+                        <p className="mt-0.5 text-sm leading-snug text-muted line-clamp-2">
                           {s.description}
                         </p>
                       )}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="tag">{s.durationMinutes} min</span>
-                        <span
-                          className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
-                          style={{ background: accent }}
-                        >
-                          {formatBRL(s.priceCents)}
-                        </span>
-                      </div>
+                      <p className="mt-1.5 text-xs font-medium text-muted">
+                        {s.durationMinutes} min
+                      </p>
                     </div>
-                    <span
-                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white transition group-hover:scale-105"
-                      style={{ background: accent }}
-                    >
-                      →
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-2 self-center">
+                      <span
+                        className="booking-service-price"
+                        style={{ background: accent }}
+                      >
+                        {formatBRL(s.priceCents)}
+                      </span>
+                      <span
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white transition group-hover:scale-105"
+                        style={{ background: accent }}
+                      >
+                        →
+                      </span>
+                    </div>
                   </div>
                 </button>
               ))}
@@ -1364,7 +1497,11 @@ export function BookingFunnel({
               disabled={paying}
               className="btn-primary w-full !rounded-2xl !py-3.5 text-base"
             >
-              {paying ? "Reservando horário…" : "Continuar para pagamento"}
+              {paying
+                ? "Reservando horário…"
+                : demoPayments
+                  ? "Confirmar agendamento"
+                  : "Continuar para pagamento"}
             </button>
           </form>
         )}
@@ -1687,12 +1824,7 @@ export function BookingFunnel({
             </div>
             {whenLabel && service && (
               <div className="booking-card mx-auto max-w-sm p-5 text-left text-sm">
-                {businessName && (
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                    {businessName}
-                  </p>
-                )}
-                <p className="mt-1 font-semibold tracking-tight">{service.title}</p>
+                <p className="font-semibold tracking-tight">{service.title}</p>
                 <p className="mt-1 capitalize text-muted">{whenLabel}</p>
                 <p className="mt-3 text-base font-bold" style={{ color: accent }}>
                   {formatBRL(service.priceCents)}

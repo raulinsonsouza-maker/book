@@ -38,6 +38,14 @@ function publicBooking(booking: NonNullable<Awaited<ReturnType<typeof loadByToke
     pageSlug: booking.bookingPage.slug,
     orgName: booking.bookingPage.organization.name,
     orgSlug: booking.bookingPage.organization.slug,
+    accentColor:
+      booking.bookingPage.accentColor ||
+      booking.bookingPage.organization.accentColor ||
+      "#0a0a0a",
+    logoUrl:
+      booking.bookingPage.logoUrl ||
+      booking.bookingPage.organization.logoUrl ||
+      null,
     meetLink: booking.googleMeetLink,
     canReschedule: booking.status === "CONFIRMED",
     paymentStatus: booking.payment?.status ?? null,

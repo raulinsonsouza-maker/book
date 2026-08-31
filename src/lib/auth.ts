@@ -18,12 +18,13 @@ async function loadUserContext(userId: string) {
       },
     },
   });
-  if (!user) return null;
+  if (!user || user.disabledAt) return null;
   const membership = user.memberships[0];
   return {
     id: user.id,
     email: user.email,
     name: user.name,
+    isPlatformAdmin: user.isPlatformAdmin,
     organizationId: membership?.organizationId,
     organizationName: membership?.organization.name,
     role: membership?.role,
@@ -60,7 +61,7 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase().trim() },
         });
-        if (!user?.passwordHash) return null;
+        if (!user?.passwordHash || user.disabledAt) return null;
         const valid = await bcrypt.compare(
           credentials.password,
           user.passwordHash,
@@ -84,6 +85,7 @@ export const authOptions: NextAuthOptions = {
       });
 
       if (dbUser) {
+        if (dbUser.disabledAt) return false;
         if (!dbUser.googleId) {
           dbUser = await prisma.user.update({
             where: { id: dbUser.id },
@@ -118,6 +120,7 @@ export const authOptions: NextAuthOptions = {
         const ctx = await loadUserContext(token.id as string);
         if (ctx) {
           token.id = ctx.id;
+          token.isPlatformAdmin = ctx.isPlatformAdmin;
           token.organizationId = ctx.organizationId;
           token.organizationName = ctx.organizationName;
           token.role = ctx.role;
@@ -131,6 +134,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.isPlatformAdmin = Boolean(token.isPlatformAdmin);
         session.user.organizationId = token.organizationId as string | undefined;
         session.user.organizationName = token.organizationName as
           | string

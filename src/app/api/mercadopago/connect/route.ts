@@ -8,8 +8,8 @@ import {
 
 function oauthDonePath(base: string, status: string, popup: boolean) {
   const path = popup
-    ? `/app/integrations/mercadopago/oauth-done?mp=${status}`
-    : `/app/integrations/mercadopago?mp=${status}`;
+    ? `/app/integracoes/mercadopago/oauth-done?mp=${status}`
+    : `/app/integracoes/mercadopago?mp=${status}`;
   return new URL(path, base);
 }
 

@@ -10,8 +10,20 @@ import {
 import { parseBookBody } from "@/lib/book-validation";
 import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
 import { newManageToken } from "@/lib/booking-notify";
+import { requiresOnlinePayment } from "@/lib/payments/resolve-provider";
+import { emitBookingEvent } from "@/lib/events/booking-events";
 
 const HOLD_MINUTES = 15;
+
+const orgPaymentSelect = {
+  paymentProvider: true,
+  caktoClientId: true,
+  caktoClientSecret: true,
+  caktoOfferId: true,
+  mercadoPagoAccessToken: true,
+  mercadoPagoPublicKey: true,
+  asaasApiKey: true,
+} as const;
 
 export async function POST(
   req: Request,
@@ -31,7 +43,7 @@ export async function POST(
         organization: { slug: orgSlug },
       },
       include: {
-        organization: { select: { businessMode: true } },
+        organization: { select: { businessMode: true, ...orgPaymentSelect } },
         services: {
           where: { id: serviceId, isActive: true },
           include: {
@@ -69,7 +81,10 @@ export async function POST(
     const body = parseBookBody(funnelConfig, raw);
     const startAt = new Date(body.startAt);
     const endAt = addMinutes(startAt, service.durationMinutes);
-    const holdExpiresAt = addMinutes(new Date(), HOLD_MINUTES);
+    const needsPayment = requiresOnlinePayment(page.organization);
+    const holdExpiresAt = needsPayment
+      ? addMinutes(new Date(), HOLD_MINUTES)
+      : null;
     const timezone = body.timezone || page.timezone;
 
     if (salonMode) {
@@ -137,7 +152,7 @@ export async function POST(
           bookingPageId: page.id,
           serviceId: service.id,
           professionalId,
-          status: "PENDING_PAYMENT",
+          status: needsPayment ? "PENDING_PAYMENT" : "CONFIRMED",
           startAt,
           endAt,
           timezone,
@@ -149,30 +164,44 @@ export async function POST(
             ? JSON.stringify(body.customAnswers)
             : null,
           holdExpiresAt,
+          confirmedAt: needsPayment ? null : new Date(),
           manageToken: newManageToken(),
         },
         include: { service: true, bookingPage: true },
       });
 
-      await tx.slotHold.create({
-        data: {
-          bookingPageId: page.id,
-          serviceId: service.id,
-          professionalId,
-          bookingId: b.id,
-          startAt,
-          endAt,
-          expiresAt: holdExpiresAt,
-        },
-      });
+      if (needsPayment) {
+        await tx.slotHold.create({
+          data: {
+            bookingPageId: page.id,
+            serviceId: service.id,
+            professionalId,
+            bookingId: b.id,
+            startAt,
+            endAt,
+            expiresAt: holdExpiresAt!,
+          },
+        });
+      }
 
       return b;
     });
+
+    if (!needsPayment) {
+      await emitBookingEvent({
+        type: "booking.confirmed",
+        organizationId: page.organizationId,
+        bookingId: booking.id,
+        dedupeKey: booking.id,
+      });
+    }
 
     return NextResponse.json({
       bookingId: booking.id,
       manageToken: booking.manageToken,
       holdExpiresAt,
+      skipPayment: !needsPayment,
+      status: booking.status,
       amountCents: service.priceCents,
       serviceTitle: service.title,
       caktoOfferId: service.caktoOfferId,

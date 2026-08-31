@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 
-export function CopyLinkButton({ url }: { url: string }) {
+export function CopyLinkButton({
+  url,
+  className,
+  copiedLabel = "Copiado!",
+  label = "Copiar link",
+}: {
+  url: string;
+  className?: string;
+  copiedLabel?: string;
+  label?: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -12,9 +22,9 @@ export function CopyLinkButton({ url }: { url: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="btn-secondary !py-1.5 !text-xs"
+      className={className ?? "btn-secondary"}
     >
-      {copied ? "Copiado!" : "Copiar link"}
+      {copied ? copiedLabel : label}
     </button>
   );
 }

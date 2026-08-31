@@ -341,7 +341,7 @@ export default function FloorBoardPage() {
       ) : data.professionals.length === 0 ? (
         <p className="p-6 text-sm text-muted">
           Nenhum profissional ativo. Cadastre a equipe em{" "}
-          <a href="/app/professionals" className="font-medium underline">
+          <a href="/app/profissionais" className="font-medium underline">
             Profissionais
           </a>
           .

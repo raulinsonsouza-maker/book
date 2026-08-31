@@ -114,6 +114,10 @@ export default function OnboardingPage() {
         setError("Informe o nome da empresa");
         return;
       }
+      if (description.trim().length < 2) {
+        setError("Informe o que você oferece");
+        return;
+      }
       setStep("modo");
       return;
     }
@@ -232,7 +236,7 @@ export default function OnboardingPage() {
     setError("");
     const payload = {
       name: name.trim(),
-      description: description.trim() || null,
+      description: description.trim(),
       logoUrl: logoUrl || null,
       accentColor,
       businessMode,
@@ -337,42 +341,76 @@ export default function OnboardingPage() {
                 />
               </label>
               <label className="block text-sm">
-                <span className="mb-1.5 block font-medium">
-                  Descrição curta (opcional)
-                </span>
+                <span className="mb-1.5 block font-medium">O que você oferece</span>
                 <textarea
+                  required
+                  minLength={2}
                   className="input-field min-h-[72px]"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="O que você oferece"
+                  placeholder="Ex.: Corte, coloração e escova"
                 />
               </label>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="mb-1.5 block font-medium">Logo</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="block w-full text-xs text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-muted-bg file:px-3 file:py-2 file:text-sm file:font-medium"
-                    onChange={(e) => onLogoFile(e.target.files?.[0] || null)}
-                  />
-                  {logoUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={logoUrl}
-                      alt=""
-                      className="mt-2 h-12 max-w-[140px] object-contain"
-                    />
-                  )}
-                </label>
+              <div className="space-y-4 border-t border-border pt-4">
+                <div className="space-y-2">
+                  <span className="block text-sm font-medium">Logotipo (opcional)</span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={logoUrl}
+                        alt=""
+                        className="h-11 w-11 rounded-lg border border-border bg-white object-contain p-1"
+                      />
+                    ) : (
+                      <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-border bg-muted-bg text-[10px] font-medium text-muted">
+                        —
+                      </div>
+                    )}
+                    <label className="btn-secondary cursor-pointer !py-2 text-sm">
+                      Enviar imagem
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(e) => onLogoFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                    {logoUrl && (
+                      <button
+                        type="button"
+                        className="text-sm text-danger"
+                        onClick={() => setLogoUrl("")}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted">PNG, JPG ou WebP até ~350 KB.</p>
+                </div>
+
                 <label className="block text-sm">
                   <span className="mb-1.5 block font-medium">Cor de destaque</span>
-                  <input
-                    type="color"
-                    className="h-10 w-full cursor-pointer rounded-lg border border-border bg-white p-1"
-                    value={accentColor}
-                    onChange={(e) => setAccentColor(e.target.value)}
-                  />
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      className="h-10 w-14 shrink-0 cursor-pointer rounded-lg border border-border bg-white p-1"
+                      value={accentColor}
+                      onChange={(e) => setAccentColor(e.target.value)}
+                    />
+                    <input
+                      className="input-field max-w-[8.5rem] font-mono text-sm uppercase"
+                      value={accentColor}
+                      onChange={(e) => setAccentColor(e.target.value)}
+                      pattern="^#[0-9A-Fa-f]{6}$"
+                    />
+                    <span
+                      className="hidden h-10 min-w-[5.5rem] rounded-lg px-3 text-sm font-semibold text-white sm:inline-flex sm:items-center sm:justify-center"
+                      style={{ background: accentColor }}
+                    >
+                      Botão
+                    </span>
+                  </div>
                 </label>
               </div>
             </>
@@ -385,7 +423,7 @@ export default function OnboardingPage() {
                   Quem atende?
                 </h1>
                 <p className="mt-1 text-sm text-muted">
-                  Individual se for só você. Salão se a equipe atender no mesmo link.
+                  Individual se for só você. Com equipe se várias pessoas atenderem no mesmo link.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -416,7 +454,7 @@ export default function OnboardingPage() {
                       : "border-border bg-white hover:bg-muted-bg"
                   }`}
                 >
-                  <p className="font-semibold">Salão / equipe</p>
+                  <p className="font-semibold">Equipe</p>
                   <p
                     className={`mt-1 text-xs ${
                       businessMode === "SALON" ? "text-white/80" : "text-muted"
@@ -573,7 +611,7 @@ export default function OnboardingPage() {
                   Receber pagamentos
                 </h1>
                 <p className="mt-1 text-sm text-muted">
-                  Conecte agora ou deixe para depois (modo demo até conectar).
+                  Conecte agora ou deixe para depois.
                 </p>
               </div>
 
@@ -653,7 +691,7 @@ export default function OnboardingPage() {
                 >
                   <p className="font-medium">Configurar depois</p>
                   <p className="mt-0.5 text-xs text-muted">
-                    O link funciona em modo demo até você conectar um provedor.
+                    Seu link de agendamento já pode ser compartilhado.
                   </p>
                 </button>
               </div>
@@ -698,7 +736,7 @@ export default function OnboardingPage() {
                   Ir para o painel
                 </Link>
                 {!mpConnected && !asaasConnected && (
-                  <Link href="/app/integrations" className="btn-secondary">
+                  <Link href="/app/integracoes" className="btn-secondary">
                     Conectar pagamento
                   </Link>
                 )}
@@ -744,7 +782,7 @@ export default function OnboardingPage() {
         </div>
 
         {step !== "pronto" && (
-          <div className="mt-4 space-y-2 text-center">
+          <div className="mt-4 text-center">
             <button
               type="button"
               disabled={saving}
@@ -753,10 +791,6 @@ export default function OnboardingPage() {
             >
               Não quero fazer isso agora
             </button>
-            <p className="text-xs text-muted">
-              Você configura tudo depois em Conta, Serviços e Integrações. Este
-              assistente só aparece na primeira vez.
-            </p>
           </div>
         )}
       </div>

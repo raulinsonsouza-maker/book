@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import { Suspense, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 function LoginForm() {
   const router = useRouter();
@@ -38,7 +39,9 @@ function LoginForm() {
       setError("E-mail ou senha inválidos");
       return;
     }
-    router.push("/app");
+    const sessionRes = await fetch("/api/auth/session");
+    const session = await sessionRes.json();
+    router.push(session?.user?.isPlatformAdmin ? "/gerencial" : "/app");
     router.refresh();
   }
 
@@ -85,8 +88,7 @@ function LoginForm() {
         </label>
         <label className="block text-sm">
           <span className="mb-1.5 block font-medium">Senha</span>
-          <input
-            type="password"
+          <PasswordInput
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}

@@ -22,10 +22,10 @@ export default async function AgendaCalendarioPage() {
           e os compromissos do Google.
         </p>
         <a
-          href={draft ? `/app/pages/${draft.id}` : "/app/pages"}
+          href={draft ? `/app/agendador?id=${draft.id}` : "/app/agendador"}
           className="btn-primary inline-flex !text-sm"
         >
-          {draft ? "Continuar configuração" : "Configurar serviços"}
+          {draft ? "Continuar configuração" : "Configurar agendador"}
         </a>
       </div>
     );

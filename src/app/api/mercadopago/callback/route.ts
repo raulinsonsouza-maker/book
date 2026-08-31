@@ -33,8 +33,8 @@ export async function GET(req: Request) {
 
   function done(status: string, popup = false) {
     const path = popup
-      ? `/app/integrations/mercadopago/oauth-done?mp=${status}`
-      : `/app/integrations/mercadopago?mp=${status}`;
+      ? `/app/integracoes/mercadopago/oauth-done?mp=${status}`
+      : `/app/integracoes/mercadopago?mp=${status}`;
     return NextResponse.redirect(new URL(path, base));
   }
 

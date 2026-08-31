@@ -34,6 +34,8 @@ type PaymentStepProps = {
   formatCardNumber: (v: string) => string;
   holdExpiresAt?: string | null;
   holdCountdown?: string;
+  /** `slot` = agendamento com horário reservado; `payment` = checkout avulso */
+  holdVariant?: "slot" | "payment";
   installments?: number;
   onInstallmentsChange?: (n: number) => void;
   cardMaxInstallments?: number;
@@ -64,6 +66,7 @@ export function PaymentStep({
   formatCardNumber,
   holdExpiresAt,
   holdCountdown = "",
+  holdVariant = "slot",
   installments = 1,
   onInstallmentsChange,
   cardMaxInstallments = 12,
@@ -82,7 +85,7 @@ export function PaymentStep({
         <p className="text-2xl font-bold tracking-tight">{formatBRL(priceCents)}</p>
       </div>
 
-      {holdExpiresAt && (
+      {holdExpiresAt && holdVariant === "slot" && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
           <p className="font-semibold">
             Reserva temporária
@@ -92,6 +95,12 @@ export function PaymentStep({
             Conclua o pagamento antes do tempo acabar.
           </p>
         </div>
+      )}
+
+      {holdExpiresAt && holdVariant === "payment" && holdCountdown && holdCountdown !== "0:00" && (
+        <p className="text-xs text-muted">
+          Pagamento pendente · {holdCountdown} restantes
+        </p>
       )}
 
       {demoPayments && (

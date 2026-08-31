@@ -50,6 +50,7 @@ const updateSchema = z.object({
   websiteUrl: z.string().nullable().optional(),
   instagram: z.string().nullable().optional(),
   logoUrl: z.string().nullable().optional(),
+  coverImageUrl: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
 });
 

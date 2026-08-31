@@ -18,6 +18,8 @@ type BookingView = {
   pageTitle: string;
   pageSlug: string;
   orgName: string;
+  accentColor: string;
+  logoUrl: string | null;
   meetLink: string | null;
   priceCents: number;
   canReschedule: boolean;
@@ -53,6 +55,9 @@ function ManageBookingInner() {
   const [busy, setBusy] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [mode, setMode] = useState<"view" | "reschedule">("view");
+
+  const accent = booking?.accentColor || "#0a0a0a";
+  const logoUrl = booking?.logoUrl;
 
   const load = useCallback(async (t: string) => {
     setLoading(true);
@@ -160,240 +165,313 @@ function ManageBookingInner() {
           : null;
 
   return (
-    <main className="booking-shell mx-auto min-h-dvh max-w-lg px-4 py-8">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-        {booking.orgName}
-      </p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight">
-        {booking.pageTitle}
-      </h1>
-
-      {msg && (
-        <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
-          {msg}
-        </p>
-      )}
-      {error && (
-        <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-danger">
-          {error}
-        </p>
-      )}
-      {statusHelp && (
-        <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950">
-          {statusHelp}
-        </p>
-      )}
-
-      <div className="booking-card mt-6 space-y-2 p-5">
-        <p className="text-base font-semibold tracking-tight">
-          {booking.serviceTitle}
-        </p>
-        <p className="text-sm capitalize text-muted">
-          {format(start, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-        </p>
-        <p className="text-sm font-medium">
-          {format(start, "HH:mm")}–{format(end, "HH:mm")}
-        </p>
-        <p className="text-sm text-muted">{formatBRL(booking.priceCents)}</p>
-        {booking.paymentStatus && (
-          <p className="text-xs text-muted">
-            Pagamento:{" "}
-            {booking.paymentStatus === "PAID"
-              ? "pago"
-              : booking.paymentStatus === "PENDING"
-                ? "pendente"
-                : booking.paymentStatus.toLowerCase()}
-          </p>
-        )}
-        {booking.meetLink && (
-          <a
-            href={booking.meetLink}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex pt-1 text-sm font-medium underline-offset-2 hover:underline"
-          >
-            Entrar no Google Meet
-          </a>
-        )}
-      </div>
-
-      {booking.canReschedule && mode === "view" && (
-        <div className="mt-6 space-y-4">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setMode("reschedule");
-              setMsg("");
-              setError("");
-              setSelectedDate(upcomingDays[0] || "");
-              setSelectedSlot(null);
-            }}
-            className="btn-primary w-full"
-          >
-            Remarcar horário
-          </button>
-          <p className="text-center text-xs leading-relaxed text-muted">
-            Precisa cancelar? Fale com {booking.orgName} — o pagamento já foi
-            confirmado e o cancelamento é tratado pela empresa.
-          </p>
-        </div>
-      )}
-
-      {booking.canReschedule && mode === "reschedule" && (
-        <div className="mt-6 space-y-5 animate-in">
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
-            onClick={() => {
-              setMode("view");
-              setSelectedDate("");
-              setSelectedSlot(null);
-              setSlots([]);
-            }}
-          >
-            ← Voltar
-          </button>
-
-          <div>
-            <h2 className="text-[1.35rem] font-bold tracking-tight">
-              Escolha o novo dia
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              Mesmo fluxo do agendamento: dia, depois horário
+    <div
+      className="booking-shell min-h-dvh"
+      style={{ "--accent": accent } as React.CSSProperties}
+    >
+      <header className="sticky top-0 z-30 border-b border-black/5 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt=""
+              className="h-9 max-w-[7.5rem] object-contain"
+            />
+          ) : (
+            <div
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold text-white"
+              style={{ background: accent }}
+            >
+              {booking.orgName.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold tracking-tight">
+              {booking.orgName}
+            </p>
+            <p className="truncate text-xs text-muted">
+              {mode === "reschedule" ? "Remarcar horário" : "Seu agendamento"}
             </p>
           </div>
+        </div>
+      </header>
 
-          <div className="booking-card overflow-hidden">
-            <div className="border-b border-border px-4 py-3">
-              <p className="text-sm font-semibold">Dias disponíveis</p>
-            </div>
-            <div className="flex gap-2 overflow-x-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {upcomingDays.length === 0 ? (
-                <p className="text-sm text-muted">Nenhum dia disponível.</p>
-              ) : (
-                upcomingDays.map((key) => {
-                  const d = parseISO(key);
-                  const selected = selectedDate === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setSelectedDate(key)}
-                      className={`booking-day ${
-                        selected ? "booking-day-selected" : ""
-                      }`}
-                    >
-                      <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
-                        {format(d, "EEE", { locale: ptBR })}
-                      </span>
-                      <span className="text-lg font-bold leading-none">
-                        {format(d, "d")}
-                      </span>
-                      <span className="text-[10px] font-medium capitalize opacity-80">
-                        {format(d, "MMM", { locale: ptBR })}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
+      <main
+        className={`mx-auto max-w-lg px-4 py-6 ${
+          mode === "reschedule" && selectedSlot ? "pb-36" : "pb-10"
+        }`}
+      >
+        {msg && (
+          <p className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
+            {msg}
+          </p>
+        )}
+        {error && (
+          <p className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-danger">
+            {error}
+          </p>
+        )}
+        {statusHelp && (
+          <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950">
+            {statusHelp}
+          </p>
+        )}
 
-          {selectedDate && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold tracking-tight">
-                Horários em{" "}
-                {format(parseISO(selectedDate), "d 'de' MMMM", {
-                  locale: ptBR,
-                })}
-              </h3>
-              {slotsLoading ? (
-                <p className="text-sm text-muted">Carregando horários…</p>
-              ) : slots.length === 0 ? (
-                <p className="text-sm text-muted">
-                  Nenhum horário livre neste dia. Escolha outro.
+        {mode === "view" && (
+          <div className="space-y-5 animate-in">
+            <div>
+              <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
+                Seu agendamento
+              </h1>
+              <p className="mt-2 text-sm text-muted">{booking.pageTitle}</p>
+            </div>
+
+            <div className="booking-card space-y-2 p-5">
+              <p className="text-base font-semibold tracking-tight">
+                {booking.serviceTitle}
+              </p>
+              <p className="text-sm capitalize text-muted">
+                {format(start, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </p>
+              <p className="text-sm font-medium">
+                {format(start, "HH:mm")}–{format(end, "HH:mm")}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="tag">{booking.durationMinutes} min</span>
+                <span
+                  className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
+                  style={{ background: accent }}
+                >
+                  {formatBRL(booking.priceCents)}
+                </span>
+              </div>
+              {booking.paymentStatus && (
+                <p className="text-xs text-muted">
+                  Pagamento:{" "}
+                  {booking.paymentStatus === "PAID"
+                    ? "pago"
+                    : booking.paymentStatus === "PENDING"
+                      ? "pendente"
+                      : booking.paymentStatus.toLowerCase()}
                 </p>
-              ) : (
-                <>
-                  {morning.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-                        Manhã
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {morning.map((s) => (
-                          <button
-                            key={s.startAt}
-                            type="button"
-                            onClick={() => setSelectedSlot(s)}
-                            className={`rounded-xl border px-2 py-2.5 text-sm font-medium transition ${
-                              selectedSlot?.startAt === s.startAt
-                                ? "border-foreground bg-foreground text-white"
-                                : "border-border bg-white hover:bg-muted-bg"
-                            }`}
-                          >
-                            {format(parseISO(s.startAt), "HH:mm")}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {afternoon.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-                        Tarde
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {afternoon.map((s) => (
-                          <button
-                            key={s.startAt}
-                            type="button"
-                            onClick={() => setSelectedSlot(s)}
-                            className={`rounded-xl border px-2 py-2.5 text-sm font-medium transition ${
-                              selectedSlot?.startAt === s.startAt
-                                ? "border-foreground bg-foreground text-white"
-                                : "border-border bg-white hover:bg-muted-bg"
-                            }`}
-                          >
-                            {format(parseISO(s.startAt), "HH:mm")}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
+              )}
+              {booking.meetLink && (
+                <a
+                  href={booking.meetLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex pt-1 text-sm font-medium underline-offset-2 hover:underline"
+                  style={{ color: accent }}
+                >
+                  Entrar no Google Meet
+                </a>
               )}
             </div>
-          )}
 
-          {selectedSlot && (
-            <div className="sticky bottom-4 space-y-2 rounded-2xl border border-border bg-white/95 p-4 shadow-lg backdrop-blur">
-              <p className="text-sm text-muted">
-                Novo horário:{" "}
-                <span className="font-semibold text-foreground">
-                  {format(parseISO(selectedSlot.startAt), "EEE d MMM · HH:mm", {
+            {booking.canReschedule && (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setMode("reschedule");
+                    setMsg("");
+                    setError("");
+                    setSelectedDate(upcomingDays[0] || "");
+                    setSelectedSlot(null);
+                  }}
+                  className="btn-primary w-full !rounded-2xl !py-3.5 text-base"
+                >
+                  Remarcar horário
+                </button>
+                <p className="text-center text-xs leading-relaxed text-muted">
+                  Precisa cancelar? Fale com {booking.orgName}.
+                </p>
+              </div>
+            )}
+
+            {!booking.canReschedule && booking.status === "CANCELLED" && (
+              <p className="text-sm text-muted">Este agendamento foi cancelado.</p>
+            )}
+          </div>
+        )}
+
+        {booking.canReschedule && mode === "reschedule" && (
+          <div className="space-y-5 animate-in">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-foreground"
+              onClick={() => {
+                setMode("view");
+                setSelectedDate("");
+                setSelectedSlot(null);
+                setSlots([]);
+                setError("");
+              }}
+            >
+              ← Voltar
+            </button>
+
+            <div>
+              <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
+                Escolha o novo dia
+              </h1>
+              <p className="mt-2 text-sm text-muted">
+                {booking.serviceTitle}
+              </p>
+            </div>
+
+            <div className="booking-card px-4 py-3.5">
+              <p className="text-sm font-semibold tracking-tight">
+                {booking.serviceTitle}
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <span className="tag">{booking.durationMinutes} min</span>
+                <span
+                  className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
+                  style={{ background: accent }}
+                >
+                  {formatBRL(booking.priceCents)}
+                </span>
+              </div>
+            </div>
+
+            <div className="booking-card overflow-hidden">
+              <div className="border-b border-border px-4 py-3">
+                <p className="text-sm font-semibold tracking-tight">
+                  Próximos dias
+                </p>
+              </div>
+              <div className="-mx-0 flex gap-2 overflow-x-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {upcomingDays.length === 0 ? (
+                  <p className="text-sm text-muted">Nenhum dia disponível.</p>
+                ) : (
+                  upcomingDays.map((key) => {
+                    const d = parseISO(key);
+                    const selected = selectedDate === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSelectedDate(key)}
+                        className={`booking-day ${
+                          selected ? "booking-day-selected" : ""
+                        }`}
+                      >
+                        <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+                          {format(d, "EEE", { locale: ptBR })}
+                        </span>
+                        <span className="text-lg font-bold leading-none">
+                          {format(d, "d")}
+                        </span>
+                        <span className="text-[10px] font-medium capitalize opacity-80">
+                          {format(d, "MMM", { locale: ptBR })}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {selectedDate && (
+              <div className="booking-card p-4">
+                <p className="text-sm font-semibold capitalize tracking-tight">
+                  {format(parseISO(selectedDate), "EEEE, d 'de' MMMM", {
                     locale: ptBR,
                   })}
-                </span>
+                </p>
+                {slotsLoading ? (
+                  <div className="mt-5 flex items-center justify-center gap-2 py-8 text-sm text-muted">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground" />
+                    Carregando horários…
+                  </div>
+                ) : slots.length === 0 ? (
+                  <p className="mt-4 rounded-xl bg-muted-bg px-3 py-5 text-center text-sm text-muted">
+                    Sem horários neste dia. Escolha outra data.
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-5">
+                    {morning.length > 0 && (
+                      <div>
+                        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                          Manhã
+                        </p>
+                        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+                          {morning.map((s) => (
+                            <button
+                              key={s.startAt}
+                              type="button"
+                              onClick={() => setSelectedSlot(s)}
+                              className={`booking-slot ${
+                                selectedSlot?.startAt === s.startAt
+                                  ? "booking-slot-selected"
+                                  : "hover:border-foreground/40"
+                              }`}
+                            >
+                              {format(parseISO(s.startAt), "HH:mm")}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {afternoon.length > 0 && (
+                      <div>
+                        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                          Tarde
+                        </p>
+                        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+                          {afternoon.map((s) => (
+                            <button
+                              key={s.startAt}
+                              type="button"
+                              onClick={() => setSelectedSlot(s)}
+                              className={`booking-slot ${
+                                selectedSlot?.startAt === s.startAt
+                                  ? "booking-slot-selected"
+                                  : "hover:border-foreground/40"
+                              }`}
+                            >
+                              {format(parseISO(s.startAt), "HH:mm")}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {mode === "reschedule" && selectedSlot && (
+        <div className="booking-dock fixed inset-x-0 bottom-0 z-40">
+          <div className="mx-auto flex max-w-lg items-center gap-3 px-4 pt-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+                Novo horário
               </p>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void confirmReschedule()}
-                className="btn-primary w-full"
-              >
-                {busy ? "Remarcando…" : "Confirmar remarcação"}
-              </button>
+              <p className="truncate text-sm font-semibold capitalize">
+                {format(parseISO(selectedSlot.startAt), "EEE d MMM · HH:mm", {
+                  locale: ptBR,
+                })}
+              </p>
             </div>
-          )}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void confirmReschedule()}
+              className="btn-primary shrink-0 !rounded-2xl !px-5 !py-3"
+            >
+              {busy ? "Remarcando…" : "Confirmar"}
+            </button>
+          </div>
         </div>
       )}
-
-      {!booking.canReschedule && booking.status === "CANCELLED" && (
-        <p className="mt-6 text-sm text-muted">Este agendamento foi cancelado.</p>
-      )}
-    </main>
+    </div>
   );
 }
 

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { provisionOrganization } from "@/lib/onboarding";
+import { createTrialSubscription } from "@/lib/billing/platform";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -35,10 +36,10 @@ export async function POST(req: Request) {
       },
     });
 
-    const { bookingPageId, bookingPageSlug } = await provisionOrganization(
-      user.id,
-      data.organizationName,
-    );
+    const { bookingPageId, bookingPageSlug, organizationId } =
+      await provisionOrganization(user.id, data.organizationName);
+
+    await createTrialSubscription(organizationId);
 
     return NextResponse.json({
       ok: true,

@@ -22,9 +22,9 @@ const instrument = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Book Symbius — Agenda cheia. Caixa na hora.",
+  title: "Book Symbius — Agenda online com cobrança na hora",
   description:
-    "O cliente agenda e paga com Pix ou cartão na mesma tela. Calendário, equipe e financeiro para quem vive de horário marcado.",
+    "Link de agendamento com Pix e cartão na mesma tela. Para salão, barbearia, clínica e consultório: o cliente marca, paga e você vê tudo no painel.",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",

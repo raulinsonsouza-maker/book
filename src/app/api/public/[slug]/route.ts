@@ -73,6 +73,7 @@ export async function GET(
         slug: page.slug,
         description: brand.description,
         logoUrl: brand.logoUrl,
+        coverImageUrl: page.coverImageUrl,
         accentColor: brand.accentColor,
         websiteUrl: page.websiteUrl,
         instagram: page.instagram,

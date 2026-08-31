@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 
   if (error || !code || !state) {
     return NextResponse.redirect(
-      new URL("/app/integrations?google=error", base),
+      new URL("/app/integracoes?google=error", base),
     );
   }
 
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
 
     if (parsed.organizationId !== session.user.organizationId) {
       return NextResponse.redirect(
-        new URL("/app/integrations?google=forbidden", base),
+        new URL("/app/integracoes?google=forbidden", base),
       );
     }
 
@@ -52,12 +52,12 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.redirect(
-      new URL("/app/integrations?google=connected", base),
+      new URL("/app/integracoes?google=connected", base),
     );
   } catch (e) {
     console.error("[google:callback]", e);
     return NextResponse.redirect(
-      new URL("/app/integrations?google=error", base),
+      new URL("/app/integracoes?google=error", base),
     );
   }
 }
