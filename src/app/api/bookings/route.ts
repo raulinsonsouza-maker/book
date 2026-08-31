@@ -32,15 +32,17 @@ export async function GET(req: Request) {
       ...(professionalIdParam && !isProfessionalRole(ctx.role)
         ? { professionalId: professionalIdParam }
         : {}),
-      ...(status
-        ? {
-            status: status as
-              | "CONFIRMED"
-              | "PENDING_PAYMENT"
-              | "CANCELLED"
-              | "EXPIRED",
-          }
-        : {}),
+      ...(status === "ACTIVE"
+        ? { status: { in: ["CONFIRMED", "PENDING_PAYMENT"] as const } }
+        : status
+          ? {
+              status: status as
+                | "CONFIRMED"
+                | "PENDING_PAYMENT"
+                | "CANCELLED"
+                | "EXPIRED",
+            }
+          : {}),
       ...(from || to
         ? {
             startAt: {

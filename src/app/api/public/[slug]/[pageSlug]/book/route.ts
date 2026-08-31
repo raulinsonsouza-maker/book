@@ -12,6 +12,7 @@ import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
 import { newManageToken } from "@/lib/booking-notify";
 import { requiresOnlinePayment } from "@/lib/payments/resolve-provider";
 import { emitBookingEvent } from "@/lib/events/booking-events";
+import { releaseCustomerPendingBookings } from "@/lib/booking-release-pending";
 
 const HOLD_MINUTES = 15;
 
@@ -117,6 +118,12 @@ export async function POST(
     }
 
     const booking = await prisma.$transaction(async (tx) => {
+      await releaseCustomerPendingBookings(
+        tx,
+        page.id,
+        body.customerEmail?.toLowerCase() ?? "",
+      );
+
       await assertSlotAvailable({
         bookingPageId: page.id,
         serviceId: service.id,

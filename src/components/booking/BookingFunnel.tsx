@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   format,
   parseISO,
@@ -156,6 +156,7 @@ export function BookingFunnel({
   const [installments, setInstallments] = useState(1);
   const [cardMaxInstallments, setCardMaxInstallments] = useState(12);
   const [paying, setPaying] = useState(false);
+  const submittingRef = useRef(false);
   const [checkingPix, setCheckingPix] = useState(false);
   const [pixCheckHint, setPixCheckHint] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -589,7 +590,7 @@ export function BookingFunnel({
 
   async function submitDetails(e: React.FormEvent) {
     e.preventDefault();
-    if (!service || !selectedSlot) return;
+    if (!service || !selectedSlot || paying || submittingRef.current) return;
 
     const cpfField = formFields.find((f) => f.preset === "customerCpf" && f.enabled);
     if (cpfField?.required && !isValidCpf(details.customerCpf)) {
@@ -609,7 +610,13 @@ export function BookingFunnel({
     }
 
     setError("");
+    submittingRef.current = true;
     setPaying(true);
+    try {
+      if (bookingId) {
+        await abandonHold();
+      }
+
     const customAnswers: Record<string, string> = {};
     for (const field of formFields) {
       if (!field.preset && answers[field.id]?.trim()) {
@@ -645,7 +652,6 @@ export function BookingFunnel({
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    setPaying(false);
     if (!res.ok) {
       if (res.status === 409 || data.code === "SLOT_UNAVAILABLE") {
         handleSlotUnavailable(data.error);
@@ -665,6 +671,10 @@ export function BookingFunnel({
       return;
     }
     setStep("payment");
+    } finally {
+      submittingRef.current = false;
+      setPaying(false);
+    }
   }
 
   async function confirmDemoPix() {
@@ -816,7 +826,7 @@ export function BookingFunnel({
     return false;
   }
 
-  function goBack() {
+  async function goBack() {
     if (!canGoBack()) return;
     setError("");
     if (step === "service") {
@@ -853,7 +863,7 @@ export function BookingFunnel({
     }
     if (step === "details") setStep("datetime");
     else if (step === "payment") {
-      void abandonHold();
+      await abandonHold();
       setStep("details");
     }
   }
@@ -972,7 +982,7 @@ export function BookingFunnel({
         {canGoBack() && (
           <button
             type="button"
-            onClick={goBack}
+            onClick={() => void goBack()}
             className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-muted transition hover:text-foreground"
           >
             ← Voltar

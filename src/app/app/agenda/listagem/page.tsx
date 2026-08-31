@@ -28,6 +28,7 @@ type Booking = {
 };
 
 const statusLabel: Record<string, string> = {
+  ACTIVE: "Ativos",
   CONFIRMED: "Confirmado",
   PENDING_PAYMENT: "Aguardando pagamento",
   CANCELLED: "Cancelado",
@@ -43,7 +44,7 @@ const paymentLabel: Record<string, string> = {
 
 export default function AgendaListagemPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("ACTIVE");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [loading, setLoading] = useState(true);
@@ -100,7 +101,7 @@ export default function AgendaListagemPage() {
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
-          <option value="">Todos os status</option>
+          <option value="ACTIVE">Ativos</option>
           <option value="CONFIRMED">Confirmados</option>
           <option value="PENDING_PAYMENT">Aguardando pagamento</option>
           <option value="EXPIRED">Expirados</option>
