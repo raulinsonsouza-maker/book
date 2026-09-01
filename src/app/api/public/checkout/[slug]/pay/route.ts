@@ -27,8 +27,38 @@ async function loadOrder(orderId: string, slug: string) {
       product: { include: { organization: true } },
       checkoutLink: true,
       payment: true,
+      intakeSubmission: true,
     },
   });
+}
+
+function assertIntakePayable(
+  order: NonNullable<Awaited<ReturnType<typeof loadOrder>>>,
+) {
+  if (order.product.productKind !== "INTAKE") return;
+  if (
+    !order.intakeSubmission ||
+    (order.intakeSubmission.status !== "SUBMITTED" &&
+      order.intakeSubmission.status !== "DRAFT")
+  ) {
+    throw new Error("INTAKE_NOT_READY");
+  }
+  if (order.intakeSubmission.status !== "SUBMITTED") {
+    throw new Error("INTAKE_NOT_SUBMITTED");
+  }
+}
+
+function intakePayBlock(order: NonNullable<Awaited<ReturnType<typeof loadOrder>>>) {
+  if (order.product.productKind !== "INTAKE") return null;
+  try {
+    assertIntakePayable(order);
+  } catch {
+    return NextResponse.json(
+      { error: "Complete o formulário e documentos antes de pagar" },
+      { status: 400 },
+    );
+  }
+  return null;
 }
 
 const pixSchema = z.object({
@@ -54,6 +84,8 @@ export async function POST(
           { status: 404 },
         );
       }
+      const intakeBlock = intakePayBlock(order);
+      if (intakeBlock) return intakeBlock;
 
       try {
         assertHoldValid(order);
@@ -135,6 +167,8 @@ export async function POST(
           { status: 404 },
         );
       }
+      const intakeBlock = intakePayBlock(order);
+      if (intakeBlock) return intakeBlock;
 
       const org = order.product.organization;
       const provider = resolvePaymentProvider(org);
@@ -233,10 +267,15 @@ export async function POST(
     if (method === "demo-confirm") {
       const body = z.object({ orderId: z.string() }).parse(await req.json());
       const order = await loadOrder(body.orderId, slug);
-      if (!isDemoPaymentId(order?.payment?.caktoPaymentId)) {
+      if (!order) {
+        return NextResponse.json({ error: "Pedido inválido" }, { status: 404 });
+      }
+      const intakeBlock = intakePayBlock(order);
+      if (intakeBlock) return intakeBlock;
+      if (!isDemoPaymentId(order.payment?.caktoPaymentId)) {
         return NextResponse.json({ error: "Só para demo" }, { status: 400 });
       }
-      await confirmCheckoutOrder(order!.id);
+      await confirmCheckoutOrder(order.id);
       return NextResponse.json({ ok: true, status: "PAID" });
     }
 

@@ -13,6 +13,39 @@ import {
   professionalsForService,
 } from "@/lib/public-booking-page";
 
+function mapServicePayload(
+  s: {
+    id: string;
+    title: string;
+    description: string | null;
+    imageUrl: string | null;
+    durationMinutes: number;
+    priceCents: number;
+    customFields: unknown;
+    intakeProductId: string | null;
+    intakeProduct?: {
+      priceCents: number;
+      checkoutLinks: { slug: string }[];
+    } | null;
+  },
+  professionals?: { id: string; displayName: string; photoUrl: string | null }[],
+) {
+  const intakeSlug = s.intakeProduct?.checkoutLinks[0]?.slug ?? null;
+  return {
+    id: s.id,
+    title: s.title,
+    description: s.description,
+    imageUrl: s.imageUrl,
+    durationMinutes: s.durationMinutes,
+    priceCents: intakeSlug ? (s.intakeProduct?.priceCents ?? s.priceCents) : s.priceCents,
+    customFields: s.customFields,
+    intakeProductId: s.intakeProductId,
+    intakeCheckoutSlug: intakeSlug,
+    isIntake: Boolean(intakeSlug),
+    ...(professionals ? { professionals } : {}),
+  };
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ slug: string; pageSlug: string }> },
@@ -53,31 +86,17 @@ export async function GET(
       ? page.services
           .map((s) => {
             const pros = professionalsForService(s);
-            return {
-              id: s.id,
-              title: s.title,
-              description: s.description,
-              imageUrl: s.imageUrl,
-              durationMinutes: s.durationMinutes,
-              priceCents: s.priceCents,
-              customFields: s.customFields,
-              professionals: pros.map((p) => ({
+            return mapServicePayload(
+              s,
+              pros.map((p) => ({
                 id: p.id,
                 displayName: p.displayName,
                 photoUrl: p.photoUrl,
               })),
-            };
+            );
           })
-          .filter((s) => s.professionals.length > 0)
-      : page.services.map((s) => ({
-          id: s.id,
-          title: s.title,
-          description: s.description,
-          imageUrl: s.imageUrl,
-          durationMinutes: s.durationMinutes,
-          priceCents: s.priceCents,
-          customFields: s.customFields,
-        }));
+          .filter((s) => s.isIntake || (s.professionals?.length ?? 0) > 0)
+      : page.services.map((s) => mapServicePayload(s));
 
     const days = await getAvailableDays({
       bookingPageId: page.id,

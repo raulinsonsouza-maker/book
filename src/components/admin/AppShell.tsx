@@ -133,6 +133,7 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith("/app/agendador"), title: "Agendador" },
   { match: (p) => p.startsWith("/app/pages"), title: "Agendador" },
   { match: (p) => p.startsWith("/app/checkout/vendas"), title: "Vendas" },
+  { match: (p) => p.startsWith("/app/intake"), title: "Intake" },
   { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Produtos" },
   { match: (p) => p.startsWith("/app/checkout"), title: "Checkout" },
   {

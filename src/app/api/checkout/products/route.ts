@@ -8,6 +8,7 @@ import {
 } from "@/lib/product-form-config";
 import { ensureProductCheckoutLink } from "@/lib/checkout-slug";
 import { apiRequireAdmin } from "@/lib/rbac";
+import { serializeNotifyEmails } from "@/lib/intake/notify-emails";
 
 const schema = z.object({
   title: z.string().min(2),
@@ -16,6 +17,10 @@ const schema = z.object({
   caktoOfferId: z.string().optional(),
   formConfig: z.any().optional(),
   isActive: z.boolean().optional(),
+  productKind: z.enum(["SIMPLE", "INTAKE"]).optional(),
+  intakeTemplateKey: z.string().optional().nullable(),
+  notifyEmails: z.array(z.string().email()).optional(),
+  intakeEmailAlerts: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -66,6 +71,15 @@ export async function POST(req: Request) {
         caktoOfferId: body.caktoOfferId || null,
         formConfig,
         isActive: body.isActive ?? true,
+        productKind: body.productKind || "SIMPLE",
+        intakeTemplateKey:
+          body.productKind === "INTAKE"
+            ? body.intakeTemplateKey || "company_opening_br"
+            : null,
+        notifyEmails: body.notifyEmails
+          ? serializeNotifyEmails(body.notifyEmails)
+          : null,
+        intakeEmailAlerts: body.intakeEmailAlerts ?? true,
       },
     });
 

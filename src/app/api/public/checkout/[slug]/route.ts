@@ -52,6 +52,8 @@ export async function GET(
       title: link.product.title,
       description: link.product.description,
       priceCents: link.product.priceCents,
+      productKind: link.product.productKind,
+      intakeTemplateKey: link.product.intakeTemplateKey,
     },
     businessName: brand.businessName,
     businessDescription: org.description,

@@ -21,6 +21,7 @@ import { FunnelLandingBlocks } from "@/components/booking/FunnelLandingBlocks";
 import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 import { encodeAsaasCardToken } from "@/lib/asaas/client";
 import { PixQrImage } from "@/components/payment/PixQrImage";
+import { IntakeWizard } from "@/components/intake/IntakeWizard";
 
 type CustomField = {
   id: string;
@@ -45,6 +46,9 @@ type Service = {
   priceCents: number;
   customFields: CustomField[];
   professionals?: ProOption[];
+  isIntake?: boolean;
+  intakeCheckoutSlug?: string | null;
+  intakeProductId?: string | null;
 };
 
 type PageInfo = {
@@ -66,6 +70,7 @@ type Step =
   | "service"
   | "professional"
   | "datetime"
+  | "intake"
   | "details"
   | "payment"
   | "done";
@@ -74,6 +79,7 @@ const STEP_LABELS: { id: Step; label: string }[] = [
   { id: "service", label: "Serviço" },
   { id: "professional", label: "Profissional" },
   { id: "datetime", label: "Horário" },
+  { id: "intake", label: "Formulário" },
   { id: "details", label: "Dados" },
   { id: "payment", label: "Pagamento" },
 ];
@@ -138,6 +144,7 @@ export function BookingFunnel({
   });
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
   const [manageToken, setManageToken] = useState<string | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
   const [holdCountdown, setHoldCountdown] = useState("");
@@ -346,15 +353,29 @@ export function BookingFunnel({
       .catch(() => undefined);
   }, [businessMode, service, professional, anyone, selectedDate, apiBase]);
 
+  const checkoutPayBase = service?.intakeCheckoutSlug
+    ? `/api/public/checkout/${service.intakeCheckoutSlug}`
+    : null;
+  const activePayId = service?.isIntake ? checkoutOrderId : bookingId;
+
   const startPix = useCallback(
     async (id: string) => {
       setPixLoading(true);
       setError("");
-      const res = await fetch(`${apiBase}/pay?method=pix`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId: id, fingerprint: `fp_${id}` }),
-      });
+      const res = await fetch(
+        service?.isIntake && checkoutPayBase
+          ? `${checkoutPayBase}/pay?method=pix`
+          : `${apiBase}/pay?method=pix`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            service?.isIntake
+              ? { orderId: id, fingerprint: `fp_${id}` }
+              : { bookingId: id, fingerprint: `fp_${id}` },
+          ),
+        },
+      );
       const data = await res.json();
       setPixLoading(false);
       if (!res.ok) {
@@ -364,16 +385,16 @@ export function BookingFunnel({
       setPixQr(data.qrCode);
       setPixQrBase64(data.qrCodeBase64 || null);
     },
-    [orgSlug, pageSlug],
+    [apiBase, checkoutPayBase, service?.isIntake],
   );
 
   // Poll status + auto Pix
   useEffect(() => {
-    if (step !== "payment" || !bookingId) return;
+    if (step !== "payment" || !activePayId) return;
     if (payMethod === "pix" && !pixQr && !pixLoading) {
-      startPix(bookingId);
+      startPix(activePayId);
     }
-  }, [step, bookingId, payMethod, pixQr, pixLoading, startPix]);
+  }, [step, activePayId, payMethod, pixQr, pixLoading, startPix]);
 
   const daySet = useMemo(() => new Set(availableDays), [availableDays]);
   const weekDays = useMemo(() => availableDays.slice(0, 7), [availableDays]);
@@ -399,14 +420,19 @@ export function BookingFunnel({
     if (services.length <= 1) {
       steps = steps.filter((s) => s.id !== "service");
     }
-    if (businessMode !== "SALON") {
+    if (businessMode !== "SALON" || service?.isIntake) {
       steps = steps.filter((s) => s.id !== "professional");
     }
-    if (demoPayments) {
+    if (service?.isIntake) {
+      steps = steps.filter((s) => s.id !== "datetime" && s.id !== "details");
+    } else {
+      steps = steps.filter((s) => s.id !== "intake");
+    }
+    if (demoPayments && !service?.isIntake) {
       steps = steps.filter((s) => s.id !== "payment");
     }
     return steps;
-  }, [services.length, businessMode, demoPayments]);
+  }, [services.length, businessMode, demoPayments, service?.isIntake]);
 
   const stepIndex = visibleSteps.findIndex((s) => {
     if (step === "done") {
@@ -424,6 +450,23 @@ export function BookingFunnel({
               100,
           );
 
+  function goAfterServicePick(s: Service) {
+    if (s.isIntake && s.intakeCheckoutSlug) {
+      setCheckoutOrderId(null);
+      setStep("intake");
+      return;
+    }
+    if (businessMode === "SALON") {
+      setStep("professional");
+      return;
+    }
+    setStep("datetime");
+    if (!selectedDate && availableDays[0]) {
+      setSelectedDate(availableDays[0]);
+      setMonth(parseISO(availableDays[0]));
+    }
+  }
+
   function startBooking() {
     setError("");
     if (services.length === 1) {
@@ -432,15 +475,7 @@ export function BookingFunnel({
       setSelectedSlot(null);
       setProfessional(null);
       setAnyone(false);
-      if (businessMode === "SALON") {
-        setStep("professional");
-        return;
-      }
-      setStep("datetime");
-      if (!selectedDate && availableDays[0]) {
-        setSelectedDate(availableDays[0]);
-        setMonth(parseISO(availableDays[0]));
-      }
+      goAfterServicePick(s);
       return;
     }
     setStep("service");
@@ -452,15 +487,7 @@ export function BookingFunnel({
     setSelectedSlot(null);
     setProfessional(null);
     setAnyone(false);
-    if (businessMode === "SALON") {
-      setStep("professional");
-      return;
-    }
-    setStep("datetime");
-    if (!selectedDate && availableDays[0]) {
-      setSelectedDate(availableDays[0]);
-      setMonth(parseISO(availableDays[0]));
-    }
+    goAfterServicePick(s);
   }
 
   function pickProfessional(p: ProOption | null, asAnyone = false) {
@@ -547,7 +574,7 @@ export function BookingFunnel({
   }, [holdExpiresAt, step]);
 
   useEffect(() => {
-    if (step !== "payment" || !bookingId) return;
+    if (step !== "payment" || !activePayId) return;
     if (payMethod === "pix" && !pixQr) return;
     if (payMethod === "card" && !awaitingCardConfirm) return;
 
@@ -556,22 +583,33 @@ export function BookingFunnel({
     async function checkOnce() {
       try {
         const res = await fetch(
-          `${apiBase}/status?bookingId=${bookingId}`,
+          service?.isIntake && checkoutPayBase
+            ? `${checkoutPayBase}/status?orderId=${activePayId}`
+            : `${apiBase}/status?bookingId=${activePayId}`,
           { cache: "no-store" },
         );
         const data = await res.json();
         if (cancelled) return;
-        if (data.status === "CONFIRMED" || data.paymentStatus === "PAID") {
+        if (
+          data.status === "CONFIRMED" ||
+          data.status === "PAID" ||
+          data.paymentStatus === "PAID"
+        ) {
           setStep("done");
           setAwaitingCardConfirm(false);
           return;
         }
-        if (data.status === "EXPIRED" || data.status === "CANCELLED") {
+        if (!service?.isIntake && (data.status === "EXPIRED" || data.status === "CANCELLED")) {
           handleHoldExpired(
             data.status === "EXPIRED"
               ? "O tempo para pagar acabou. Escolha o horário de novo."
               : "Este horário não está mais disponível. Escolha outro.",
           );
+        }
+        if (service?.isIntake && data.status === "EXPIRED") {
+          setError("O tempo para pagar acabou. Volte ao formulário e tente de novo.");
+          setCheckoutOrderId(null);
+          setStep("intake");
         }
       } catch {
         /* keep polling */
@@ -584,7 +622,16 @@ export function BookingFunnel({
       cancelled = true;
       clearInterval(id);
     };
-  }, [step, payMethod, bookingId, pixQr, awaitingCardConfirm, apiBase]);
+  }, [
+    step,
+    payMethod,
+    activePayId,
+    pixQr,
+    awaitingCardConfirm,
+    apiBase,
+    checkoutPayBase,
+    service?.isIntake,
+  ]);
 
   useEffect(() => {
     if (
@@ -615,20 +662,28 @@ export function BookingFunnel({
   }
 
   async function checkPixNow() {
-    if (!bookingId || checkingPix) return;
+    const payId = service?.isIntake ? checkoutOrderId : bookingId;
+    if (!payId || checkingPix) return;
     setCheckingPix(true);
     setPixCheckHint("Consultando pagamento…");
     try {
-      const res = await fetch(`${apiBase}/status?bookingId=${bookingId}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        service?.isIntake && checkoutPayBase
+          ? `${checkoutPayBase}/status?orderId=${payId}`
+          : `${apiBase}/status?bookingId=${payId}`,
+        { cache: "no-store" },
+      );
       const data = await res.json();
-      if (data.status === "CONFIRMED" || data.paymentStatus === "PAID") {
+      if (
+        data.status === "CONFIRMED" ||
+        data.status === "PAID" ||
+        data.paymentStatus === "PAID"
+      ) {
         setStep("done");
         setAwaitingCardConfirm(false);
         return;
       }
-      if (data.status === "EXPIRED" || data.status === "CANCELLED") {
+      if (!service?.isIntake && (data.status === "EXPIRED" || data.status === "CANCELLED")) {
         handleHoldExpired(
           data.status === "EXPIRED"
             ? "O tempo para pagar acabou. Escolha o horário de novo."
@@ -755,18 +810,26 @@ export function BookingFunnel({
   }
 
   async function confirmDemoPix() {
-    if (!bookingId) return;
+    const payId = service?.isIntake ? checkoutOrderId : bookingId;
+    if (!payId) return;
     setPaying(true);
-    const res = await fetch(`${apiBase}/pay?method=demo-confirm`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bookingId }),
-    });
+    const res = await fetch(
+      service?.isIntake && checkoutPayBase
+        ? `${checkoutPayBase}/pay?method=demo-confirm`
+        : `${apiBase}/pay?method=demo-confirm`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          service?.isIntake ? { orderId: payId } : { bookingId: payId },
+        ),
+      },
+    );
     setPaying(false);
     if (res.ok) setStep("done");
     else {
       const data = await res.json();
-      if (res.status === 409 || data.code === "SLOT_UNAVAILABLE") {
+      if (!service?.isIntake && (res.status === 409 || data.code === "SLOT_UNAVAILABLE")) {
         handleSlotUnavailable(data.error);
         return;
       }
@@ -776,7 +839,8 @@ export function BookingFunnel({
 
   async function payCard(e: React.FormEvent) {
     e.preventDefault();
-    if (!bookingId) return;
+    const payId = service?.isIntake ? checkoutOrderId : bookingId;
+    if (!payId) return;
     setPaying(true);
     setError("");
 
@@ -862,30 +926,40 @@ export function BookingFunnel({
       }
     }
 
-    const res = await fetch(`${apiBase}/pay?method=card`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bookingId,
-        fingerprint: `fp_${bookingId}`,
-        cardToken,
-        installments:
-          paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS"
-            ? Math.min(installments, cardMaxInstallments)
-            : 1,
-      }),
-    });
+    const res = await fetch(
+      service?.isIntake && checkoutPayBase
+        ? `${checkoutPayBase}/pay?method=card`
+        : `${apiBase}/pay?method=card`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(service?.isIntake
+            ? { orderId: payId }
+            : { bookingId: payId }),
+          fingerprint: `fp_${payId}`,
+          cardToken,
+          installments:
+            paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS"
+              ? Math.min(installments, cardMaxInstallments)
+              : 1,
+        }),
+      },
+    );
     const data = await res.json();
     setPaying(false);
     if (!res.ok) {
-      if (res.status === 409 || data.code === "SLOT_UNAVAILABLE") {
+      if (
+        !service?.isIntake &&
+        (res.status === 409 || data.code === "SLOT_UNAVAILABLE")
+      ) {
         handleSlotUnavailable(data.error);
         return;
       }
       setError(data.error || "Pagamento recusado");
       return;
     }
-    if (data.status === "CONFIRMED") setStep("done");
+    if (data.status === "CONFIRMED" || data.status === "PAID") setStep("done");
     else {
       setAwaitingCardConfirm(true);
       setError("");
@@ -899,6 +973,7 @@ export function BookingFunnel({
     if (step === "service") return true;
     if (step === "professional") return true;
     if (step === "datetime") return true;
+    if (step === "intake") return true;
     if (step === "details" || step === "payment") return true;
     return false;
   }
@@ -938,10 +1013,27 @@ export function BookingFunnel({
       }
       return;
     }
+    if (step === "intake") {
+      setCheckoutOrderId(null);
+      if (services.length <= 1) {
+        setStep("welcome");
+        setService(null);
+      } else {
+        setStep("service");
+        setService(null);
+      }
+      return;
+    }
     if (step === "details") setStep("datetime");
     else if (step === "payment") {
-      await abandonHold();
-      setStep("details");
+      if (service?.isIntake) {
+        setCheckoutOrderId(null);
+        setPixQr(null);
+        setStep("intake");
+      } else {
+        await abandonHold();
+        setStep("details");
+      }
     }
   }
 
@@ -1222,7 +1314,7 @@ export function BookingFunnel({
                         </p>
                       )}
                       <p className="mt-1.5 text-xs font-medium text-muted">
-                        {s.durationMinutes} min
+                        {s.isIntake ? "Sem agendamento de horário" : `${s.durationMinutes} min`}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2 self-center">
@@ -1247,6 +1339,47 @@ export function BookingFunnel({
         )}
 
         {/* PROFESSIONAL */}
+        {step === "intake" && service?.intakeCheckoutSlug && (
+          <div className="space-y-4 animate-in">
+            <div>
+              <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
+                {service.title}
+              </h1>
+              <p className="mt-2 text-sm text-muted">
+                Preencha o formulário e envie os documentos para continuar
+              </p>
+            </div>
+            <div className="booking-card p-4">
+              <IntakeWizard
+                checkoutSlug={service.intakeCheckoutSlug}
+                accentColor={accent}
+                onReadyForPayment={async (orderId) => {
+                  setCheckoutOrderId(orderId);
+                  setHoldExpiresAt(new Date(Date.now() + 15 * 60_000).toISOString());
+                  try {
+                    const res = await fetch(
+                      `/api/public/checkout/${service.intakeCheckoutSlug}/intake?orderId=${orderId}`,
+                    );
+                    const data = await res.json();
+                    if (data.holdExpiresAt) setHoldExpiresAt(data.holdExpiresAt);
+                    if (data.data?.partners?.[0]) {
+                      setDetails({
+                        customerName: data.data.partners[0].fullName || "",
+                        customerEmail: data.data.partners[0].email || "",
+                        customerPhone: data.data.partners[0].phone || "",
+                        customerCpf: data.data.partners[0].cpf || "",
+                      });
+                    }
+                  } catch {
+                    /* ignore */
+                  }
+                  setStep("payment");
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {step === "professional" && service && (
           <div className="space-y-4 animate-in">
             <div>
@@ -1637,12 +1770,13 @@ export function BookingFunnel({
             {holdExpiresAt && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
                 <p className="font-semibold">
-                  Horário reservado
+                  {service.isIntake ? "Pagamento reservado" : "Horário reservado"}
                   {holdCountdown ? ` · ${holdCountdown}` : ""}
                 </p>
                 <p className="mt-1 text-xs text-amber-900/80">
-                  Conclua até {format(new Date(holdExpiresAt), "HH:mm")} para
-                  garantir. Depois disso o horário é liberado.
+                  {service.isIntake
+                    ? `Conclua até ${format(new Date(holdExpiresAt), "HH:mm")} para garantir seu pedido.`
+                    : `Conclua até ${format(new Date(holdExpiresAt), "HH:mm")} para garantir. Depois disso o horário é liberado.`}
                 </p>
               </div>
             )}

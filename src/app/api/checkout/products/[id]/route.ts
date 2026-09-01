@@ -8,6 +8,7 @@ import {
   serializeProductFormConfig,
 } from "@/lib/product-form-config";
 import { ensureProductCheckoutLink } from "@/lib/checkout-slug";
+import { serializeNotifyEmails } from "@/lib/intake/notify-emails";
 
 const schema = z.object({
   title: z.string().min(2).optional(),
@@ -16,6 +17,10 @@ const schema = z.object({
   caktoOfferId: z.string().optional().nullable(),
   formConfig: z.any().optional(),
   isActive: z.boolean().optional(),
+  productKind: z.enum(["SIMPLE", "INTAKE"]).optional(),
+  intakeTemplateKey: z.string().optional().nullable(),
+  notifyEmails: z.array(z.string().email()).optional(),
+  intakeEmailAlerts: z.boolean().optional(),
 });
 
 export async function GET(
@@ -76,6 +81,16 @@ export async function PATCH(
         ...(body.priceCents !== undefined ? { priceCents: body.priceCents } : {}),
         ...(body.caktoOfferId !== undefined ? { caktoOfferId: body.caktoOfferId } : {}),
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+        ...(body.productKind !== undefined ? { productKind: body.productKind } : {}),
+        ...(body.intakeTemplateKey !== undefined
+          ? { intakeTemplateKey: body.intakeTemplateKey }
+          : {}),
+        ...(body.notifyEmails !== undefined
+          ? { notifyEmails: serializeNotifyEmails(body.notifyEmails) }
+          : {}),
+        ...(body.intakeEmailAlerts !== undefined
+          ? { intakeEmailAlerts: body.intakeEmailAlerts }
+          : {}),
         ...(body.formConfig !== undefined
           ? {
               formConfig: serializeProductFormConfig(

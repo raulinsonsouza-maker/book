@@ -30,6 +30,16 @@ export async function findPublicBookingPage(orgSlug: string, pageSlug: string) {
         where: { isActive: true },
         include: {
           customFields: { orderBy: { sortOrder: "asc" } },
+          intakeProduct: {
+            include: {
+              checkoutLinks: {
+                where: { isActive: true },
+                take: 1,
+                orderBy: { createdAt: "asc" },
+                select: { slug: true },
+              },
+            },
+          },
           professionals: {
             where: { professional: { isActive: true } },
             include: {

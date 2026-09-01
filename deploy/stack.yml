@@ -30,6 +30,7 @@ services:
     volumes:
       - book_data:/data
       - book_uploads:/app/public/uploads
+      - book_intake:/app/uploads
     networks:
       - traefik_proxy
     healthcheck:
@@ -67,3 +68,4 @@ networks:
 volumes:
   book_data:
   book_uploads:
+  book_intake:

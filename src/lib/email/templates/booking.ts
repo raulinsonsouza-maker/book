@@ -315,10 +315,14 @@ export function checkoutConfirmationEmail(params: {
   linkTitle: string;
   priceCents: number;
   orderId: string;
+  intakeDocuments?: boolean;
 }) {
+  const intro = params.intakeDocuments
+    ? "Recebemos seus dados e documentos. Seu pagamento foi confirmado."
+    : "Seu pagamento foi confirmado.";
   const body = `
     <p>Olá, ${escapeHtml(params.customerName)}.</p>
-    <p>Seu pagamento foi confirmado.</p>
+    <p>${intro}</p>
     ${detailBox([
       { label: "Produto", value: params.productTitle },
       { label: "Pedido", value: params.linkTitle },

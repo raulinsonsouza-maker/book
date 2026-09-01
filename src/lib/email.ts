@@ -124,8 +124,29 @@ export async function sendCheckoutConfirmation(params: {
   linkTitle: string;
   priceCents: number;
   orderId: string;
+  intakeDocuments?: boolean;
 }) {
   const { to, ...rest } = params;
   const tpl = checkoutConfirmationEmail(rest);
   return send({ to, ...tpl, tag: "checkout.confirmation" });
+}
+
+export async function sendIntakeAlertToTeam(
+  params: import("@/lib/email/templates/intake").IntakeAlertParams,
+) {
+  const {
+    intakeAlertEmail,
+    resolveRecipientsForIntakeAlert,
+  } = await import("@/lib/email/templates/intake");
+  const recipients = await resolveRecipientsForIntakeAlert(params);
+  if (recipients.length === 0) return { ok: true as const, skipped: true };
+
+  const tpl = intakeAlertEmail(params);
+  const results = [];
+  for (const to of recipients) {
+    results.push(
+      await send({ to, ...tpl, tag: "intake.team_alert" }),
+    );
+  }
+  return { ok: true as const, recipients };
 }

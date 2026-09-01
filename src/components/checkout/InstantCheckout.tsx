@@ -8,6 +8,7 @@ import type { FormFieldConfig } from "@/types/funnel-config";
 import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 import { PaymentStep } from "@/components/payment/PaymentStep";
 import { SuccessStep } from "@/components/payment/SuccessStep";
+import { IntakeWizard } from "@/components/intake/IntakeWizard";
 import { encodeAsaasCardToken } from "@/lib/asaas/client";
 
 function formatCardNumber(value: string) {
@@ -94,11 +95,16 @@ export function InstantCheckout({ slug }: { slug: string }) {
   const [awaitingCardConfirm, setAwaitingCardConfirm] = useState(false);
   const [installments, setInstallments] = useState(1);
   const [cardMaxInstallments, setCardMaxInstallments] = useState(12);
+  const [productKind, setProductKind] = useState<"SIMPLE" | "INTAKE">("SIMPLE");
+  const [intakePaymentReady, setIntakePaymentReady] = useState(false);
+  const [intakeCustomerName, setIntakeCustomerName] = useState("");
+  const [intakeCustomerEmail, setIntakeCustomerEmail] = useState("");
 
   const formFields: FormFieldConfig[] = enabledProductFormFields(formConfig);
+  const isIntake = productKind === "INTAKE";
   const formReady = useMemo(
-    () => isFormReady(formFields, details, answers),
-    [formFields, details, answers],
+    () => (isIntake ? intakePaymentReady : isFormReady(formFields, details, answers)),
+    [formFields, details, answers, isIntake, intakePaymentReady],
   );
 
   const orderFingerprint = useMemo(
@@ -138,6 +144,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
         setCardMaxInstallments(
           Math.min(12, Math.max(1, data.cardMaxInstallments || 12)),
         );
+        setProductKind(data.product.productKind === "INTAKE" ? "INTAKE" : "SIMPLE");
         setLoading(false);
       })
       .catch((e) => {
@@ -210,7 +217,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
   ]);
 
   useEffect(() => {
-    if (paid || !formReady || creatingOrder) return;
+    if (paid || !formReady || creatingOrder || isIntake) return;
     if (orderId && lastOrderFingerprint.current === orderFingerprint) return;
     if (failedFingerprint.current === orderFingerprint) return;
 
@@ -218,10 +225,10 @@ export function InstantCheckout({ slug }: { slug: string }) {
       void createOrder();
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [createOrder, creatingOrder, formReady, orderFingerprint, orderId, paid]);
+  }, [createOrder, creatingOrder, formReady, orderFingerprint, orderId, paid, isIntake]);
 
   useEffect(() => {
-    if (!formReady) {
+    if (!formReady || isIntake) {
       if (orderId) {
         void fetch(`/api/public/checkout/${slug}/pay?method=abandon`, {
           method: "POST",
@@ -237,7 +244,28 @@ export function InstantCheckout({ slug }: { slug: string }) {
       lastOrderFingerprint.current = null;
       failedFingerprint.current = null;
     }
-  }, [formReady, orderId, slug]);
+  }, [formReady, orderId, slug, isIntake]);
+
+  const handleIntakeReady = useCallback(async (newOrderId: string) => {
+    setOrderId(newOrderId);
+    setIntakePaymentReady(true);
+    setHoldExpiresAt(new Date(Date.now() + 15 * 60_000).toISOString());
+    const res = await fetch(
+      `/api/public/checkout/${slug}/intake?orderId=${newOrderId}`,
+    );
+    const data = await res.json();
+    if (data.data?.partners?.[0]) {
+      setIntakeCustomerName(data.data.partners[0].fullName || "");
+      setIntakeCustomerEmail(data.data.partners[0].email || "");
+      setDetails({
+        customerName: data.data.partners[0].fullName || "",
+        customerEmail: data.data.partners[0].email || "",
+        customerPhone: data.data.partners[0].phone || "",
+        customerCpf: data.data.partners[0].cpf || "",
+      });
+    }
+    if (data.holdExpiresAt) setHoldExpiresAt(data.holdExpiresAt);
+  }, [slug]);
 
   useEffect(() => {
     if (!holdExpiresAt || paid) {
@@ -552,12 +580,71 @@ export function InstantCheckout({ slug }: { slug: string }) {
           {paid ? (
             <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
               <SuccessStep
-                customerName={details.customerName}
-                customerEmail={details.customerEmail}
+                customerName={isIntake ? intakeCustomerName : details.customerName}
+                customerEmail={isIntake ? intakeCustomerEmail : details.customerEmail}
                 productTitle={productTitle}
                 priceCents={priceCents}
               />
             </div>
+          ) : isIntake ? (
+            <>
+              <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                <IntakeWizard
+                  checkoutSlug={slug}
+                  accentColor={accentColor}
+                  onReadyForPayment={(id) => void handleIntakeReady(id)}
+                />
+              </section>
+              {intakePaymentReady && orderId && (
+                <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                  <PaymentStep
+                    priceCents={priceCents}
+                    productTitle={productTitle}
+                    paymentProviderLabel={paymentProviderLabel}
+                    demoPayments={demoPayments}
+                    payMethod={payMethod}
+                    onPayMethodChange={(m) => {
+                      setPayMethod(m);
+                      setError("");
+                      if (m === "card") {
+                        setPixQr(null);
+                        setPixQrBase64(null);
+                      }
+                    }}
+                    pixLoading={pixLoading}
+                    pixQr={pixQr}
+                    pixQrBase64={pixQrBase64}
+                    copied={copied}
+                    onCopyPix={async () => {
+                      if (pixQr) {
+                        await navigator.clipboard.writeText(pixQr);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }
+                    }}
+                    onDemoConfirm={() => void confirmDemoPix()}
+                    onCheckPix={() => void checkPixNow()}
+                    checkingPix={checkingPix}
+                    pixCheckHint={pixCheckHint}
+                    paying={paying}
+                    card={card}
+                    onCardChange={setCard}
+                    onPayCard={(e) => void payCard(e)}
+                    formatCardNumber={formatCardNumber}
+                    holdExpiresAt={holdExpiresAt}
+                    holdCountdown={holdCountdown}
+                    holdVariant="payment"
+                    installments={installments}
+                    onInstallmentsChange={setInstallments}
+                    cardMaxInstallments={cardMaxInstallments}
+                    showInstallments={
+                      paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS"
+                    }
+                    awaitingCardConfirm={awaitingCardConfirm}
+                  />
+                </section>
+              )}
+            </>
           ) : (
             <>
               <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">

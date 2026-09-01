@@ -1,13 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { sendCheckoutConfirmation } from "@/lib/email";
+import { sendCheckoutConfirmation, sendIntakeAlertToTeam } from "@/lib/email";
+import { parseIntakeData } from "@/lib/intake/validation/company-opening-br";
 
 export async function confirmCheckoutOrder(orderId: string) {
   const existing = await prisma.checkoutOrder.findUnique({
     where: { id: orderId },
     include: {
-      product: true,
+      product: { include: { organization: true } },
       checkoutLink: true,
       payment: true,
+      intakeSubmission: true,
     },
   });
 
@@ -29,9 +31,10 @@ export async function confirmCheckoutOrder(orderId: string) {
       holdExpiresAt: null,
     },
     include: {
-      product: true,
+      product: { include: { organization: true } },
       checkoutLink: true,
       payment: true,
+      intakeSubmission: true,
     },
   });
 
@@ -42,6 +45,13 @@ export async function confirmCheckoutOrder(orderId: string) {
     });
   }
 
+  if (order.intakeSubmission) {
+    await prisma.intakeSubmission.update({
+      where: { id: order.intakeSubmission.id },
+      data: { status: "PAID" },
+    });
+  }
+
   await sendCheckoutConfirmation({
     to: order.customerEmail,
     customerName: order.customerName,
@@ -49,7 +59,28 @@ export async function confirmCheckoutOrder(orderId: string) {
     linkTitle: order.checkoutLink.title || order.product.title,
     priceCents: order.product.priceCents,
     orderId: order.id,
+    intakeDocuments: Boolean(order.intakeSubmission),
   });
+
+  if (order.intakeSubmission && order.product.productKind === "INTAKE") {
+    const data = parseIntakeData(order.intakeSubmission.data);
+    await sendIntakeAlertToTeam({
+      submissionId: order.intakeSubmission.id,
+      productTitle: order.product.title,
+      customerName: order.customerName,
+      customerEmail: order.customerEmail,
+      customerPhone: order.customerPhone,
+      priceCents: order.product.priceCents,
+      partnerCount: data?.partners.length ?? 0,
+      tradeName: data?.tradeName,
+      paidAt: now,
+      organizationId: order.product.organizationId,
+      productNotifyEmails: order.product.notifyEmails,
+      productAlertsEnabled: order.product.intakeEmailAlerts,
+      orgNotifyEmails: order.product.organization.intakeNotifyEmails,
+      orgAlertsEnabled: order.product.organization.intakeEmailAlerts,
+    });
+  }
 
   return order;
 }
