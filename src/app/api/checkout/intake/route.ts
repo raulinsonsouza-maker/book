@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { apiRequireAdmin } from "@/lib/rbac";
+import { apiRequireIntake } from "@/lib/rbac";
 
 export async function GET(req: Request) {
-  const auth = await apiRequireAdmin();
+  const auth = await apiRequireIntake();
   if ("error" in auth) return auth.error;
 
   const { searchParams } = new URL(req.url);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   companyOpeningBrTemplate,
   defaultPartner,
@@ -9,6 +9,7 @@ import {
 import { validateIntakeStep } from "@/lib/intake/validation/company-opening-br";
 import { requiredIntakeFileFields } from "@/lib/intake/required-files";
 import type { CompanyOpeningBrData, IntakeAttachmentInfo } from "@/lib/intake/types";
+import { formatCep, formatCpf, formatMoneyBRFromDigits, formatPhone } from "@/lib/utils";
 import { IntakeFileField } from "@/components/intake/IntakeFileField";
 
 const WIZARD_STEPS = companyOpeningBrTemplate.steps.filter((s) => s.id !== "payment");
@@ -28,6 +29,7 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
   const [attachments, setAttachments] = useState<Record<string, IntakeAttachmentInfo>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const documentsDraftStarted = useRef(false);
 
   const currentStep = WIZARD_STEPS[stepIndex]!;
   const progress = ((stepIndex + 1) / WIZARD_STEPS.length) * 100;
@@ -38,27 +40,47 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
     async (opts?: { submit?: boolean }) => {
       setSaving(true);
       setError("");
-      const res = await fetch(`/api/public/checkout/${checkoutSlug}/intake`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: orderId || undefined,
-          stepId: currentStep.id,
-          data,
-          submit: opts?.submit,
-        }),
-      });
-      const json = await res.json();
-      setSaving(false);
-      if (!res.ok) {
-        setError(json.error || "Erro ao salvar");
+      try {
+        const res = await fetch(`/api/public/checkout/${checkoutSlug}/intake`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: orderId || undefined,
+            stepId: currentStep.id,
+            data,
+            submit: opts?.submit,
+          }),
+        });
+
+        let json: { error?: string; orderId?: string } = {};
+        try {
+          json = await res.json();
+        } catch {
+          if (!res.ok) {
+            setError(
+              res.status === 502 || res.status === 503
+                ? "Servidor indisponível — aguarde alguns segundos e tente novamente"
+                : "Erro ao salvar — tente novamente",
+            );
+            return false;
+          }
+        }
+
+        if (!res.ok) {
+          setError(json.error || "Erro ao salvar");
+          return false;
+        }
+        setOrderId(json.orderId ?? orderId);
+        if (opts?.submit && json.orderId) {
+          onReadyForPayment(json.orderId);
+        }
+        return true;
+      } catch {
+        setError("Falha de conexão — verifique sua internet e tente novamente");
         return false;
+      } finally {
+        setSaving(false);
       }
-      setOrderId(json.orderId);
-      if (opts?.submit && json.orderId) {
-        onReadyForPayment(json.orderId);
-      }
-      return true;
     },
     [checkoutSlug, currentStep.id, data, onReadyForPayment, orderId],
   );
@@ -103,16 +125,20 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
         ownership,
         administration: {
           ...prev.administration,
-          administratorPartnerIndices: [0],
+          administratorPartnerIndices: [0].filter((i) => i < partners.length),
         },
       };
     });
   }
 
   useEffect(() => {
-    if (currentStep.id === "documents" && !orderId && !saving) {
-      void saveDraft();
+    if (currentStep.id !== "documents" || orderId || saving || documentsDraftStarted.current) {
+      return;
     }
+    documentsDraftStarted.current = true;
+    void saveDraft().then((ok) => {
+      if (!ok) documentsDraftStarted.current = false;
+    });
   }, [currentStep.id, orderId, saving, saveDraft]);
 
   async function next() {
@@ -197,13 +223,18 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
                 <Field label="CPF" required>
                   <input
                     className="input-field"
+                    inputMode="numeric"
+                    placeholder="000.000.000-00"
                     value={partner.cpf}
-                    onChange={(e) => updatePartner(index, { cpf: e.target.value })}
+                    onChange={(e) =>
+                      updatePartner(index, { cpf: formatCpf(e.target.value) })
+                    }
                   />
                 </Field>
                 <Field label="RG ou CNH" required>
                   <input
                     className="input-field"
+                    placeholder="Número do documento"
                     value={partner.rgOrCnh}
                     onChange={(e) => updatePartner(index, { rgOrCnh: e.target.value })}
                   />
@@ -262,8 +293,12 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
                 <Field label="CEP" required>
                   <input
                     className="input-field"
+                    inputMode="numeric"
+                    placeholder="00000-000"
                     value={partner.zipCode}
-                    onChange={(e) => updatePartner(index, { zipCode: e.target.value })}
+                    onChange={(e) =>
+                      updatePartner(index, { zipCode: formatCep(e.target.value) })
+                    }
                   />
                 </Field>
                 <Field label="Endereço completo" required className="sm:col-span-2">
@@ -284,8 +319,12 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
                 <Field label="Celular" required>
                   <input
                     className="input-field"
+                    inputMode="tel"
+                    placeholder="(00) 00000-0000"
                     value={partner.phone}
-                    onChange={(e) => updatePartner(index, { phone: e.target.value })}
+                    onChange={(e) =>
+                      updatePartner(index, { phone: formatPhone(e.target.value) })
+                    }
                   />
                 </Field>
               </div>
@@ -362,9 +401,15 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
         <Field label="Capital social (R$)" required>
           <input
             className="input-field max-w-xs"
-            placeholder="Ex: 10000,00"
+            inputMode="numeric"
+            placeholder="0,00"
             value={data.shareCapitalReais}
-            onChange={(e) => setData({ ...data, shareCapitalReais: e.target.value })}
+            onChange={(e) =>
+              setData({
+                ...data,
+                shareCapitalReais: formatMoneyBRFromDigits(e.target.value),
+              })
+            }
           />
         </Field>
       )}
@@ -463,11 +508,16 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
           <Field label="CEP da sede" required>
             <input
               className="input-field max-w-xs"
+              inputMode="numeric"
+              placeholder="00000-000"
               value={data.headquarters.zipCode}
               onChange={(e) =>
                 setData({
                   ...data,
-                  headquarters: { ...data.headquarters, zipCode: e.target.value },
+                  headquarters: {
+                    ...data.headquarters,
+                    zipCode: formatCep(e.target.value),
+                  },
                 })
               }
             />

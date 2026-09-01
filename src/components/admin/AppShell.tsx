@@ -23,6 +23,7 @@ const PRO_BLOCKED_PREFIXES = [
   "/app/pages",
   "/app/servicos",
   "/app/checkout",
+  "/app/intake",
   "/app/integracoes",
   "/app/integrations",
   "/app/profissionais",
@@ -30,7 +31,10 @@ const PRO_BLOCKED_PREFIXES = [
   "/app/conta",
   "/app/settings",
   "/app/salao",
+  "/app/equipe",
 ];
+
+const MEMBER_ALLOWED_PREFIXES = ["/app/intake"];
 
 type NavItem = {
   href: string;
@@ -155,6 +159,7 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
     match: (p) => p.startsWith("/app/conta") || p.startsWith("/app/settings"),
     title: "Conta",
   },
+  { match: (p) => p.startsWith("/app/equipe"), title: "Equipe" },
 ];
 
 function pageTitle(pathname: string) {
@@ -209,7 +214,24 @@ function navForRole(
   businessMode: string | null | undefined,
 ): NavSection[] {
   const isPro = role === "PROFESSIONAL";
+  const isMember = role === "MEMBER";
   const salon = businessMode === "SALON";
+
+  if (isMember) {
+    return [
+      {
+        title: "Principal",
+        items: [
+          {
+            href: "/app/intake",
+            label: "Intake",
+            icon: NavIconCheckout,
+            match: (p) => p.startsWith("/app/intake"),
+          },
+        ],
+      },
+    ];
+  }
 
   if (isPro) {
     const principal: NavItem[] = [
@@ -318,7 +340,18 @@ function navForRole(
   return [
     { title: "Principal", items: principal },
     { title: "Gestão", items: gestao },
-    NAV_SECTIONS[2],
+    {
+      title: "Conta",
+      items: [
+        ...NAV_SECTIONS[2].items,
+        {
+          href: "/app/equipe",
+          label: "Equipe",
+          icon: NavIconAccount,
+          match: (p) => p.startsWith("/app/equipe"),
+        },
+      ],
+    },
   ];
 }
 
@@ -340,9 +373,19 @@ export function AppShell({
   const sections = navForRole(role, businessMode);
 
   useEffect(() => {
-    if (role !== "PROFESSIONAL") return;
-    if (PRO_BLOCKED_PREFIXES.some((p) => pathname.startsWith(p))) {
-      router.replace("/app");
+    if (role === "PROFESSIONAL") {
+      if (PRO_BLOCKED_PREFIXES.some((p) => pathname.startsWith(p))) {
+        router.replace("/app");
+      }
+      return;
+    }
+    if (role === "MEMBER") {
+      const allowed = MEMBER_ALLOWED_PREFIXES.some((p) =>
+        pathname.startsWith(p),
+      );
+      if (!allowed) {
+        router.replace("/app/intake");
+      }
     }
   }, [role, pathname, router]);
 
@@ -389,9 +432,11 @@ export function AppShell({
             <p className="text-[11px] text-muted">
               {role === "PROFESSIONAL"
                 ? "Profissional"
-                : businessMode === "SALON"
-                  ? "Equipe"
-                  : "Individual"}
+                : role === "MEMBER"
+                  ? "Equipe · Intake"
+                  : businessMode === "SALON"
+                    ? "Equipe"
+                    : "Individual"}
             </p>
           </div>
         </div>

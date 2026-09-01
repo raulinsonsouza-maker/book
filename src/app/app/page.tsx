@@ -1,9 +1,14 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 import { requireOrg } from "@/lib/session";
-import { getAuthContext, isProfessionalRole } from "@/lib/rbac";
+import {
+  getAuthContext,
+  isProfessionalRole,
+  isTeamMemberRole,
+} from "@/lib/rbac";
 import { getDashboardStats } from "@/lib/dashboard-stats";
 import { paymentProviderLabel } from "@/lib/payments/resolve-provider";
 import { DashboardStatCard } from "@/components/admin/DashboardStatCard";
@@ -108,6 +113,11 @@ function ProfessionalHome({
 export default async function AppHomePage() {
   const { org } = await requireOrg();
   const ctx = await getAuthContext();
+
+  if (ctx && isTeamMemberRole(ctx.role)) {
+    redirect("/app/intake");
+  }
+
   const isPro = Boolean(
     ctx && isProfessionalRole(ctx.role) && ctx.professionalId,
   );

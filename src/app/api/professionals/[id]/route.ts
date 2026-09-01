@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { apiRequireAdmin, apiAuthContext, isProfessionalRole } from "@/lib/rbac";
+import {
+  apiRequireAdmin,
+  apiAuthContext,
+  isFullAdminRole,
+  isProfessionalRole,
+} from "@/lib/rbac";
 
 async function getOwnedPro(id: string, organizationId: string) {
   return prisma.professional.findFirst({
@@ -67,7 +72,7 @@ export async function PATCH(
   const { id } = await params;
   const isSelf =
     isProfessionalRole(auth.ctx.role) && auth.ctx.professionalId === id;
-  const isAdmin = !isProfessionalRole(auth.ctx.role);
+  const isAdmin = isFullAdminRole(auth.ctx.role);
 
   if (!isSelf && !isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

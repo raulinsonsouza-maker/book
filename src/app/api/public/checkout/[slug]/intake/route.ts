@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { addMinutes } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import { mergeIntakeData } from "@/lib/intake/merge-data";
 import { getIntakeTemplate } from "@/lib/intake/templates";
 import {
   validateFullIntakeData,
@@ -16,6 +17,8 @@ import {
   ensureIntakeOrderHold,
 } from "@/lib/intake/access";
 import type { CompanyOpeningBrData } from "@/lib/intake/types";
+
+export const runtime = "nodejs";
 
 const HOLD_MINUTES = 15;
 
@@ -85,9 +88,10 @@ export async function POST(
 
     const body = bodySchema.parse(await req.json());
     const incoming = body.data as Partial<CompanyOpeningBrData>;
+    const merged = mergeIntakeData(template.defaultData(), incoming);
 
     if (body.stepId && body.stepId !== "documents" && body.stepId !== "payment") {
-      const stepCheck = validateIntakeStep(body.stepId, incoming);
+      const stepCheck = validateIntakeStep(body.stepId, merged);
       if (!stepCheck.ok) {
         return NextResponse.json({ error: stepCheck.message }, { status: 400 });
       }
@@ -107,27 +111,29 @@ export async function POST(
 
       await prisma.intakeSubmission.update({
         where: { id: existing.intakeSubmission.id },
-        data: { data: JSON.stringify(incoming) },
+        data: { data: JSON.stringify(merged) },
       });
       submissionId = existing.intakeSubmission.id;
       await ensureIntakeOrderHold(orderId, slug);
-    } else {
-      const fullCheck = validateFullIntakeData({
-        ...template.defaultData(),
-        ...incoming,
-        partners: incoming.partners?.length
-          ? incoming.partners
-          : template.defaultData().partners,
+
+      const contact = primaryContactFromData(merged);
+      await prisma.checkoutOrder.update({
+        where: { id: orderId },
+        data: {
+          customerName: contact.customerName || existing.customerName,
+          customerEmail: contact.customerEmail?.toLowerCase() || existing.customerEmail,
+          customerPhone: contact.customerPhone || existing.customerPhone,
+          customerCpf: contact.customerCpf || existing.customerCpf,
+        },
       });
+    } else {
+      const fullCheck = validateFullIntakeData(merged);
       if (!fullCheck.ok && body.submit) {
         return NextResponse.json({ error: fullCheck.message }, { status: 400 });
       }
 
       const contact = primaryContactFromData(
-        (fullCheck.ok ? fullCheck.data : {
-          ...template.defaultData(),
-          ...incoming,
-        }) as CompanyOpeningBrData,
+        fullCheck.ok ? fullCheck.data : merged,
       );
 
       const holdExpiresAt = addMinutes(new Date(), HOLD_MINUTES);
@@ -146,7 +152,7 @@ export async function POST(
               organizationId: link.product.organizationId,
               templateKey: template.key,
               status: "DRAFT",
-              data: JSON.stringify(incoming),
+              data: JSON.stringify(merged),
             },
           },
         },
@@ -217,7 +223,20 @@ export async function POST(
     if (e instanceof z.ZodError) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }
-    console.error("[intake]", e);
+    if (e instanceof SyntaxError) {
+      return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+    }
+    const code =
+      e && typeof e === "object" && "code" in e
+        ? String((e as { code: string }).code)
+        : "";
+    console.error("[intake]", code, e);
+    if (code === "P1008" || code === "P2034") {
+      return NextResponse.json(
+        { error: "Banco ocupado — tente novamente em instantes" },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: "Erro ao salvar intake" }, { status: 500 });
   }
 }

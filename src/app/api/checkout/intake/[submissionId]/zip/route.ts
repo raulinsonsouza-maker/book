@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { apiRequireAdmin } from "@/lib/rbac";
+import { apiRequireIntake } from "@/lib/rbac";
 import { parseIntakeData } from "@/lib/intake/validation/company-opening-br";
 import { fileFieldLabel } from "@/lib/intake/required-files";
 import { buildZipBuffer, sanitizeZipName } from "@/lib/intake/build-zip";
@@ -9,7 +9,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ submissionId: string }> },
 ) {
-  const auth = await apiRequireAdmin();
+  const auth = await apiRequireIntake();
   if ("error" in auth) return auth.error;
 
   const { submissionId } = await params;

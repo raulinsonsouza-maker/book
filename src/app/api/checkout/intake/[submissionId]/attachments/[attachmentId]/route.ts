@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { prisma } from "@/lib/prisma";
-import { apiRequireAdmin } from "@/lib/rbac";
+import { apiRequireIntake } from "@/lib/rbac";
 import { resolveIntakeStoragePath } from "@/lib/intake/storage";
 import { parseIntakeData } from "@/lib/intake/validation/company-opening-br";
 import { fileFieldLabel } from "@/lib/intake/required-files";
@@ -29,7 +29,7 @@ export async function GET(
     params,
   }: { params: Promise<{ submissionId: string; attachmentId: string }> },
 ) {
-  const auth = await apiRequireAdmin();
+  const auth = await apiRequireIntake();
   if ("error" in auth) return auth.error;
 
   const { submissionId, attachmentId } = await params;

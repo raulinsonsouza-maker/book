@@ -3,13 +3,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { emitBookingEvent } from "@/lib/events/booking-events";
 import {
-  apiAuthContext,
+  apiRequireStaff,
   bookingScopeWhere,
   isProfessionalRole,
 } from "@/lib/rbac";
 
 export async function GET(req: Request) {
-  const auth = await apiAuthContext();
+  const auth = await apiRequireStaff();
   if ("error" in auth) return auth.error;
   const { ctx } = auth;
 
@@ -75,7 +75,7 @@ export async function GET(req: Request) {
 const cancelSchema = z.object({ id: z.string() });
 
 export async function PATCH(req: Request) {
-  const auth = await apiAuthContext();
+  const auth = await apiRequireStaff();
   if ("error" in auth) return auth.error;
   const { ctx } = auth;
 

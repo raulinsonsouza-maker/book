@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 
-const tabs = [
+const allTabs = [
   { href: "/app/checkout/produtos", label: "Produtos" },
   { href: "/app/checkout/vendas", label: "Vendas" },
   { href: "/app/intake", label: "Intake" },
@@ -11,6 +12,14 @@ const tabs = [
 
 export function CheckoutSubnav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isMember = session?.user?.role === "MEMBER";
+  const tabs = isMember
+    ? allTabs.filter((t) => t.href === "/app/intake")
+    : allTabs;
+
+  if (isMember) return null;
+
   return (
     <nav className="flex flex-wrap gap-2 border-b border-border pb-4">
       {tabs.map((tab) => {

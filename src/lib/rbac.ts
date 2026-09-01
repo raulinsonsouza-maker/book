@@ -6,8 +6,22 @@ import { prisma } from "@/lib/prisma";
 
 export type AppRole = "OWNER" | "ADMIN" | "MEMBER" | "PROFESSIONAL";
 
+/** OWNER ou ADMIN — acesso administrativo completo da org */
+export function isFullAdminRole(role: string | undefined | null) {
+  return role === "OWNER" || role === "ADMIN";
+}
+
+/** @deprecated Use isFullAdminRole — MEMBER não é mais admin completo */
 export function isAdminRole(role: string | undefined | null) {
-  return role === "OWNER" || role === "ADMIN" || role === "MEMBER";
+  return isFullAdminRole(role);
+}
+
+export function isTeamMemberRole(role: string | undefined | null) {
+  return role === "MEMBER";
+}
+
+export function canAccessIntake(role: string | undefined | null) {
+  return isFullAdminRole(role) || isTeamMemberRole(role);
 }
 
 export function isProfessionalRole(role: string | undefined | null) {
@@ -98,10 +112,21 @@ export async function requireAuthContext() {
   return ctx;
 }
 
-export async function requireAdminContext() {
+export async function requireFullAdminContext() {
   const ctx = await requireAuthContext();
-  if (!isAdminRole(ctx.role)) redirect("/app");
+  if (!isFullAdminRole(ctx.role)) redirect("/app/intake");
   return ctx;
+}
+
+export async function requireIntakeContext() {
+  const ctx = await requireAuthContext();
+  if (!canAccessIntake(ctx.role)) redirect("/app");
+  return ctx;
+}
+
+/** @deprecated Use requireFullAdminContext */
+export async function requireAdminContext() {
+  return requireFullAdminContext();
 }
 
 /** API helper: 401/403 JSON */
@@ -118,10 +143,43 @@ export async function apiAuthContext() {
   return { ctx };
 }
 
-export async function apiRequireAdmin() {
+export async function apiRequireFullAdmin() {
   const result = await apiAuthContext();
   if ("error" in result) return result;
-  if (!isAdminRole(result.ctx.role)) {
+  if (!isFullAdminRole(result.ctx.role)) {
+    return {
+      error: NextResponse.json(
+        { error: "Sem permissão para esta ação" },
+        { status: 403 },
+      ),
+    };
+  }
+  return result;
+}
+
+/** @deprecated Use apiRequireFullAdmin */
+export async function apiRequireAdmin() {
+  return apiRequireFullAdmin();
+}
+
+export async function apiRequireIntake() {
+  const result = await apiAuthContext();
+  if ("error" in result) return result;
+  if (!canAccessIntake(result.ctx.role)) {
+    return {
+      error: NextResponse.json(
+        { error: "Sem permissão para esta ação" },
+        { status: 403 },
+      ),
+    };
+  }
+  return result;
+}
+
+export async function apiRequireStaff() {
+  const result = await apiAuthContext();
+  if ("error" in result) return result;
+  if (isTeamMemberRole(result.ctx.role)) {
     return {
       error: NextResponse.json(
         { error: "Sem permissão para esta ação" },

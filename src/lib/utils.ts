@@ -68,6 +68,23 @@ export function formatCpf(value: string) {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
+export function formatCep(value: string) {
+  const d = value.replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+}
+
+/** Valor monetário BR (sem símbolo R$) a partir de dígitos — ex.: 10.000,00 */
+export function formatMoneyBRFromDigits(raw: string) {
+  const digits = raw.replace(/\D/g, "").slice(0, 15);
+  if (!digits) return "";
+  const cents = parseInt(digits, 10);
+  return (cents / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 /** Máscara BRL a partir de dígitos digitados (centavos implícitos). */
 export function maskBRLFromDigits(raw: string) {
   const digits = raw.replace(/\D/g, "").slice(0, 11);

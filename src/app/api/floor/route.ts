@@ -3,13 +3,13 @@ import { format } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/prisma";
 import {
-  apiAuthContext,
+  apiRequireStaff,
   isAdminRole,
   isProfessionalRole,
 } from "@/lib/rbac";
 
 export async function GET(req: Request) {
-  const auth = await apiAuthContext();
+  const auth = await apiRequireStaff();
   if ("error" in auth) return auth.error;
   const { ctx } = auth;
 

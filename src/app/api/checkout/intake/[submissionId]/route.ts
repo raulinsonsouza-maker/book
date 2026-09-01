@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { apiRequireAdmin } from "@/lib/rbac";
+import { apiRequireIntake } from "@/lib/rbac";
 import { parseIntakeData } from "@/lib/intake/validation/company-opening-br";
 import { fileFieldLabel } from "@/lib/intake/required-files";
 import { sendIntakeAlertToTeam } from "@/lib/email";
@@ -27,7 +27,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ submissionId: string }> },
 ) {
-  const auth = await apiRequireAdmin();
+  const auth = await apiRequireIntake();
   if ("error" in auth) return auth.error;
 
   const { submissionId } = await params;
@@ -90,7 +90,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ submissionId: string }> },
 ) {
-  const auth = await apiRequireAdmin();
+  const auth = await apiRequireIntake();
   if ("error" in auth) return auth.error;
 
   const { submissionId } = await params;
@@ -123,7 +123,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ submissionId: string }> },
 ) {
-  const auth = await apiRequireAdmin();
+  const auth = await apiRequireIntake();
   if ("error" in auth) return auth.error;
 
   const { submissionId } = await params;
