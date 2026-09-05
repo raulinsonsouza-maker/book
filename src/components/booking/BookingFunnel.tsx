@@ -18,6 +18,7 @@ import { formatBRL, DEFAULT_TIMEZONE, isValidCpf } from "@/lib/utils";
 import { enabledFormFields } from "@/lib/funnel-config";
 import type { FunnelConfig } from "@/types/funnel-config";
 import { FunnelLandingBlocks } from "@/components/booking/FunnelLandingBlocks";
+import { BookingWelcomeHero } from "@/components/booking/BookingWelcomeHero";
 import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 import { encodeAsaasCardToken } from "@/lib/asaas/client";
 import { PixQrImage } from "@/components/payment/PixQrImage";
@@ -1087,7 +1088,7 @@ export function BookingFunnel({
       style={{ "--accent": accent } as React.CSSProperties}
     >
       {step !== "welcome" && (
-      <header className="sticky top-0 z-30 border-b border-black/5 bg-white/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-black/5 bg-white/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1147,7 +1148,7 @@ export function BookingFunnel({
         className={
           step === "welcome"
             ? "booking-welcome-main"
-            : `mx-auto w-full max-w-lg px-4 pb-8 pt-5 ${showDock ? "pb-36" : "pb-10"}`
+            : `mx-auto w-full max-w-lg px-3.5 pb-8 pt-4 sm:px-4 sm:pt-5 ${showDock ? "pb-36" : "pb-10"}`
         }
       >
         {canGoBack() && (
@@ -1185,82 +1186,25 @@ export function BookingFunnel({
         )}
 
         {step === "welcome" && services.length > 0 && (
-          <div className="booking-welcome-stage animate-in">
-            <div
-              className={`booking-welcome-hero${welcomeCoverUrl ? "" : " booking-welcome-hero--no-cover"}`}
-            >
-              <div className="booking-welcome-hero-visual">
-                {welcomeCoverUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={welcomeCoverUrl}
-                    alt=""
-                    className="booking-welcome-hero-photo"
+          <div className="booking-welcome-stage">
+            <BookingWelcomeHero
+              coverUrl={welcomeCoverUrl}
+              logoUrl={logoUrl ?? null}
+              accent={accent}
+              title={heroTitle || displayName}
+              subtitle={welcomeText}
+              onCta={startBooking}
+            />
+            {funnelConfig?.blocks &&
+              funnelConfig.blocks.some((b) => b.type !== "image") && (
+                <div className="booking-welcome-extras">
+                  <FunnelLandingBlocks
+                    blocks={funnelConfig.blocks.filter(
+                      (b) => b.type !== "image",
+                    )}
                   />
-                ) : logoUrl ? (
-                  <div className="booking-welcome-hero-logo-wrap">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={logoUrl}
-                      alt=""
-                      className="booking-welcome-hero-logo"
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className="booking-welcome-hero-fallback"
-                    style={{
-                      background: `linear-gradient(145deg, ${accent} 0%, color-mix(in srgb, ${accent} 55%, #111) 100%)`,
-                    }}
-                  />
-                )}
-                {welcomeCoverUrl ? (
-                  <div className="booking-welcome-hero-scrim" aria-hidden />
-                ) : null}
-              </div>
-
-              <div className="booking-welcome-hero-panel">
-                {logoUrl && welcomeCoverUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={logoUrl}
-                    alt=""
-                    className="booking-welcome-hero-brand"
-                  />
-                ) : null}
-                <span
-                  className="booking-welcome-hero-accent"
-                  style={{ background: accent }}
-                  aria-hidden
-                />
-                <h1 className="booking-welcome-hero-title">
-                  {heroTitle || displayName}
-                </h1>
-                {welcomeText ? (
-                  <p className="booking-welcome-hero-sub">{welcomeText}</p>
-                ) : null}
-
-                {funnelConfig?.blocks &&
-                  funnelConfig.blocks.some((b) => b.type !== "image") && (
-                    <div className="booking-welcome-hero-blocks">
-                      <FunnelLandingBlocks
-                        blocks={funnelConfig.blocks.filter(
-                          (b) => b.type !== "image",
-                        )}
-                      />
-                    </div>
-                  )}
-
-                <button
-                  type="button"
-                  onClick={startBooking}
-                  className="booking-welcome-hero-cta"
-                  style={{ background: accent }}
-                >
-                  Agendar
-                </button>
-              </div>
-            </div>
+                </div>
+              )}
           </div>
         )}
 
@@ -1270,22 +1214,10 @@ export function BookingFunnel({
               <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
                 Escolha o atendimento
               </h1>
-              {heroSubtitle ? (
-                <p className="mt-2 text-sm leading-relaxed text-muted">
-                  {heroSubtitle}
-                </p>
-              ) : (
-                <p className="mt-2 text-sm text-muted">
-                  Selecione o serviço para ver os horários disponíveis
-                </p>
-              )}
+              <p className="mt-2 text-sm text-muted">
+                Selecione o serviço para ver os horários disponíveis
+              </p>
             </div>
-
-            {funnelConfig?.blocks && funnelConfig.blocks.length > 0 && (
-              <div className="booking-card p-4">
-                <FunnelLandingBlocks blocks={funnelConfig.blocks} />
-              </div>
-            )}
 
             <div className="space-y-3">
               {services.map((s) => (
@@ -1314,7 +1246,9 @@ export function BookingFunnel({
                         </p>
                       )}
                       <p className="mt-1.5 text-xs font-medium text-muted">
-                        {s.isIntake ? "Sem agendamento de horário" : `${s.durationMinutes} min`}
+                        {s.isIntake
+                          ? "Sem agendamento de horário"
+                          : `${s.durationMinutes} min`}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2 self-center">
@@ -1458,31 +1392,49 @@ export function BookingFunnel({
               )}
             </div>
 
-            <div className="booking-card px-4 py-3.5">
-              <p className="text-sm font-semibold tracking-tight">
-                {service.title}
-              </p>
-              {service.description &&
-                service.description !== heroSubtitle && (
-                  <p className="mt-1 text-sm leading-relaxed text-muted line-clamp-4">
-                    {service.description}
-                  </p>
+            <div className="booking-selected-service">
+              <div className="booking-selected-service-media">
+                {service.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={service.imageUrl} alt="" />
+                ) : (
+                  <span aria-hidden>
+                    {service.title.slice(0, 1).toUpperCase()}
+                  </span>
                 )}
-              {(anyone || professional) && (
-                <p className="mt-1 text-xs text-muted">
-                  {anyone
-                    ? "Qualquer profissional disponível"
-                    : professional?.displayName}
-                </p>
-              )}
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                <span className="tag">{service.durationMinutes} min</span>
-                <span
-                  className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
-                  style={{ background: accent }}
-                >
-                  {formatBRL(service.priceCents)}
-                </span>
+              </div>
+              <div className="booking-selected-service-body">
+                <div className="booking-selected-service-top">
+                  <div className="min-w-0 flex-1">
+                    <p className="booking-selected-service-title">
+                      {service.title}
+                    </p>
+                    {service.description &&
+                      service.description !== heroSubtitle && (
+                        <p className="booking-selected-service-desc">
+                          {service.description}
+                        </p>
+                      )}
+                    {(anyone || professional) && (
+                      <p className="booking-selected-service-pro">
+                        {anyone
+                          ? "Qualquer profissional disponível"
+                          : professional?.displayName}
+                      </p>
+                    )}
+                  </div>
+                  <p
+                    className="booking-selected-service-price"
+                    style={{ color: accent }}
+                  >
+                    {formatBRL(service.priceCents)}
+                  </p>
+                </div>
+                <div className="booking-selected-service-meta">
+                  <span className="booking-selected-service-duration">
+                    {service.durationMinutes} min
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1701,40 +1653,34 @@ export function BookingFunnel({
           <form onSubmit={submitDetails} className="space-y-5 animate-in">
             <div>
               <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight">
-                Quase lá
+                Seus dados
               </h1>
-              <p className="mt-2 text-sm text-muted">
-                Seus dados para confirmar e enviar o comprovante
+              <p className="mt-1.5 text-sm text-muted">
+                Para confirmar e enviar o comprovante
               </p>
             </div>
 
             {(service || whenLabel) && (
-              <div className="booking-card flex items-center justify-between gap-3 px-4 py-3.5">
+              <div className="booking-summary">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{service.title}</p>
+                  <p className="booking-summary-title truncate">{service.title}</p>
                   {whenLabel && (
-                    <p className="mt-0.5 truncate text-xs capitalize text-muted">
-                      {whenLabel}
-                    </p>
+                    <p className="booking-summary-meta truncate">{whenLabel}</p>
                   )}
                 </div>
-                <p className="shrink-0 text-sm font-bold" style={{ color: accent }}>
+                <p className="booking-summary-price" style={{ color: accent }}>
                   {formatBRL(service.priceCents)}
                 </p>
               </div>
             )}
 
-            <div className="booking-card space-y-4 p-4">
-              <div className="grid gap-3.5 sm:grid-cols-2">
-                <FunnelFormFields
-                  fields={formFields}
-                  values={answers}
-                  onChange={(id, v) => setAnswers({ ...answers, [id]: v })}
-                  details={details}
-                  onDetailsChange={(patch) => setDetails({ ...details, ...patch })}
-                />
-              </div>
-            </div>
+            <FunnelFormFields
+              fields={formFields}
+              values={answers}
+              onChange={(id, v) => setAnswers({ ...answers, [id]: v })}
+              details={details}
+              onDetailsChange={(patch) => setDetails({ ...details, ...patch })}
+            />
 
             <button
               type="submit"

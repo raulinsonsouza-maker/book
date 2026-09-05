@@ -35,10 +35,21 @@ export async function POST(
       where: { slug, isActive: true },
       include: {
         organization: { select: orgPaymentSelect },
-        services: { where: { id: serviceId, isActive: true } },
       },
     });
-    if (!page || !page.services[0]) {
+    if (!page) {
+      return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+    }
+
+    const service = await prisma.service.findFirst({
+      where: {
+        id: serviceId,
+        isActive: true,
+        organizationId: page.organizationId,
+        pages: { some: { bookingPageId: page.id } },
+      },
+    });
+    if (!service) {
       return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
     }
 
@@ -49,7 +60,6 @@ export async function POST(
       logoUrl: page.logoUrl,
     });
     const body = parseBookBody(funnelConfig, raw);
-    const service = page.services[0];
     const startAt = new Date(body.startAt);
     const endAt = addMinutes(startAt, service.durationMinutes);
     const needsPayment = requiresOnlinePayment(page.organization);

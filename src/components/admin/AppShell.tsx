@@ -16,6 +16,8 @@ import {
   NavIconIntegrations,
   NavIconMenu,
   NavIconPages,
+  NavIconServices,
+  NavIconSettings,
 } from "@/components/admin/NavIcons";
 
 const PRO_BLOCKED_PREFIXES = [
@@ -50,13 +52,13 @@ type NavSection = {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: "Principal",
+    title: "Agenda",
     items: [
       { href: "/app", label: "Painel", icon: NavIconHome, match: (p) => p === "/app" },
       {
         href: "/app/salao",
         label: "Gestão à vista",
-        icon: NavIconCalendar,
+        icon: NavIconBookings,
         match: (p) => p.startsWith("/app/salao"),
       },
       {
@@ -67,25 +69,25 @@ const NAV_SECTIONS: NavSection[] = [
       },
       {
         href: "/app/agenda/listagem",
-        label: "Agendamentos",
+        label: "Lista",
         icon: NavIconBookings,
         match: (p) => p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
       },
     ],
   },
   {
-    title: "Gestão",
+    title: "Negócio",
     items: [
       {
         href: "/app/agendador",
-        label: "Agendador",
-        icon: NavIconCalendar,
+        label: "Páginas",
+        icon: NavIconPages,
         match: (p) => p.startsWith("/app/agendador") || p.startsWith("/app/pages"),
       },
       {
         href: "/app/servicos",
         label: "Serviços",
-        icon: NavIconPages,
+        icon: NavIconServices,
         match: (p) => p.startsWith("/app/servicos"),
       },
       {
@@ -103,7 +105,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: "Conta",
+    title: "Ajustes",
     items: [
       {
         href: "/app/integracoes",
@@ -114,9 +116,12 @@ const NAV_SECTIONS: NavSection[] = [
       },
       {
         href: "/app/conta",
-        label: "Conta",
-        icon: NavIconAccount,
-        match: (p) => p.startsWith("/app/conta") || p.startsWith("/app/settings"),
+        label: "Configurações",
+        icon: NavIconSettings,
+        match: (p) =>
+          p.startsWith("/app/conta") ||
+          p.startsWith("/app/settings") ||
+          p.startsWith("/app/equipe"),
       },
     ],
   },
@@ -126,16 +131,16 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p === "/app", title: "Painel" },
   { match: (p) => p.startsWith("/app/salao"), title: "Gestão à vista" },
   { match: (p) => p.startsWith("/app/agenda/calendario"), title: "Calendário" },
-  { match: (p) => p.startsWith("/app/agenda/listagem"), title: "Agendamentos" },
-  { match: (p) => p.startsWith("/app/bookings"), title: "Agendamentos" },
+  { match: (p) => p.startsWith("/app/agenda/listagem"), title: "Lista" },
+  { match: (p) => p.startsWith("/app/bookings"), title: "Lista" },
   { match: (p) => p.startsWith("/app/servicos"), title: "Serviços" },
   {
     match: (p) =>
       p.startsWith("/app/agendador") && p.includes("/availability"),
     title: "Horários avançados",
   },
-  { match: (p) => p.startsWith("/app/agendador"), title: "Agendador" },
-  { match: (p) => p.startsWith("/app/pages"), title: "Agendador" },
+  { match: (p) => p.startsWith("/app/agendador"), title: "Páginas" },
+  { match: (p) => p.startsWith("/app/pages"), title: "Páginas" },
   { match: (p) => p.startsWith("/app/checkout/vendas"), title: "Vendas" },
   { match: (p) => p.startsWith("/app/intake"), title: "Intake" },
   { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Produtos" },
@@ -156,10 +161,12 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
     title: "Integrações",
   },
   {
-    match: (p) => p.startsWith("/app/conta") || p.startsWith("/app/settings"),
-    title: "Conta",
+    match: (p) =>
+      p.startsWith("/app/conta") ||
+      p.startsWith("/app/settings") ||
+      p.startsWith("/app/equipe"),
+    title: "Configurações",
   },
-  { match: (p) => p.startsWith("/app/equipe"), title: "Equipe" },
 ];
 
 function pageTitle(pathname: string) {
@@ -220,7 +227,7 @@ function navForRole(
   if (isMember) {
     return [
       {
-        title: "Principal",
+        title: "Agenda",
         items: [
           {
             href: "/app/intake",
@@ -234,32 +241,44 @@ function navForRole(
   }
 
   if (isPro) {
-    const principal: NavItem[] = [
-      { href: "/app", label: "Painel", icon: NavIconHome, match: (p) => p === "/app" },
-      {
-        href: "/app/agenda/calendario",
-        label: "Calendário",
-        icon: NavIconCalendar,
-        match: (p) => p.startsWith("/app/agenda/calendario"),
-      },
-      {
-        href: "/app/agenda/listagem",
-        label: "Agendamentos",
-        icon: NavIconBookings,
-        match: (p) =>
-          p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
-      },
-      {
-        href: "/app/financeiro",
-        label: "Financeiro",
-        icon: NavIconFinance,
-        match: (p) => p.startsWith("/app/financeiro"),
-      },
-    ];
     return [
-      { title: "Principal", items: principal },
       {
-        title: "Conta",
+        title: "Agenda",
+        items: [
+          {
+            href: "/app",
+            label: "Painel",
+            icon: NavIconHome,
+            match: (p) => p === "/app",
+          },
+          {
+            href: "/app/agenda/calendario",
+            label: "Calendário",
+            icon: NavIconCalendar,
+            match: (p) => p.startsWith("/app/agenda/calendario"),
+          },
+          {
+            href: "/app/agenda/listagem",
+            label: "Lista",
+            icon: NavIconBookings,
+            match: (p) =>
+              p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
+          },
+        ],
+      },
+      {
+        title: "Negócio",
+        items: [
+          {
+            href: "/app/financeiro",
+            label: "Financeiro",
+            icon: NavIconFinance,
+            match: (p) => p.startsWith("/app/financeiro"),
+          },
+        ],
+      },
+      {
+        title: "Ajustes",
         items: [
           {
             href: "/app/perfil",
@@ -273,18 +292,23 @@ function navForRole(
     ];
   }
 
-  const principal: NavItem[] = [
-    { href: "/app", label: "Painel", icon: NavIconHome, match: (p) => p === "/app" },
+  const agenda: NavItem[] = [
+    {
+      href: "/app",
+      label: "Painel",
+      icon: NavIconHome,
+      match: (p) => p === "/app",
+    },
   ];
   if (salon) {
-    principal.push({
+    agenda.push({
       href: "/app/salao",
       label: "Gestão à vista",
       icon: NavIconBookings,
       match: (p) => p.startsWith("/app/salao"),
     });
   }
-  principal.push(
+  agenda.push(
     {
       href: "/app/agenda/calendario",
       label: "Calendário",
@@ -293,36 +317,39 @@ function navForRole(
     },
     {
       href: "/app/agenda/listagem",
-      label: "Agendamentos",
+      label: "Lista",
       icon: NavIconBookings,
-      match: (p) => p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
+      match: (p) =>
+        p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
     },
   );
 
-  const gestao: NavItem[] = [
+  const negocio: NavItem[] = [
     {
       href: "/app/agendador",
-      label: "Agendador",
-      icon: NavIconCalendar,
-      match: (p) => p.startsWith("/app/agendador") || p.startsWith("/app/pages"),
+      label: "Páginas",
+      icon: NavIconPages,
+      match: (p) =>
+        p.startsWith("/app/agendador") || p.startsWith("/app/pages"),
     },
     {
       href: "/app/servicos",
       label: "Serviços",
-      icon: NavIconPages,
+      icon: NavIconServices,
       match: (p) => p.startsWith("/app/servicos"),
     },
   ];
   if (salon) {
-    gestao.push({
+    negocio.push({
       href: "/app/profissionais",
       label: "Profissionais",
-      icon: NavIconBookings,
+      icon: NavIconAccount,
       match: (p) =>
-        p.startsWith("/app/profissionais") || p.startsWith("/app/professionals"),
+        p.startsWith("/app/profissionais") ||
+        p.startsWith("/app/professionals"),
     });
   }
-  gestao.push(
+  negocio.push(
     {
       href: "/app/checkout/produtos",
       label: "Checkout",
@@ -338,20 +365,9 @@ function navForRole(
   );
 
   return [
-    { title: "Principal", items: principal },
-    { title: "Gestão", items: gestao },
-    {
-      title: "Conta",
-      items: [
-        ...NAV_SECTIONS[2].items,
-        {
-          href: "/app/equipe",
-          label: "Equipe",
-          icon: NavIconAccount,
-          match: (p) => p.startsWith("/app/equipe"),
-        },
-      ],
-    },
+    { title: "Agenda", items: agenda },
+    { title: "Negócio", items: negocio },
+    { title: "Ajustes", items: [...NAV_SECTIONS[2].items] },
   ];
 }
 
@@ -395,10 +411,9 @@ export function AppShell({
     <div className="flex h-full flex-col">
       <BrandLogo
         href="/app"
-        size="sm"
+        size="md"
         showText
         title={displayName}
-        subtitle="Agendamento"
         logoUrl={organizationLogoUrl}
         className="sidebar-brand admin-topbar"
         onClick={closeMobile}

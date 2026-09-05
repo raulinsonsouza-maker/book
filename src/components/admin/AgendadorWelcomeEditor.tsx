@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import {
   AgendadorFunnelStepPreview,
   type FunnelPreviewStep,
   type PreviewProfessional,
   type PreviewService,
 } from "@/components/admin/AgendadorFunnelStepPreview";
-import { FunnelLandingBlocks } from "@/components/booking/FunnelLandingBlocks";
+import { BookingWelcomeHero } from "@/components/booking/BookingWelcomeHero";
 import type {
-  FunnelBlock,
   FunnelConfig,
   FormFieldConfig,
 } from "@/types/funnel-config";
@@ -24,6 +22,7 @@ type Props = {
   orgLogoUrl: string | null;
   orgAccent: string;
   publicUrl: string;
+  showShareActions?: boolean;
   services: PreviewService[];
   businessMode: "SOLO" | "SALON";
   demoPayments: boolean;
@@ -48,6 +47,7 @@ export function AgendadorWelcomeEditor({
   orgLogoUrl,
   orgAccent,
   publicUrl,
+  showShareActions = true,
   services,
   businessMode,
   demoPayments,
@@ -60,12 +60,15 @@ export function AgendadorWelcomeEditor({
   onSaveAll,
 }: Props) {
   const [previewStep, setPreviewStep] = useState<FunnelPreviewStep>("welcome");
-  const [previewService, setPreviewService] = useState<PreviewService | null>(null);
+  const [previewService, setPreviewService] = useState<PreviewService | null>(
+    null,
+  );
   const [funnelConfig, setFunnelConfig] = useState<FunnelConfig | null>(null);
   const [funnelLoading, setFunnelLoading] = useState(true);
-  const [professionals, setProfessionals] = useState<PreviewProfessional[]>([]);
+  const [professionals, setProfessionals] = useState<PreviewProfessional[]>(
+    [],
+  );
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
-  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{
     tone: "ok" | "err";
@@ -92,11 +95,17 @@ export function AgendadorWelcomeEditor({
       .then((rows) => {
         if (!Array.isArray(rows)) return;
         setProfessionals(
-          rows.map((p: { id: string; displayName: string; photoUrl?: string | null }) => ({
-            id: p.id,
-            displayName: p.displayName,
-            photoUrl: p.photoUrl ?? null,
-          })),
+          rows.map(
+            (p: {
+              id: string;
+              displayName: string;
+              photoUrl?: string | null;
+            }) => ({
+              id: p.id,
+              displayName: p.displayName,
+              photoUrl: p.photoUrl ?? null,
+            }),
+          ),
         );
       })
       .catch(() => setProfessionals([]));
@@ -120,6 +129,8 @@ export function AgendadorWelcomeEditor({
     steps.push({ id: "done", label: "Confirmação" });
     return steps;
   }, [businessMode, demoPayments]);
+
+  const stepIndex = previewSteps.findIndex((s) => s.id === previewStep);
 
   const activeServicesList = useMemo(
     () => services.filter((s) => s.isActive),
@@ -182,10 +193,11 @@ export function AgendadorWelcomeEditor({
     setPreviewStep("welcome");
   }
 
-  const initials = (title.trim() || "NA").slice(0, 2).toUpperCase();
-
-  const previewBlocks =
-    funnelConfig?.blocks.filter((b) => b.type !== "image") ?? [];
+  function goStep(dir: -1 | 1) {
+    const next = stepIndex + dir;
+    if (next < 0 || next >= previewSteps.length) return;
+    setPreviewStep(previewSteps[next].id);
+  }
 
   const sortedFields = funnelConfig
     ? [...funnelConfig.formFields].sort((a, b) => a.sortOrder - b.sortOrder)
@@ -194,11 +206,6 @@ export function AgendadorWelcomeEditor({
   function updateFormFields(formFields: FormFieldConfig[]) {
     if (!funnelConfig) return;
     setFunnelConfig({ ...funnelConfig, formFields });
-  }
-
-  function updateBlocks(blocks: FunnelBlock[]) {
-    if (!funnelConfig) return;
-    setFunnelConfig({ ...funnelConfig, blocks });
   }
 
   function moveField(index: number, dir: -1 | 1) {
@@ -236,23 +243,6 @@ export function AgendadorWelcomeEditor({
     };
     updateFormFields([...funnelConfig.formFields, field]);
     setEditingFieldId(id);
-  }
-
-  function addBlock(type: FunnelBlock["type"]) {
-    if (!funnelConfig) return;
-    let block: FunnelBlock;
-    const id = newId();
-    if (type === "text") {
-      block = { id, type: "text", content: "Novo texto", align: "left" };
-    } else if (type === "image") {
-      block = { id, type: "image", url: "", alt: "" };
-    } else if (type === "divider") {
-      block = { id, type: "divider" };
-    } else {
-      block = { id, type: "testimonial", quote: "", author: "" };
-    }
-    updateBlocks([...funnelConfig.blocks, block]);
-    setEditingBlockId(id);
   }
 
   useEffect(() => {
@@ -337,58 +327,41 @@ export function AgendadorWelcomeEditor({
   const stepHint = (() => {
     switch (previewStep) {
       case "welcome":
-        return "Foto de capa, nome e texto ficam na barra acima e na prévia. Logo e cores da marca em Conta.";
+        return null;
       case "service":
         return activeServicesList.length === 0 ? (
           <>
             Cadastre serviços em{" "}
-            <Link href="/app/servicos" className="font-medium text-foreground underline-offset-2 hover:underline">
+            <Link
+              href="/app/servicos"
+              className="font-medium text-foreground underline-offset-2 hover:underline"
+            >
               Serviços
-            </Link>{" "}
-            para editar aqui na prévia.
+            </Link>
+            .
           </>
         ) : (
-          "Edite nome, preço, duração e foto na prévia. Para adicionar ou desativar serviços, use Serviços."
+          "Edite serviços na prévia. Catálogo completo em Serviços."
         );
       case "professional":
         return (
           <>
-            Equipe e fotos em{" "}
-            <Link href="/app/profissionais" className="font-medium text-foreground underline-offset-2 hover:underline">
+            Equipe em{" "}
+            <Link
+              href="/app/profissionais"
+              className="font-medium text-foreground underline-offset-2 hover:underline"
+            >
               Equipe
             </Link>
             .
           </>
         );
       case "datetime":
-        return "Os horários livres vêm da seção “Quando você atende?” (passo 2 acima).";
+        return "Horários vêm da seção “Quando você atende?”.";
       case "payment":
         return (
           <>
             Pagamento online em{" "}
-            <Link href="/app/conta" className="font-medium text-foreground underline-offset-2 hover:underline">
-              Conta
-            </Link>
-            . Sem gateway, o cliente confirma direto na etapa Dados.
-          </>
-        );
-      case "done":
-        return "Tela automática após confirmar o agendamento.";
-      default:
-        return null;
-    }
-  })();
-
-  return (
-    <section className="surface overflow-hidden">
-      <div className="flex flex-col gap-4 border-b border-border px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">
-            Como o cliente vê
-          </h2>
-          <p className="mt-1 text-xs text-muted">
-            Clique na prévia para editar. Use as abas para ver cada etapa do
-            agendamento. Logo e cores em{" "}
             <Link
               href="/app/conta"
               className="font-medium text-foreground underline-offset-2 hover:underline"
@@ -396,532 +369,329 @@ export function AgendadorWelcomeEditor({
               Conta
             </Link>
             .
-          </p>
+          </>
+        );
+      case "done":
+        return "Tela após confirmar o agendamento.";
+      default:
+        return null;
+    }
+  })();
+
+  return (
+    <div
+      className="overflow-hidden"
+      style={{ "--accent": orgAccent } as React.CSSProperties}
+    >
+      <div className="flex flex-wrap items-center gap-2 px-1 pb-3">
+        <div className="agendador-step-nav min-w-0 flex-1">
+          <button
+            type="button"
+            className="agendador-step-nav-btn"
+            aria-label="Etapa anterior"
+            disabled={stepIndex <= 0}
+            onClick={() => goStep(-1)}
+          >
+            ‹
+          </button>
+          <div
+            className="agendador-step-tabs"
+            role="tablist"
+            aria-label="Telas do funil"
+          >
+            {previewSteps.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                aria-selected={previewStep === s.id}
+                onClick={() => setPreviewStep(s.id)}
+                className={`agendador-step-tab ${
+                  previewStep === s.id ? "agendador-step-tab-active" : ""
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="agendador-step-nav-btn"
+            aria-label="Próxima etapa"
+            disabled={stepIndex >= previewSteps.length - 1}
+            onClick={() => goStep(1)}
+          >
+            ›
+          </button>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <CopyLinkButton url={publicUrl} />
+        {(showShareActions || publicUrl) && (
           <a
             href={publicUrl}
             target="_blank"
             rel="noreferrer"
-            className="btn-secondary"
+            className="btn-secondary !py-1.5 !text-xs"
           >
-            Abrir prévia
+            Abrir
           </a>
-        </div>
+        )}
       </div>
 
-      <div className="border-b border-border px-4 py-3 sm:px-6">
-        <div className="agendador-step-tabs" role="tablist" aria-label="Telas do funil">
-          {previewSteps.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              role="tab"
-              aria-selected={previewStep === s.id}
-              onClick={() => setPreviewStep(s.id)}
-              className={`agendador-step-tab ${previewStep === s.id ? "agendador-step-tab-active" : ""}`}
+      <div className="agendador-preview-shell rounded-2xl">
+        <div className="agendador-phone">
+          <div className="agendador-phone-screen">
+            <div
+              className={`agendador-phone-topbar${
+                previewStep === "welcome" ? " agendador-phone-topbar--dark" : ""
+              }`}
+              aria-hidden
             >
-              {s.label}
-            </button>
-          ))}
+              <span className="agendador-phone-time">9:41</span>
+              <span className="agendador-phone-island" />
+              <div className="agendador-phone-status">
+                <span className="agendador-phone-signal">
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span className="agendador-phone-battery" />
+                <span className="agendador-phone-battery-cap" />
+              </div>
+            </div>
+            <div
+              className={`agendador-phone-body${
+                previewStep === "welcome" ? "" : " agendador-phone-body--safe"
+              }`}
+            >
+              {previewStep === "welcome" ? (
+                <BookingWelcomeHero
+                  coverUrl={coverImageUrl}
+                  logoUrl={orgLogoUrl}
+                  accent={orgAccent}
+                  title={title}
+                  subtitle={description}
+                  preview
+                  editable
+                  onCta={startPreviewBooking}
+                  onTitleChange={onTitleChange}
+                  onSubtitleChange={onDescriptionChange}
+                  onCoverFile={onCoverFile}
+                />
+              ) : funnelConfig ? (
+                <AgendadorFunnelStepPreview
+                  step={previewStep}
+                  accent={orgAccent}
+                  logoUrl={orgLogoUrl}
+                  title={title}
+                  description={description}
+                  services={services}
+                  professionals={professionals}
+                  blocks={funnelConfig.blocks}
+                  formFields={funnelConfig.formFields}
+                  demoPayments={demoPayments}
+                  businessMode={businessMode}
+                  selectedService={previewService}
+                  canGoBack={canPreviewGoBack}
+                  onGoBack={goPreviewBack}
+                  onPickService={pickPreviewService}
+                  onPickProfessional={() => setPreviewStep("datetime")}
+                  onPickSlot={() => setPreviewStep("details")}
+                  onConfirmDetails={() =>
+                    setPreviewStep(demoPayments ? "done" : "payment")
+                  }
+                  onConfirmPayment={() => setPreviewStep("done")}
+                  onRestart={restartPreview}
+                  onServiceChange={onServiceChange}
+                  onServiceImageFile={onServiceImageFile}
+                />
+              ) : (
+                <p className="p-8 text-center text-sm text-muted">
+                  Carregando…
+                </p>
+              )}
+            </div>
+            <div
+              className={`agendador-phone-home${
+                previewStep === "welcome" ? " agendador-phone-home--light" : ""
+              }`}
+              aria-hidden
+            >
+              <div className="agendador-phone-home-bar" />
+            </div>
+          </div>
         </div>
       </div>
 
-      {previewStep === "welcome" && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-border bg-[#f7f5f2] px-4 py-3 sm:px-6">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">Foto de capa</p>
-            <p className="text-xs text-muted">
-              Aparece no início do link público · PNG, JPG ou WebP até 2 MB
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="btn-primary !cursor-pointer !text-sm">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="sr-only"
-                onChange={(e) => {
-                  onCoverFile(e.target.files?.[0] ?? null);
-                  e.target.value = "";
-                }}
-              />
-              {coverImageUrl ? "Trocar foto" : "Enviar foto"}
-            </label>
-            {coverImageUrl && (
-              <button
-                type="button"
-                className="btn-secondary !text-sm"
-                onClick={onRemoveCover}
-              >
-                Remover
-              </button>
-            )}
-          </div>
-          {coverImageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={coverImageUrl}
-              alt=""
-              className="h-12 w-16 rounded-md object-cover ring-1 ring-border"
-            />
-          )}
+      {stepHint && <p className="agendador-editor-hint mt-3">{stepHint}</p>}
+
+      {previewStep === "welcome" && coverImageUrl && (
+        <div className="mt-2 flex justify-center">
+          <button
+            type="button"
+            className="text-xs font-medium text-muted hover:text-foreground"
+            onClick={onRemoveCover}
+          >
+            Remover foto de capa
+          </button>
         </div>
       )}
 
-      <div
-        className="agendador-preview-shell p-4 sm:p-6"
-        style={{ "--accent": orgAccent } as React.CSSProperties}
-      >
-        <div className="agendador-preview-frame mx-auto max-w-xl overflow-hidden">
-          {previewStep === "welcome" ? (
-            <div className="booking-welcome-hero booking-welcome-hero--preview">
-              <label className="booking-welcome-hero-visual agendador-welcome-media-editable cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(e) => {
-                    onCoverFile(e.target.files?.[0] ?? null);
-                    e.target.value = "";
-                  }}
-                />
-                {coverImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={coverImageUrl}
-                    alt=""
-                    className="booking-welcome-hero-photo"
-                  />
-                ) : orgLogoUrl ? (
-                  <div className="booking-welcome-hero-logo-wrap">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={orgLogoUrl}
-                      alt=""
-                      className="booking-welcome-hero-logo"
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className="booking-welcome-hero-fallback"
-                    style={{
-                      background: `linear-gradient(145deg, ${orgAccent} 0%, color-mix(in srgb, ${orgAccent} 55%, #111) 100%)`,
-                    }}
-                  />
-                )}
-                {coverImageUrl ? (
-                  <div className="booking-welcome-hero-scrim" aria-hidden />
-                ) : null}
-                <span className="agendador-welcome-media-hint">
-                  {coverImageUrl ? "Trocar foto" : "Enviar foto de capa"}
-                </span>
-              </label>
-
-              <div className="booking-welcome-hero-panel">
-                {orgLogoUrl && coverImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={orgLogoUrl}
-                    alt=""
-                    className="booking-welcome-hero-brand pointer-events-none"
-                  />
-                ) : null}
-                <span
-                  className="booking-welcome-hero-accent"
-                  style={{ background: orgAccent }}
-                  aria-hidden
-                />
-                <label className="agendador-preview-field">
-                  <span className="agendador-preview-field-label !text-white/70">
-                    Nome
-                  </span>
-                  <input
-                    value={title}
-                    onChange={(e) => onTitleChange(e.target.value)}
-                    placeholder="Ex.: Barbearia do Raul"
-                    className="agendador-preview-title !bg-transparent !text-white placeholder:!text-white/40"
-                  />
-                </label>
-                <label className="agendador-preview-field mt-2">
-                  <span className="agendador-preview-field-label !text-white/70">
-                    Texto de apoio
-                  </span>
-                  <textarea
-                    value={description}
-                    onChange={(e) => onDescriptionChange(e.target.value)}
-                    placeholder="Uma frase curta"
-                    rows={2}
-                    className="agendador-preview-desc !bg-transparent !text-white/85 placeholder:!text-white/35"
-                  />
-                </label>
-
-                {previewBlocks.length > 0 && (
-                  <div className="mt-2 opacity-95">
-                    <FunnelLandingBlocks blocks={previewBlocks} />
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={startPreviewBooking}
-                  className="booking-welcome-hero-cta"
-                  style={{ background: orgAccent }}
-                >
-                  Agendar
-                </button>
-              </div>
-            </div>
-          ) : funnelConfig ? (
-            <AgendadorFunnelStepPreview
-              step={previewStep}
-              accent={orgAccent}
-              logoUrl={orgLogoUrl}
-              title={title}
-              description={description}
-              services={services}
-              professionals={professionals}
-              blocks={funnelConfig.blocks}
-              formFields={funnelConfig.formFields}
-              demoPayments={demoPayments}
-              businessMode={businessMode}
-              selectedService={previewService}
-              canGoBack={canPreviewGoBack}
-              onGoBack={goPreviewBack}
-              onPickService={pickPreviewService}
-              onPickProfessional={() => setPreviewStep("datetime")}
-              onPickSlot={() => setPreviewStep("details")}
-              onConfirmDetails={() =>
-                setPreviewStep(demoPayments ? "done" : "payment")
-              }
-              onConfirmPayment={() => setPreviewStep("done")}
-              onRestart={restartPreview}
-              onServiceChange={onServiceChange}
-              onServiceImageFile={onServiceImageFile}
-            />
-          ) : (
-            <p className="p-8 text-center text-sm text-muted">Carregando…</p>
-          )}
-        </div>
-      </div>
-
-      {!funnelLoading && funnelConfig && previewStep === "welcome" && (
-        <div className="space-y-3 border-t border-border p-6">
-          <div>
-            <h3 className="text-sm font-semibold tracking-tight">Conteúdo extra</h3>
-            <p className="mt-1 text-xs text-muted">
-              Textos e depoimentos na tela inicial (opcional).
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {(
-              [
-                ["text", "Texto"],
-                ["testimonial", "Depoimento"],
-                ["divider", "Linha"],
-              ] as const
-            ).map(([type, label]) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => addBlock(type)}
-                className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-muted-bg"
-              >
-                + {label}
-              </button>
-            ))}
-          </div>
-          {funnelConfig.blocks.length === 0 ? (
-            <p className="text-xs text-muted">Nenhum bloco adicionado.</p>
-          ) : (
+      {!funnelLoading && funnelConfig && previewStep === "details" && (
+        <details className="agendador-disclosure mt-3" open>
+          <summary>Campos do formulário</summary>
+          <div className="agendador-disclosure-body space-y-3">
             <ul className="space-y-2">
-              {funnelConfig.blocks.map((block) => (
+              {sortedFields.map((field, i) => (
                 <li
-                  key={block.id}
+                  key={field.id}
                   className="rounded-lg border border-border bg-muted-bg/30"
                 >
-                  <div className="flex items-center justify-between px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2">
                     <button
                       type="button"
                       onClick={() =>
-                        setEditingBlockId((id) =>
-                          id === block.id ? null : block.id,
+                        setEditingFieldId((id) =>
+                          id === field.id ? null : field.id,
                         )
                       }
-                      className="min-w-0 flex-1 text-left text-xs font-medium"
+                      className={`min-w-0 flex-1 text-left text-sm ${
+                        field.enabled ? "" : "text-muted line-through"
+                      }`}
                     >
-                      {block.type === "text"
-                        ? "Texto"
-                        : block.type === "testimonial"
-                          ? "Depoimento"
-                          : block.type === "divider"
-                            ? "Linha"
-                            : "Imagem"}
+                      {field.label}
+                      {field.required && field.enabled && (
+                        <span className="ml-1 text-xs text-muted">*</span>
+                      )}
                     </button>
-                    <span className="text-xs text-muted">
-                      {editingBlockId === block.id ? "Fechar" : "Editar"}
-                    </span>
-                  </div>
-                  {editingBlockId === block.id && (
-                    <div className="space-y-3 border-t border-border px-3 py-3">
-                      {block.type === "text" && (
-                        <>
-                          <textarea
-                            rows={3}
-                            className="input-field text-sm"
-                            value={block.content}
-                            onChange={(e) =>
-                              updateBlocks(
-                                funnelConfig.blocks.map((b) =>
-                                  b.id === block.id && b.type === "text"
-                                    ? { ...b, content: e.target.value }
-                                    : b,
-                                ),
-                              )
-                            }
-                          />
-                          <select
-                            className="input-field text-sm"
-                            value={block.align || "left"}
-                            onChange={(e) =>
-                              updateBlocks(
-                                funnelConfig.blocks.map((b) =>
-                                  b.id === block.id && b.type === "text"
-                                    ? {
-                                        ...b,
-                                        align: e.target.value as "left" | "center",
-                                      }
-                                    : b,
-                                ),
-                              )
-                            }
-                          >
-                            <option value="left">Esquerda</option>
-                            <option value="center">Centro</option>
-                          </select>
-                        </>
-                      )}
-                      {block.type === "testimonial" && (
-                        <>
-                          <textarea
-                            rows={2}
-                            placeholder="Depoimento"
-                            className="input-field text-sm"
-                            value={block.quote}
-                            onChange={(e) =>
-                              updateBlocks(
-                                funnelConfig.blocks.map((b) =>
-                                  b.id === block.id && b.type === "testimonial"
-                                    ? { ...b, quote: e.target.value }
-                                    : b,
-                                ),
-                              )
-                            }
-                          />
+                    <div className="flex shrink-0 items-center gap-1">
+                      {field.preset !== "customerName" && (
+                        <label className="flex items-center gap-1 text-[11px] text-muted">
                           <input
-                            placeholder="Autor"
-                            className="input-field text-sm"
-                            value={block.author}
+                            type="checkbox"
+                            checked={field.enabled}
                             onChange={(e) =>
-                              updateBlocks(
-                                funnelConfig.blocks.map((b) =>
-                                  b.id === block.id && b.type === "testimonial"
-                                    ? { ...b, author: e.target.value }
-                                    : b,
+                              updateFormFields(
+                                funnelConfig.formFields.map((f) =>
+                                  f.id === field.id
+                                    ? { ...f, enabled: e.target.checked }
+                                    : f,
                                 ),
                               )
                             }
                           />
-                        </>
-                      )}
-                      {block.type === "divider" && (
-                        <p className="text-xs text-muted">Linha divisória na página.</p>
+                          Ativo
+                        </label>
                       )}
                       <button
                         type="button"
-                        className="text-xs font-medium text-danger hover:underline"
-                        onClick={() => {
-                          updateBlocks(
-                            funnelConfig.blocks.filter((b) => b.id !== block.id),
-                          );
-                          setEditingBlockId(null);
-                        }}
+                        className="px-1 text-muted hover:text-foreground"
+                        onClick={() => moveField(i, -1)}
+                        aria-label="Subir"
                       >
-                        Remover bloco
+                        ↑
                       </button>
+                      <button
+                        type="button"
+                        className="px-1 text-muted hover:text-foreground"
+                        onClick={() => moveField(i, 1)}
+                        aria-label="Descer"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </div>
+                  {editingFieldId === field.id && editingField && (
+                    <div className="space-y-3 border-t border-border px-3 py-3">
+                      <label className="block text-sm">
+                        <span className="mb-1 block text-xs text-muted">
+                          Rótulo
+                        </span>
+                        <input
+                          className="input-field text-sm"
+                          value={editingField.label}
+                          disabled={
+                            !!editingField.preset &&
+                            editingField.preset !== "message"
+                          }
+                          onChange={(e) =>
+                            updateFormFields(
+                              funnelConfig.formFields.map((f) =>
+                                f.id === field.id
+                                  ? { ...f, label: e.target.value }
+                                  : f,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                      {editingField.preset !== "customerName" && (
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={editingField.required}
+                            onChange={(e) =>
+                              updateFormFields(
+                                funnelConfig.formFields.map((f) =>
+                                  f.id === field.id
+                                    ? { ...f, required: e.target.checked }
+                                    : f,
+                                ),
+                              )
+                            }
+                          />
+                          Obrigatório
+                        </label>
+                      )}
+                      {editingField.type === "select" && (
+                        <label className="block text-sm">
+                          <span className="mb-1 block text-xs text-muted">
+                            Opções (uma por linha)
+                          </span>
+                          <textarea
+                            rows={3}
+                            className="input-field text-xs"
+                            value={(editingField.options || []).join("\n")}
+                            onChange={(e) =>
+                              updateFormFields(
+                                funnelConfig.formFields.map((f) =>
+                                  f.id === field.id
+                                    ? {
+                                        ...f,
+                                        options: e.target.value
+                                          .split("\n")
+                                          .filter(Boolean),
+                                      }
+                                    : f,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                      )}
                     </div>
                   )}
                 </li>
               ))}
             </ul>
-          )}
-        </div>
-      )}
-
-      {!funnelLoading && funnelConfig && previewStep === "details" && (
-        <div className="space-y-3 border-t border-border p-6">
-          <div>
-            <h3 className="text-sm font-semibold tracking-tight">
-              Campos do formulário
-            </h3>
-            <p className="mt-1 text-xs text-muted">
-              Edite o que o cliente preenche nesta tela.
-            </p>
+            <button
+              type="button"
+              onClick={addCustomField}
+              className="text-xs font-medium text-muted hover:text-foreground"
+            >
+              + Campo personalizado
+            </button>
           </div>
-          <ul className="space-y-2">
-            {sortedFields.map((field, i) => (
-              <li
-                key={field.id}
-                className="rounded-lg border border-border bg-muted-bg/30"
-              >
-                <div className="flex items-center justify-between gap-2 px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditingFieldId((id) =>
-                        id === field.id ? null : field.id,
-                      )
-                    }
-                    className={`min-w-0 flex-1 text-left text-sm ${
-                      field.enabled ? "" : "text-muted line-through"
-                    }`}
-                  >
-                    {field.label}
-                    {field.required && field.enabled && (
-                      <span className="ml-1 text-xs text-muted">*</span>
-                    )}
-                  </button>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {field.preset !== "customerName" && (
-                      <label className="flex items-center gap-1 text-[11px] text-muted">
-                        <input
-                          type="checkbox"
-                          checked={field.enabled}
-                          onChange={(e) =>
-                            updateFormFields(
-                              funnelConfig.formFields.map((f) =>
-                                f.id === field.id
-                                  ? { ...f, enabled: e.target.checked }
-                                  : f,
-                              ),
-                            )
-                          }
-                        />
-                        Ativo
-                      </label>
-                    )}
-                    <button
-                      type="button"
-                      className="px-1 text-muted hover:text-foreground"
-                      onClick={() => moveField(i, -1)}
-                      aria-label="Subir"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="px-1 text-muted hover:text-foreground"
-                      onClick={() => moveField(i, 1)}
-                      aria-label="Descer"
-                    >
-                      ↓
-                    </button>
-                  </div>
-                </div>
-                {editingFieldId === field.id && editingField && (
-                  <div className="space-y-3 border-t border-border px-3 py-3">
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-xs text-muted">Rótulo</span>
-                      <input
-                        className="input-field text-sm"
-                        value={editingField.label}
-                        disabled={
-                          !!editingField.preset &&
-                          editingField.preset !== "message"
-                        }
-                        onChange={(e) =>
-                          updateFormFields(
-                            funnelConfig.formFields.map((f) =>
-                              f.id === field.id
-                                ? { ...f, label: e.target.value }
-                                : f,
-                            ),
-                          )
-                        }
-                      />
-                    </label>
-                    {editingField.preset !== "customerName" && (
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={editingField.required}
-                          onChange={(e) =>
-                            updateFormFields(
-                              funnelConfig.formFields.map((f) =>
-                                f.id === field.id
-                                  ? { ...f, required: e.target.checked }
-                                  : f,
-                              ),
-                            )
-                          }
-                        />
-                        Obrigatório
-                      </label>
-                    )}
-                    {editingField.type === "select" && (
-                      <label className="block text-sm">
-                        <span className="mb-1 block text-xs text-muted">
-                          Opções (uma por linha)
-                        </span>
-                        <textarea
-                          rows={3}
-                          className="input-field text-xs"
-                          value={(editingField.options || []).join("\n")}
-                          onChange={(e) =>
-                            updateFormFields(
-                              funnelConfig.formFields.map((f) =>
-                                f.id === field.id
-                                  ? {
-                                      ...f,
-                                      options: e.target.value
-                                        .split("\n")
-                                        .filter(Boolean),
-                                    }
-                                  : f,
-                              ),
-                            )
-                          }
-                        />
-                      </label>
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            onClick={addCustomField}
-            className="text-xs font-medium text-muted hover:text-foreground"
-          >
-            + Campo personalizado
-          </button>
-        </div>
-      )}
-
-      {stepHint && (
-        <p className="border-t border-border px-6 py-4 text-xs text-muted">{stepHint}</p>
+        </details>
       )}
 
       {funnelLoading && (
-        <p className="border-t border-border p-6 text-sm text-muted">
-          Carregando configuração do funil…
+        <p className="mt-3 text-center text-sm text-muted">
+          Carregando…
         </p>
       )}
 
       {!funnelLoading && funnelConfig && (
-        <div className="flex flex-col gap-3 border-t border-border bg-muted-bg/25 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-3">
           {saveFeedback ? (
             <p
               className={`text-sm ${
@@ -931,20 +701,18 @@ export function AgendadorWelcomeEditor({
               {saveFeedback.text}
             </p>
           ) : (
-            <p className="text-xs text-muted">
-              Salve para garantir que nome, serviços e funil foram aplicados.
-            </p>
+            <span />
           )}
           <button
             type="button"
-            className="btn-primary shrink-0 sm:ml-auto"
+            className="btn-primary shrink-0"
             disabled={saving}
             onClick={() => void handleSaveAll()}
           >
-            {saving ? "Salvando…" : "Salvar alterações"}
+            {saving ? "Salvando…" : "Salvar"}
           </button>
         </div>
       )}
-    </section>
+    </div>
   );
 }

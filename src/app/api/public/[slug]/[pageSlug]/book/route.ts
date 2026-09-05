@@ -45,23 +45,31 @@ export async function POST(
       },
       include: {
         organization: { select: { businessMode: true, ...orgPaymentSelect } },
-        services: {
-          where: { id: serviceId, isActive: true },
-          include: {
-            professionals: {
-              where: { professional: { isActive: true } },
-              include: { professional: true },
-            },
-          },
+      },
+    });
+    if (!page) {
+      return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+    }
+
+    const service = await prisma.service.findFirst({
+      where: {
+        id: serviceId,
+        isActive: true,
+        organizationId: page.organizationId,
+        pages: { some: { bookingPageId: page.id } },
+      },
+      include: {
+        professionals: {
+          where: { professional: { isActive: true } },
+          include: { professional: true },
         },
       },
     });
-    if (!page || !page.services[0]) {
+    if (!service) {
       return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
     }
 
     const salonMode = page.organization.businessMode === "SALON";
-    const service = page.services[0];
     const linkedPros = service.professionals.map((ps) => ps.professional);
 
     if (salonMode) {

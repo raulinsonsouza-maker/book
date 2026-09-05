@@ -12,28 +12,30 @@ export default async function AgendadorAvailabilityPage({
   const { org } = await requireOrg();
   const { id } = await params;
 
-  const page = await prisma.bookingPage.findFirst({
-    where: { id, organizationId: org.id },
-    include: {
-      availability: { orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] },
-      exceptions: { orderBy: { date: "asc" } },
-      services: {
-        where: { isActive: true },
-        orderBy: { sortOrder: "asc" },
-        select: {
-          id: true,
-          title: true,
-          durationMinutes: true,
-          bufferBefore: true,
-          bufferAfter: true,
-        },
+  const [page, services] = await Promise.all([
+    prisma.bookingPage.findFirst({
+      where: { id, organizationId: org.id },
+      include: {
+        availability: { orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] },
+        exceptions: { orderBy: { date: "asc" } },
       },
-    },
-  });
+    }),
+    prisma.service.findMany({
+      where: { organizationId: org.id, isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: {
+        id: true,
+        title: true,
+        durationMinutes: true,
+        bufferBefore: true,
+        bufferAfter: true,
+      },
+    }),
+  ]);
 
   if (!page) notFound();
 
-  if (page.services.length === 0) {
+  if (services.length === 0) {
     return (
       <p className="text-sm text-muted">
         Adicione pelo menos um serviço em{" "}
@@ -56,7 +58,7 @@ export default async function AgendadorAvailabilityPage({
       slotStepMinutes={page.slotStepMinutes}
       initialRules={page.availability}
       initialExceptions={page.exceptions}
-      services={page.services}
+      services={services}
     />
   );
 }

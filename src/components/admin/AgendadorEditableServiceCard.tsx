@@ -1,6 +1,11 @@
 "use client";
 
-import { centsToBRLMask, maskBRLFromDigits, maskMinutes, parseBRLMaskToCents } from "@/lib/utils";
+import {
+  centsToBRLMask,
+  maskBRLFromDigits,
+  maskMinutes,
+  parseBRLMaskToCents,
+} from "@/lib/utils";
 import type { PreviewService } from "@/components/admin/AgendadorFunnelStepPreview";
 
 type Props = {
@@ -18,10 +23,11 @@ export function AgendadorEditableServiceCard({
   onImageFile,
   onPick,
 }: Props) {
-  const priceMasked = centsToBRLMask(service.priceCents);
+  const priceMasked = centsToBRLMask(service.priceCents || 0);
+  const duration = service.durationMinutes || 30;
 
   return (
-    <div className="booking-service w-full !cursor-default">
+    <div className="booking-service agendador-service-card-edit w-full !cursor-default">
       <div className="flex items-start gap-3">
         <label className="booking-service-thumb agendador-service-thumb-editable shrink-0">
           <input
@@ -37,72 +43,75 @@ export function AgendadorEditableServiceCard({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={service.imageUrl} alt="" />
           ) : (
-            <span aria-hidden>{service.title.slice(0, 1).toUpperCase() || "?"}</span>
+            <span aria-hidden>
+              {service.title.slice(0, 1).toUpperCase() || "?"}
+            </span>
           )}
           <span className="agendador-service-thumb-hint">
             {service.imageUrl ? "Trocar" : "Foto"}
           </span>
         </label>
 
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 flex-1 space-y-1">
           <input
             value={service.title}
             onChange={(e) => onChange({ title: e.target.value })}
             placeholder="Nome do serviço"
-            className="agendador-service-field agendador-service-field-title"
+            className="agendador-service-field agendador-service-field-title w-full"
           />
           <textarea
             value={service.description || ""}
             onChange={(e) => onChange({ description: e.target.value })}
             placeholder="Descrição (opcional)"
             rows={2}
-            className="agendador-service-field agendador-service-field-desc"
+            className="agendador-service-field agendador-service-field-desc w-full"
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-1.5 text-xs text-muted">
-              <span>Duração</span>
-              <input
-                inputMode="numeric"
-                value={String(service.durationMinutes)}
-                onChange={(e) =>
-                  onChange({
-                    durationMinutes: Math.max(
-                      5,
-                      parseInt(maskMinutes(e.target.value), 10) || 5,
-                    ),
-                  })
-                }
-                className="agendador-service-field agendador-service-field-duration w-14 text-center"
-              />
-              <span>min</span>
-            </label>
-          </div>
         </div>
+      </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-2 self-center">
+      <div className="agendador-service-meta">
+        <label className="agendador-service-duration-wrap">
           <input
-            value={priceMasked}
+            inputMode="numeric"
+            value={String(duration)}
             onChange={(e) =>
               onChange({
-                priceCents: parseBRLMaskToCents(maskBRLFromDigits(e.target.value)),
+                durationMinutes: Math.max(
+                  5,
+                  parseInt(maskMinutes(e.target.value), 10) || 5,
+                ),
               })
             }
-            className="agendador-service-field agendador-service-field-price text-right font-bold text-white"
-            style={{ background: accent }}
-            aria-label="Preço"
+            className="agendador-service-field agendador-service-field-duration"
+            aria-label="Duração em minutos"
           />
-          <button
-            type="button"
-            onClick={onPick}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white transition hover:scale-105"
-            style={{ background: accent }}
-            aria-label="Próximo passo na prévia"
-          >
-            →
-          </button>
-        </div>
+          <span>min</span>
+        </label>
+
+        <input
+          value={priceMasked}
+          onChange={(e) =>
+            onChange({
+              priceCents: parseBRLMaskToCents(
+                maskBRLFromDigits(e.target.value),
+              ),
+            })
+          }
+          className="agendador-service-field-price"
+          style={{ background: accent }}
+          aria-label="Preço"
+        />
+
+        <button
+          type="button"
+          onClick={onPick}
+          className="agendador-service-next"
+          style={{ background: accent }}
+          aria-label="Próximo passo na prévia"
+        >
+          →
+        </button>
       </div>
     </div>
   );
 }
-

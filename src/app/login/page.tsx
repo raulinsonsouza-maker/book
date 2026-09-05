@@ -17,6 +17,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const justCreated = searchParams.get("created") === "1";
+  const justReset = searchParams.get("reset") === "1";
 
   useEffect(() => {
     fetch("/api/auth/google-enabled")
@@ -41,7 +42,11 @@ function LoginForm() {
     }
     const sessionRes = await fetch("/api/auth/session");
     const session = await sessionRes.json();
-    router.push(session?.user?.isPlatformAdmin ? "/gerencial" : "/app");
+    if (session?.user?.mustChangePassword) {
+      router.push("/primeiro-acesso");
+    } else {
+      router.push(session?.user?.isPlatformAdmin ? "/gerencial" : "/app");
+    }
     router.refresh();
   }
 
@@ -60,6 +65,11 @@ function LoginForm() {
       {justCreated && (
         <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           Conta criada. Entre com o e-mail e a senha cadastrados.
+        </p>
+      )}
+      {justReset && (
+        <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Senha atualizada. Entre com a nova senha.
         </p>
       )}
 
@@ -95,6 +105,14 @@ function LoginForm() {
             className="input-field"
           />
         </label>
+        <div className="flex justify-end">
+          <Link
+            href="/esqueci-senha"
+            className="text-sm font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Esqueci minha senha
+          </Link>
+        </div>
         {error && <p className="text-sm text-danger">{error}</p>}
         <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
           {loading ? "Entrando…" : "Entrar"}

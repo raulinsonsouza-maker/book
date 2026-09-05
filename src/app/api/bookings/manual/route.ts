@@ -57,14 +57,24 @@ export async function POST(req: Request) {
             asaasApiKey: true,
           },
         },
-        services: { where: { id: body.serviceId, isActive: true } },
       },
     });
-    if (!page || !page.services[0]) {
+    if (!page) {
       return NextResponse.json({ error: "Agenda ou serviço não encontrado" }, { status: 404 });
     }
 
-    const service = page.services[0];
+    const service = await prisma.service.findFirst({
+      where: {
+        id: body.serviceId,
+        isActive: true,
+        organizationId: ctx.organizationId,
+        pages: { some: { bookingPageId: page.id } },
+      },
+    });
+    if (!service) {
+      return NextResponse.json({ error: "Agenda ou serviço não encontrado" }, { status: 404 });
+    }
+
     const salonMode = page.organization.businessMode === "SALON";
     let professionalId: string | null = null;
 

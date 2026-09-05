@@ -12,7 +12,6 @@ const fieldSchema = z.object({
 });
 
 const schema = z.object({
-  bookingPageId: z.string(),
   title: z.string().min(2),
   description: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
@@ -29,20 +28,17 @@ export async function GET() {
   if ("error" in auth) return auth.error;
 
   const services = await prisma.service.findMany({
-    where: { bookingPage: { organizationId: auth.ctx.organizationId } },
+    where: { organizationId: auth.ctx.organizationId },
     include: {
-      bookingPage: { select: { id: true, title: true, slug: true } },
       _count: { select: { bookings: true } },
     },
-    orderBy: [{ bookingPageId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
 
   return NextResponse.json(
     services.map((s) => ({
       id: s.id,
-      bookingPageId: s.bookingPageId,
-      pageTitle: s.bookingPage.title,
-      pageSlug: s.bookingPage.slug,
+      organizationId: s.organizationId,
       title: s.title,
       description: s.description,
       imageUrl: s.imageUrl,
@@ -61,23 +57,15 @@ export async function POST(req: Request) {
   if ("error" in auth) return auth.error;
   try {
     const body = schema.parse(await req.json());
-    const page = await prisma.bookingPage.findFirst({
-      where: {
-        id: body.bookingPageId,
-        organizationId: auth.ctx.organizationId,
-      },
-    });
-    if (!page) {
-      return NextResponse.json({ error: "Agenda não encontrada" }, { status: 404 });
-    }
+    const organizationId = auth.ctx.organizationId;
 
     const count = await prisma.service.count({
-      where: { bookingPageId: body.bookingPageId },
+      where: { organizationId },
     });
 
     const service = await prisma.service.create({
       data: {
-        bookingPageId: body.bookingPageId,
+        organizationId,
         title: body.title,
         description: body.description,
         imageUrl: body.imageUrl || null,

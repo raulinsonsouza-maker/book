@@ -29,18 +29,6 @@ export async function GET(
   const page = await prisma.bookingPage.findFirst({
     where: { id, organizationId: session.user.organizationId },
     include: {
-      services: {
-        where: {
-          ...(proId
-            ? {
-                isActive: true,
-                professionals: { some: { professionalId: proId } },
-              }
-            : {}),
-        },
-        include: { customFields: { orderBy: { sortOrder: "asc" } } },
-        orderBy: { sortOrder: "asc" },
-      },
       availability: {
         where: { professionalId: null },
         orderBy: { dayOfWeek: "asc" },
@@ -49,11 +37,89 @@ export async function GET(
         where: { professionalId: null },
         orderBy: { date: "asc" },
       },
+      pageServices: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          service: {
+            include: { customFields: { orderBy: { sortOrder: "asc" } } },
+          },
+        },
+      },
       _count: { select: { bookings: true } },
     },
   });
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(page);
+
+  let services = page.pageServices.map((ps) => ({
+    ...ps.service,
+    pageSortOrder: ps.sortOrder,
+  }));
+
+  if (proId) {
+    services = services.filter(
+      (s) =>
+        s.isActive &&
+        // loaded without professionals include — filter via separate query if needed
+        true,
+    );
+    const linked = await prisma.professionalService.findMany({
+      where: { professionalId: proId },
+      select: { serviceId: true },
+    });
+    const allowed = new Set(linked.map((l) => l.serviceId));
+    services = services.filter((s) => s.isActive && allowed.has(s.id));
+  }
+
+  const { pageServices: _ps, ...rest } = page;
+
+  const org = await prisma.organization.findUnique({
+    where: { id: session.user.organizationId },
+    select: { businessMode: true },
+  });
+
+  let teamProfessionals: {
+    id: string;
+    displayName: string;
+    hoursCount: number;
+  }[] = [];
+  let teamHoursReady = false;
+  let teamHours: { dayOfWeek: number; startTime: string; endTime: string }[] =
+    [];
+
+  if (org?.businessMode === "SALON") {
+    const pros = await prisma.professional.findMany({
+      where: {
+        organizationId: session.user.organizationId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        displayName: true,
+        availability: {
+          orderBy: { dayOfWeek: "asc" },
+          select: { dayOfWeek: true, startTime: true, endTime: true },
+        },
+      },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    teamProfessionals = pros.map((p) => ({
+      id: p.id,
+      displayName: p.displayName,
+      hoursCount: p.availability.length,
+    }));
+    teamHoursReady = pros.some((p) => p.availability.length > 0);
+    const sample = pros.find((p) => p.availability.length > 0);
+    teamHours = sample?.availability ?? [];
+  }
+
+  return NextResponse.json({
+    ...rest,
+    services,
+    serviceIds: page.pageServices.map((ps) => ps.serviceId),
+    teamProfessionals,
+    teamHoursReady,
+    teamHours,
+  });
 }
 
 const updateSchema = z.object({

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 async function ownedService(id: string, organizationId: string) {
   return prisma.service.findFirst({
-    where: { id, bookingPage: { organizationId } },
+    where: { id, organizationId },
   });
 }
 

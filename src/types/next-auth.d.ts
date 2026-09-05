@@ -5,6 +5,7 @@ declare module "next-auth" {
     user: DefaultSession["user"] & {
       id: string;
       isPlatformAdmin?: boolean;
+      mustChangePassword?: boolean;
       organizationId?: string;
       organizationName?: string;
       role?: string;
@@ -18,6 +19,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     isPlatformAdmin?: boolean;
+    mustChangePassword?: boolean;
     organizationId?: string;
     organizationName?: string;
     role?: string;

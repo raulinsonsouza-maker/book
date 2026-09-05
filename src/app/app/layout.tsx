@@ -17,6 +17,10 @@ export default async function AppLayout({
   const session = await getSession();
   if (!session?.user) redirect("/login");
 
+  if (session.user.mustChangePassword) {
+    redirect("/primeiro-acesso");
+  }
+
   if (session.user.isPlatformAdmin) {
     redirect("/gerencial");
   }

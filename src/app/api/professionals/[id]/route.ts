@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { normalizeCommissionPercent } from "@/lib/payments/commission";
 import {
   apiRequireAdmin,
   apiAuthContext,
@@ -45,6 +46,8 @@ export async function GET(
     sortOrder: pro.sortOrder,
     email: pro.membership.user.email,
     serviceIds: pro.services.map((s) => s.serviceId),
+    commissionEnabled: pro.commissionEnabled,
+    commissionPercent: pro.commissionPercent,
     availability: pro.availability.map((r) => ({
       dayOfWeek: r.dayOfWeek,
       startTime: r.startTime,
@@ -61,6 +64,8 @@ const patchSchema = z.object({
   serviceIds: z.array(z.string()).optional(),
   password: z.string().min(6).optional(),
   email: z.string().email().optional(),
+  commissionEnabled: z.boolean().optional(),
+  commissionPercent: z.number().int().min(0).max(100).optional(),
 });
 
 export async function PATCH(
@@ -109,7 +114,10 @@ export async function PATCH(
       if (body.password) {
         await prisma.user.update({
           where: { id: pro.membership.userId },
-          data: { passwordHash: await bcrypt.hash(body.password, 10) },
+          data: {
+            passwordHash: await bcrypt.hash(body.password, 10),
+            mustChangePassword: false,
+          },
         });
       }
     } else {
@@ -117,7 +125,7 @@ export async function PATCH(
         const valid = await prisma.service.count({
           where: {
             id: { in: body.serviceIds },
-            bookingPage: { organizationId: auth.ctx.organizationId },
+            organizationId: auth.ctx.organizationId,
           },
         });
         if (valid !== body.serviceIds.length) {
@@ -145,6 +153,17 @@ export async function PATCH(
           ...(body.photoUrl !== undefined ? { photoUrl: body.photoUrl } : {}),
           ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
           ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
+          ...(body.commissionEnabled !== undefined
+            ? { commissionEnabled: body.commissionEnabled }
+            : {}),
+          ...(body.commissionPercent !== undefined
+            ? {
+                commissionPercent: normalizeCommissionPercent(
+                  body.commissionPercent,
+                  pro.commissionPercent,
+                ),
+              }
+            : {}),
         },
       });
 
@@ -176,7 +195,10 @@ export async function PATCH(
       if (body.password) {
         await prisma.user.update({
           where: { id: pro.membership.userId },
-          data: { passwordHash: await bcrypt.hash(body.password, 10) },
+          data: {
+            passwordHash: await bcrypt.hash(body.password, 10),
+            mustChangePassword: true,
+          },
         });
       }
     }
@@ -190,6 +212,8 @@ export async function PATCH(
       sortOrder: updated!.sortOrder,
       email: updated!.membership.user.email,
       serviceIds: updated!.services.map((s) => s.serviceId),
+      commissionEnabled: updated!.commissionEnabled,
+      commissionPercent: updated!.commissionPercent,
     });
   } catch (e) {
     if (e instanceof z.ZodError) {

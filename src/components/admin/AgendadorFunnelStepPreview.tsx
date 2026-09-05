@@ -185,7 +185,7 @@ export function AgendadorFunnelStepPreview({
   const shell = (children: React.ReactNode, header: React.ReactNode) => (
     <div className="booking-shell" style={{ "--accent": accent } as React.CSSProperties}>
       {header}
-      <div className="px-4 py-4">
+      <div className="px-3.5 py-4 sm:px-4">
         {canGoBack && (
           <button
             type="button"
@@ -208,16 +208,10 @@ export function AgendadorFunnelStepPreview({
             Escolha o atendimento
           </h1>
           <p className="mt-2 text-sm text-muted">
-            {description.trim() ||
-              "Selecione o serviço para ver os horários disponíveis"}
+            Selecione o serviço para ver os horários disponíveis
           </p>
         </div>
-        {blocks.length > 0 && (
-          <div className="booking-card mt-4 p-4">
-            <FunnelLandingBlocks blocks={blocks} />
-          </div>
-        )}
-        <div className="mt-4 space-y-3">
+        <div className="mt-5 space-y-3.5">
           {(activeServices.length ? activeServices : [fallbackService]).map((s) =>
             s.id === "sample" ? (
               <button
@@ -355,16 +349,39 @@ export function AgendadorFunnelStepPreview({
             {description.trim() || service.description || "Horários conforme sua agenda"}
           </p>
         </div>
-        <div className="booking-card px-4 py-3.5">
-          <p className="text-sm font-semibold tracking-tight">{service.title}</p>
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            <span className="tag">{service.durationMinutes} min</span>
-            <span
-              className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
-              style={{ background: accent }}
-            >
-              {formatBRL(service.priceCents)}
-            </span>
+        <div className="booking-selected-service">
+          <div className="booking-selected-service-media">
+            {service.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={service.imageUrl} alt="" />
+            ) : (
+              <span aria-hidden>
+                {service.title.slice(0, 1).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="booking-selected-service-body">
+            <div className="booking-selected-service-top">
+              <div className="min-w-0 flex-1">
+                <p className="booking-selected-service-title">{service.title}</p>
+                {service.description && (
+                  <p className="booking-selected-service-desc">
+                    {service.description}
+                  </p>
+                )}
+              </div>
+              <p
+                className="booking-selected-service-price"
+                style={{ color: accent }}
+              >
+                {formatBRL(service.priceCents)}
+              </p>
+            </div>
+            <div className="booking-selected-service-meta">
+              <span className="booking-selected-service-duration">
+                {service.durationMinutes} min
+              </span>
+            </div>
           </div>
         </div>
         <div className="booking-card overflow-hidden">
@@ -428,36 +445,57 @@ export function AgendadorFunnelStepPreview({
       <div className="space-y-5">
         <div>
           <h1 className="text-[1.35rem] font-bold leading-tight tracking-tight">
-            Quase lá
+            Seus dados
           </h1>
-          <p className="mt-2 text-sm text-muted">
-            Seus dados para confirmar e enviar o comprovante
+          <p className="mt-1.5 text-sm text-muted">
+            Para confirmar e enviar o comprovante
           </p>
         </div>
-        <div className="booking-card flex items-center justify-between gap-3 px-4 py-3.5">
+
+        <div className="booking-summary">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{service.title}</p>
-            <p className="mt-0.5 truncate text-xs capitalize text-muted">{whenLabel}</p>
+            <p className="booking-summary-title truncate">{service.title}</p>
+            <p className="booking-summary-meta truncate">{whenLabel}</p>
           </div>
-          <p className="shrink-0 text-sm font-bold" style={{ color: accent }}>
+          <p className="booking-summary-price" style={{ color: accent }}>
             {formatBRL(service.priceCents)}
           </p>
         </div>
-        <div className="booking-card space-y-4 p-4">
-          <div className="grid gap-3.5 sm:grid-cols-2">
-            {fields.map((f) => (
-              <label key={f.id} className="block text-sm">
-                <span className="mb-1.5 block font-medium">
+
+        <div className="booking-form-fields">
+          {fields.map((f) => {
+            const ph =
+              f.preset === "customerName"
+                ? "Seu nome completo"
+                : f.preset === "customerEmail" || f.type === "email"
+                  ? "voce@email.com"
+                  : f.preset === "customerPhone" || f.type === "phone"
+                    ? "(11) 99999-9999"
+                    : f.preset === "customerCpf" || f.type === "cpf"
+                      ? "000.000.000-00"
+                      : f.type === "textarea"
+                        ? "Alguma observação?"
+                        : f.label;
+            return (
+              <label key={f.id} className="booking-field">
+                <span className="booking-field-label">
                   {f.label}
-                  {!f.required ? " (opcional)" : ""}
+                  {!f.required ? (
+                    <span className="booking-field-optional"> opcional</span>
+                  ) : null}
                 </span>
-                <div className="input-field pointer-events-none bg-muted-bg/40 text-muted">
-                  …
-                </div>
+                {f.type === "textarea" ? (
+                  <div className="booking-field-input booking-field-textarea text-muted/50">
+                    {ph}
+                  </div>
+                ) : (
+                  <div className="booking-field-input text-muted/50">{ph}</div>
+                )}
               </label>
-            ))}
-          </div>
+            );
+          })}
         </div>
+
         <button
           type="button"
           onClick={onConfirmDetails}

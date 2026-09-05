@@ -150,3 +150,27 @@ export async function sendIntakeAlertToTeam(
   }
   return { ok: true as const, recipients };
 }
+
+export async function sendProfessionalWelcome(
+  params: Parameters<
+    typeof import("@/lib/email/templates/auth").professionalWelcomeEmail
+  >[0] & { to: string },
+) {
+  const { professionalWelcomeEmail } = await import(
+    "@/lib/email/templates/auth"
+  );
+  const { to, ...rest } = params;
+  const tpl = professionalWelcomeEmail(rest);
+  return send({ to, ...tpl, tag: "auth.professional_welcome" });
+}
+
+export async function sendPasswordReset(
+  params: Parameters<
+    typeof import("@/lib/email/templates/auth").passwordResetEmail
+  >[0] & { to: string },
+) {
+  const { passwordResetEmail } = await import("@/lib/email/templates/auth");
+  const { to, ...rest } = params;
+  const tpl = passwordResetEmail(rest);
+  return send({ to, ...tpl, tag: "auth.password_reset" });
+}

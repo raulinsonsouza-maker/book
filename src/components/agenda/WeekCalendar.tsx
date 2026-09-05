@@ -9,7 +9,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ManualBookingModal } from "@/components/agenda/ManualBookingModal";
 
 type BookingItem = {
@@ -19,6 +19,7 @@ type BookingItem = {
   endAt: string;
   customerName: string;
   serviceTitle: string;
+  professionalName?: string | null;
   googleEventId?: string | null;
 };
 
@@ -27,6 +28,7 @@ type SlotItem = {
   startAt: string;
   endAt: string;
   label: string;
+  professionalId?: string | null;
 };
 
 type GoogleEventItem = {
@@ -39,10 +41,16 @@ type GoogleEventItem = {
 
 type PageOption = { id: string; title: string; slug: string };
 type ServiceOption = { id: string; title: string; durationMinutes: number };
+type ProOption = { id: string; displayName: string; serviceIds: string[] };
+
+type SetupHint = "NO_PROS" | "NO_HOURS" | "NEED_PRO_FILTER" | null;
 
 const HOUR_START = 7;
 const HOUR_END = 20;
 const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
+
+/** Sentinel no select: qualquer profissional disponível para o serviço. */
+const ANYONE = "__anyone__";
 
 function topPx(iso: string, weekStart: Date) {
   const d = parseISO(iso);
@@ -73,12 +81,17 @@ export function WeekCalendar({
   isProfessionalView = false,
   businessMode = "SOLO",
 }: Props) {
+  const salonAdmin = businessMode === "SALON" && !isProfessionalView;
+
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 0 }),
   );
   const [pageId, setPageId] = useState(initialPageId);
   const [serviceId, setServiceId] = useState(initialServiceId);
   const [services, setServices] = useState<ServiceOption[]>([]);
+  const [allPros, setAllPros] = useState<ProOption[]>([]);
+  /** ANYONE | id do pro — só usado em SALON admin */
+  const [proFilter, setProFilter] = useState<string>(ANYONE);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [googleEvents, setGoogleEvents] = useState<GoogleEventItem[]>([]);
@@ -87,6 +100,7 @@ export function WeekCalendar({
   const [showSlots, setShowSlots] = useState(true);
   const [loadingCal, setLoadingCal] = useState(false);
   const [calError, setCalError] = useState("");
+  const [setupHint, setSetupHint] = useState<SetupHint>(null);
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
   const [manualSlot, setManualSlot] = useState<SlotItem | null>(null);
 
@@ -94,19 +108,67 @@ export function WeekCalendar({
   const from = format(weekStart, "yyyy-MM-dd");
   const to = format(weekEnd, "yyyy-MM-dd");
 
+  const prosForService = useMemo(
+    () => allPros.filter((p) => p.serviceIds.includes(serviceId)),
+    [allPros, serviceId],
+  );
+
   useEffect(() => {
     fetch(`/api/pages/${pageId}`)
       .then((r) => r.json())
       .then((p) => {
-        setServices(p.services || []);
-        if (!p.services?.find((s: ServiceOption) => s.id === serviceId)) {
-          setServiceId(p.services?.[0]?.id || "");
+        const list = (p.services || []).filter(
+          (s: ServiceOption & { isActive?: boolean }) => s.isActive !== false,
+        );
+        setServices(list);
+        if (!list.find((s: ServiceOption) => s.id === serviceId)) {
+          setServiceId(list[0]?.id || "");
         }
       });
   }, [pageId, serviceId]);
 
+  useEffect(() => {
+    if (!salonAdmin) return;
+    fetch("/api/professionals")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        setAllPros(
+          data
+            .filter((p: { isActive: boolean }) => p.isActive)
+            .map(
+              (p: {
+                id: string;
+                displayName: string;
+                serviceIds: string[];
+              }) => ({
+                id: p.id,
+                displayName: p.displayName,
+                serviceIds: p.serviceIds || [],
+              }),
+            ),
+        );
+      })
+      .catch(() => undefined);
+  }, [salonAdmin]);
+
+  useEffect(() => {
+    if (!salonAdmin) return;
+    if (proFilter !== ANYONE && !prosForService.some((p) => p.id === proFilter)) {
+      setProFilter(prosForService.length === 1 ? prosForService[0]!.id : ANYONE);
+    }
+  }, [salonAdmin, serviceId, prosForService, proFilter]);
+
   const load = useCallback(() => {
     if (!pageId || !serviceId) return;
+    if (salonAdmin && prosForService.length === 0 && allPros.length > 0) {
+      setBookings([]);
+      setSlots([]);
+      setSetupHint("NO_PROS");
+      setCalError("");
+      return;
+    }
+
     setLoadingCal(true);
     setCalError("");
     const params = new URLSearchParams({
@@ -115,7 +177,19 @@ export function WeekCalendar({
       bookingPageId: pageId,
       serviceId,
     });
-    if (professionalId) params.set("professionalId", professionalId);
+
+    if (isProfessionalView && professionalId) {
+      params.set("professionalId", professionalId);
+    } else if (salonAdmin) {
+      if (proFilter === ANYONE) {
+        params.set("anyone", "1");
+      } else {
+        params.set("professionalId", proFilter);
+      }
+    } else if (professionalId) {
+      params.set("professionalId", professionalId);
+    }
+
     fetch(`/api/agenda/calendar?${params}`)
       .then(async (r) => {
         const data = await r.json();
@@ -123,18 +197,31 @@ export function WeekCalendar({
           setCalError(data.error || "Não foi possível carregar o calendário");
           setBookings([]);
           setSlots([]);
+          setSetupHint(null);
           return;
         }
         setBookings(data.bookings || []);
         setSlots(data.availableSlots || []);
         setGoogleEvents(data.googleEvents || []);
         setGoogleConnected(Boolean(data.googleConnected));
+        setSetupHint((data.setupHint as SetupHint) || null);
       })
       .catch(() => {
         setCalError("Falha de rede ao carregar o calendário");
       })
       .finally(() => setLoadingCal(false));
-  }, [from, to, pageId, serviceId, professionalId]);
+  }, [
+    from,
+    to,
+    pageId,
+    serviceId,
+    professionalId,
+    isProfessionalView,
+    salonAdmin,
+    proFilter,
+    prosForService.length,
+    allPros.length,
+  ]);
 
   useEffect(() => {
     load();
@@ -142,8 +229,18 @@ export function WeekCalendar({
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const showPageFilter = pages.length > 1;
-  const showServiceFilter = services.length > 1;
   const selectedService = services.find((s) => s.id === serviceId);
+
+  const modalProId =
+    isProfessionalView && professionalId
+      ? professionalId
+      : salonAdmin
+        ? manualSlot?.professionalId ||
+          (proFilter !== ANYONE ? proFilter : null)
+        : professionalId;
+
+  const modalAnyone =
+    salonAdmin && proFilter === ANYONE && !manualSlot?.professionalId;
 
   return (
     <div className="space-y-3">
@@ -154,8 +251,13 @@ export function WeekCalendar({
         bookingPageId={pageId}
         serviceId={serviceId}
         businessMode={businessMode}
-        professionalId={professionalId}
+        professionalId={modalProId}
         isProfessionalView={isProfessionalView}
+        professionals={prosForService.map((p) => ({
+          id: p.id,
+          displayName: p.displayName,
+        }))}
+        anyoneMode={Boolean(modalAnyone)}
         onClose={() => setManualSlot(null)}
         onCreated={load}
       />
@@ -167,6 +269,38 @@ export function WeekCalendar({
       {loadingCal && (
         <p className="text-xs text-muted">Atualizando calendário…</p>
       )}
+
+      {setupHint === "NO_PROS" && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-medium">Nenhum profissional atende este serviço</p>
+          <p className="mt-1 text-xs text-amber-900/80">
+            Vincule o serviço a pelo menos um profissional para ver horários
+            livres.
+          </p>
+          <a
+            href="/app/profissionais"
+            className="mt-2 inline-flex text-xs font-semibold underline-offset-2 hover:underline"
+          >
+            Ir para Profissionais →
+          </a>
+        </div>
+      )}
+      {setupHint === "NO_HOURS" && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-medium">Agenda do profissional sem horários</p>
+          <p className="mt-1 text-xs text-amber-900/80">
+            Defina os dias e horários de atendimento do profissional para liberar
+            slots.
+          </p>
+          <a
+            href="/app/profissionais"
+            className="mt-2 inline-flex text-xs font-semibold underline-offset-2 hover:underline"
+          >
+            Definir horários →
+          </a>
+        </div>
+      )}
+
       {selectedBooking && (
         <div className="rounded-xl border border-border bg-white p-4 text-sm shadow-sm">
           <div className="flex items-start justify-between gap-3">
@@ -175,6 +309,11 @@ export function WeekCalendar({
                 {selectedBooking.customerName}
               </p>
               <p className="text-muted">{selectedBooking.serviceTitle}</p>
+              {selectedBooking.professionalName && (
+                <p className="text-xs text-muted">
+                  com {selectedBooking.professionalName}
+                </p>
+              )}
               <p className="mt-1 text-xs text-muted">
                 {format(parseISO(selectedBooking.startAt), "EEE d MMM · HH:mm", {
                   locale: ptBR,
@@ -210,7 +349,9 @@ export function WeekCalendar({
           </button>
           <button
             type="button"
-            onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }))}
+            onClick={() =>
+              setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }))
+            }
             className="btn-secondary !py-1.5"
           >
             Hoje
@@ -247,7 +388,7 @@ export function WeekCalendar({
               </select>
             </label>
           )}
-          {showServiceFilter && (
+          {services.length > 0 && (
             <label className="flex items-center gap-1.5 text-xs text-muted">
               Serviço
               <select
@@ -258,6 +399,24 @@ export function WeekCalendar({
                 {services.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {salonAdmin && (
+            <label className="flex items-center gap-1.5 text-xs text-muted">
+              Profissional
+              <select
+                className="input-field !w-auto !py-1.5 text-sm"
+                value={proFilter}
+                onChange={(e) => setProFilter(e.target.value)}
+                disabled={prosForService.length === 0}
+              >
+                <option value={ANYONE}>Qualquer disponível</option>
+                {prosForService.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.displayName}
                   </option>
                 ))}
               </select>
@@ -281,7 +440,7 @@ export function WeekCalendar({
             />
             Google
           </label>
-          {!googleConnected && !isProfessionalView && (
+          {!googleConnected && !isProfessionalView && !salonAdmin && (
             <a
               href="/app/integracoes"
               className="text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
@@ -301,15 +460,13 @@ export function WeekCalendar({
       )}
 
       <p className="rounded-xl border border-border bg-white px-3 py-2 text-xs text-muted">
-        Clique em um horário <strong>livre</strong> (amarelo) para agendar manualmente
-        um cliente — com pagamento no local ou link de pagamento para enviar.
+        {salonAdmin
+          ? "Escolha o serviço e o profissional — a grade mostra só horários livres da agenda dele. Clique no amarelo para agendar."
+          : "Clique em um horário livre (amarelo) para agendar manualmente um cliente."}
       </p>
 
       <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-white px-3 py-2.5 shadow-sm">
-        <LegendChip
-          swatch="bg-emerald-600"
-          label="Confirmado"
-        />
+        <LegendChip swatch="bg-emerald-600" label="Confirmado" />
         <LegendChip
           swatch="border-2 border-dashed border-amber-500 bg-white"
           label="Aguardando pagamento"
@@ -410,22 +567,36 @@ export function WeekCalendar({
                   .filter((s) => s.date === format(day, "yyyy-MM-dd"))
                   .map((s, i) => {
                     const { top } = topPx(s.startAt, weekStart);
+                    const proName =
+                      salonAdmin && s.professionalId
+                        ? prosForService.find((p) => p.id === s.professionalId)
+                            ?.displayName
+                        : null;
                     return (
                       <button
                         type="button"
-                        key={`slot-${i}`}
+                        key={`slot-${s.startAt}-${i}`}
                         className="absolute inset-x-0.5 z-[1] cursor-pointer rounded border border-amber-300/80 bg-amber-100/90 px-1 text-left text-[10px] font-medium text-amber-900 transition hover:border-amber-500 hover:bg-amber-200/90"
                         style={{
                           top: `${top}px`,
                           height: `${heightPx(s.startAt, s.endAt)}px`,
                         }}
-                        title="Agendar manualmente"
+                        title={
+                          proName
+                            ? `Agendar com ${proName}`
+                            : "Agendar manualmente"
+                        }
                         onClick={() => {
                           setSelectedBooking(null);
                           setManualSlot(s);
                         }}
                       >
                         {s.label}
+                        {proName && proFilter === ANYONE ? (
+                          <span className="block truncate text-[9px] font-normal opacity-80">
+                            {proName}
+                          </span>
+                        ) : null}
                       </button>
                     );
                   })}

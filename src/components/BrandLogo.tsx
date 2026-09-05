@@ -2,9 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 
 const SIZES = {
-  sm: { box: "h-6 w-6", px: 24 },
-  md: { box: "h-9 w-9", px: 36 },
-  lg: { box: "h-10 w-10", px: 40 },
+  sm: { box: "h-6 w-6", px: 24, title: "text-sm" },
+  md: { box: "h-9 w-9", px: 36, title: "text-base" },
+  lg: { box: "h-10 w-10", px: 40, title: "text-lg" },
 } as const;
 
 type Size = keyof typeof SIZES;
@@ -70,7 +70,9 @@ export function BrandLogo({
       <LogoMark size={size} logoUrl={logoUrl} />
       {showText && (
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold tracking-tight text-foreground">
+          <span
+            className={`block truncate font-semibold tracking-tight text-foreground ${SIZES[size].title}`}
+          >
             {title}
           </span>
           {subtitle && (

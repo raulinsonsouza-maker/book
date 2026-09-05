@@ -31,7 +31,7 @@ export async function GET(
 
   const [services, bookings30d, professionals, plans] = await Promise.all([
     prisma.service.count({
-      where: { bookingPage: { organizationId: id } },
+      where: { organizationId: id },
     }),
     prisma.booking.count({
       where: {

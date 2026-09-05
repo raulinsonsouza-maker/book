@@ -316,7 +316,7 @@ export default function IntegrationsPage() {
           title="Google Calendar"
           status={google?.connected ? "Conectado" : "Não conectado"}
           statusVariant={google?.connected ? "connected" : "disconnected"}
-          description="Conecte para: (1) ver compromissos do Google no Calendário do Book, (2) bloquear horários ocupados no funil público e (3) enviar reservas confirmadas para o Google. Compromissos externos não viram agendamentos na Listagem — aparecem no Calendário (filtro Google)."
+          description="Sincroniza agenda: bloqueia horários ocupados e envia reservas confirmadas."
           action={
             google?.connected ? (
               <div className="space-y-2">
@@ -349,7 +349,7 @@ export default function IntegrationsPage() {
             org?.paymentProvider === "MERCADO_PAGO",
           )}
           statusVariant={org?.mercadoPagoConnected ? "connected" : "disconnected"}
-          description="Checkout transparente com Pix e cartão. Pagamento dentro do funil, sem redirecionamento."
+          description="Pix e cartão no próprio funil, sem sair do agendamento."
           action={
             org?.mercadoPagoConnected ? (
               <div className="space-y-2">
@@ -393,7 +393,7 @@ export default function IntegrationsPage() {
               org?.paymentProvider === "ASAAS",
             )}
             statusVariant={org?.asaasConnected ? "connected" : "disconnected"}
-            description="Pix e cartão via Asaas. Conecte com a API Key da sua conta em poucos passos."
+            description="Pix e cartão com a API Key da sua conta Asaas."
             action={
               org?.asaasConnected ? (
                 <div className="space-y-2">
@@ -441,7 +441,7 @@ export default function IntegrationsPage() {
                 : "Modo demo"
             }
             statusVariant={org?.caktoConnected ? "connected" : "demo"}
-            description="Cobrança via Pix e cartão no checkout transparente do funil de agendamento."
+            description="Pix e cartão no checkout do agendamento."
             action={
               org?.caktoConnected ? (
                 <div className="space-y-2">

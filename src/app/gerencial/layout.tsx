@@ -9,6 +9,7 @@ export default async function GerencialLayout({
 }) {
   const session = await getSession();
   if (!session?.user) redirect("/login");
+  if (session.user.mustChangePassword) redirect("/primeiro-acesso");
   if (!session.user.isPlatformAdmin) redirect("/app");
 
   return (

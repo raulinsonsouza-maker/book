@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { readEntityImageFile } from "@/lib/image-upload";
 
 export type EntityImageShape = "square" | "round";
@@ -24,12 +24,7 @@ function pickFile(
   onError: (msg: string) => void,
   maxBytes?: number,
 ) {
-  readEntityImageFile(
-    file,
-    (url) => onChange(url),
-    onError,
-    maxBytes,
-  );
+  readEntityImageFile(file, (url) => onChange(url), onError, maxBytes);
 }
 
 /** Upload de imagem em formulários (criar/editar). */
@@ -41,22 +36,51 @@ export function EntityImagePicker({
   onError,
   maxBytes,
   hint = "Aparece no link público · PNG, JPG ou WebP",
-}: BaseProps & { hint?: string }) {
+  layout = "row",
+}: BaseProps & {
+  hint?: string;
+  layout?: "row" | "profile";
+}) {
   const hasImage = Boolean(value);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  function handleError(msg: string) {
+    setBusy(false);
+    setLocalError(msg);
+    onError(msg);
+  }
+
+  function handleChange(url: string | null) {
+    setBusy(false);
+    setLocalError(null);
+    onChange(url);
+  }
 
   return (
-    <div className="entity-image-picker-wrap">
+    <div
+      className={`entity-image-picker-wrap${
+        layout === "profile" ? " entity-image-picker-wrap--profile" : ""
+      }`}
+    >
       <label
-        className={`entity-image-picker ${shapeClass(shape)}`}
+        className={`entity-image-picker ${shapeClass(shape)}${
+          layout === "profile" ? " entity-image-picker--profile" : ""
+        }${busy ? " entity-image-picker--busy" : ""}`}
         aria-label={hasImage ? "Trocar imagem" : "Adicionar imagem"}
       >
         <input
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/png,image/jpeg,image/webp,image/*"
           className="sr-only"
+          disabled={busy}
           onChange={(e) => {
-            pickFile(e.target.files?.[0] ?? null, onChange, onError, maxBytes);
+            const file = e.target.files?.[0] ?? null;
             e.target.value = "";
+            if (!file) return;
+            setBusy(true);
+            setLocalError(null);
+            pickFile(file, handleChange, handleError, maxBytes);
           }}
         />
         <div className="entity-image-preview">
@@ -67,21 +91,35 @@ export function EntityImagePicker({
             <span className="entity-image-fallback">{fallbackLabel}</span>
           )}
           <span className="entity-image-overlay">
-            {hasImage ? "Trocar" : "Enviar"}
+            {busy ? "…" : hasImage ? "Trocar" : "Enviar"}
           </span>
         </div>
         <div className="entity-image-picker-copy">
           <span className="entity-image-picker-title">
-            {hasImage ? "Trocar imagem" : "Adicionar imagem"}
+            {busy
+              ? "Processando imagem…"
+              : hasImage
+                ? "Trocar foto"
+                : layout === "profile"
+                  ? "Adicionar foto"
+                  : "Adicionar imagem"}
           </span>
-          <span className="entity-image-picker-hint">{hint}</span>
+          {hint ? (
+            <span className="entity-image-picker-hint">{hint}</span>
+          ) : null}
         </div>
       </label>
+      {localError && (
+        <p className="entity-image-picker-error" role="alert">
+          {localError}
+        </p>
+      )}
       {hasImage && (
         <button
           type="button"
           className="entity-image-remove"
-          onClick={() => onChange(null)}
+          disabled={busy}
+          onClick={() => handleChange(null)}
         >
           Remover imagem
         </button>
@@ -101,29 +139,59 @@ export function EntityListImage({
   maxBytes,
 }: BaseProps & { uploadLabel?: string }) {
   const label = uploadLabel ?? (value ? "Trocar" : "Foto");
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  function handleError(msg: string) {
+    setBusy(false);
+    setLocalError(msg);
+    onError(msg);
+  }
+
+  function handleChange(url: string | null) {
+    setBusy(false);
+    setLocalError(null);
+    onChange(url);
+  }
 
   return (
-    <label
-      className={`entity-list-image ${shapeClass(shape)}`}
-      aria-label={value ? "Trocar imagem" : "Adicionar imagem"}
-    >
-      <input
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        className="sr-only"
-        onChange={(e) => {
-          pickFile(e.target.files?.[0] ?? null, onChange, onError, maxBytes);
-          e.target.value = "";
-        }}
-      />
-      {value ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={value} alt="" />
-      ) : (
-        <span className="entity-image-fallback">{fallbackLabel}</span>
+    <div className="entity-list-image-wrap">
+      <label
+        className={`entity-list-image ${shapeClass(shape)}${
+          busy ? " entity-list-image--busy" : ""
+        }`}
+        aria-label={value ? "Trocar imagem" : "Adicionar imagem"}
+      >
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/*"
+          className="sr-only"
+          disabled={busy}
+          onChange={(e) => {
+            const file = e.target.files?.[0] ?? null;
+            e.target.value = "";
+            if (!file) return;
+            setBusy(true);
+            setLocalError(null);
+            pickFile(file, handleChange, handleError, maxBytes);
+          }}
+        />
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value} alt="" />
+        ) : (
+          <span className="entity-image-fallback">{fallbackLabel}</span>
+        )}
+        <span className="entity-image-overlay">
+          {busy ? "…" : label}
+        </span>
+      </label>
+      {localError && (
+        <p className="entity-image-picker-error" role="alert">
+          {localError}
+        </p>
       )}
-      <span className="entity-image-overlay">{label}</span>
-    </label>
+    </div>
   );
 }
 

@@ -10,6 +10,7 @@ type SlotItem = {
   startAt: string;
   endAt: string;
   label: string;
+  professionalId?: string | null;
 };
 
 type ProOption = { id: string; displayName: string };
@@ -23,6 +24,10 @@ type Props = {
   businessMode: "SOLO" | "SALON";
   professionalId?: string | null;
   isProfessionalView?: boolean;
+  /** Lista já filtrada pelo serviço (SALON admin). */
+  professionals?: ProOption[];
+  /** Grade em modo “qualquer” sem pro sugerido no slot. */
+  anyoneMode?: boolean;
   onClose: () => void;
   onCreated: () => void;
 };
@@ -43,6 +48,8 @@ export function ManualBookingModal({
   businessMode,
   professionalId = null,
   isProfessionalView = false,
+  professionals: professionalsProp,
+  anyoneMode = false,
   onClose,
   onCreated,
 }: Props) {
@@ -59,6 +66,11 @@ export function ManualBookingModal({
   const needsProPick =
     businessMode === "SALON" && !isProfessionalView && !professionalId;
 
+  const canChangePro =
+    businessMode === "SALON" &&
+    !isProfessionalView &&
+    (needsProPick || anyoneMode || Boolean(professionalId));
+
   useEffect(() => {
     if (!open) {
       setCustomerName("");
@@ -70,7 +82,25 @@ export function ManualBookingModal({
       setResult(null);
       return;
     }
-    if (needsProPick) {
+
+    if (professionalId) {
+      setPickedProId(professionalId);
+    }
+
+    if (professionalsProp && professionalsProp.length > 0) {
+      setProfessionals(professionalsProp);
+      if (!professionalId && professionalsProp.length === 1) {
+        setPickedProId(professionalsProp[0]!.id);
+      } else if (
+        professionalId &&
+        !professionalsProp.some((p) => p.id === professionalId)
+      ) {
+        setPickedProId(professionalsProp[0]?.id || "");
+      }
+      return;
+    }
+
+    if (needsProPick || canChangePro) {
       fetch("/api/professionals")
         .then((r) => r.json())
         .then((data) => {
@@ -85,11 +115,20 @@ export function ManualBookingModal({
               displayName: p.displayName,
             }));
           setProfessionals(filtered);
-          if (filtered.length === 1) setPickedProId(filtered[0].id);
+          if (!professionalId && filtered.length === 1) {
+            setPickedProId(filtered[0].id);
+          }
         })
         .catch(() => undefined);
     }
-  }, [open, needsProPick, serviceId]);
+  }, [
+    open,
+    needsProPick,
+    canChangePro,
+    serviceId,
+    professionalId,
+    professionalsProp,
+  ]);
 
   if (!open || !slot) return null;
 
@@ -97,12 +136,22 @@ export function ManualBookingModal({
     locale: ptBR,
   });
 
+  const selectedProName = professionals.find(
+    (p) => p.id === (pickedProId || professionalId),
+  )?.displayName;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
 
-    const effectiveProId = professionalId || pickedProId || undefined;
+    const effectiveProId = pickedProId || professionalId || undefined;
+
+    if (businessMode === "SALON" && !isProfessionalView && !effectiveProId) {
+      setSubmitting(false);
+      setError("Selecione o profissional");
+      return;
+    }
 
     const res = await fetch("/api/bookings/manual", {
       method: "POST",
@@ -160,6 +209,7 @@ export function ManualBookingModal({
               </h2>
               <p className="mt-1 text-sm text-muted">
                 {result.customerName} · {serviceTitle}
+                {selectedProName ? ` · ${selectedProName}` : ""}
                 <br />
                 {slotLabel}
               </p>
@@ -211,7 +261,7 @@ export function ManualBookingModal({
             </div>
           </div>
         ) : (
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={(e) => void submit(e)} className="space-y-4">
             <div>
               <h2
                 id="manual-booking-title"
@@ -230,22 +280,40 @@ export function ManualBookingModal({
               </p>
             )}
 
-            {needsProPick && (
+            {businessMode === "SALON" && !isProfessionalView && (
               <label className="block text-sm">
                 <span className="mb-1 block text-muted">Profissional</span>
-                <select
-                  className="input-field w-full"
-                  value={pickedProId}
-                  onChange={(e) => setPickedProId(e.target.value)}
-                  required
-                >
-                  <option value="">Selecione…</option>
-                  {professionals.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.displayName}
-                    </option>
-                  ))}
-                </select>
+                {professionals.length === 0 ? (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                    Nenhum profissional vinculado a este serviço.{" "}
+                    <a
+                      href="/app/profissionais"
+                      className="font-semibold underline-offset-2 hover:underline"
+                    >
+                      Vincular em Profissionais
+                    </a>
+                  </p>
+                ) : (
+                  <select
+                    className="input-field w-full"
+                    value={pickedProId}
+                    onChange={(e) => setPickedProId(e.target.value)}
+                    required
+                  >
+                    {!pickedProId && <option value="">Selecione…</option>}
+                    {professionals.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.displayName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {anyoneMode && pickedProId && (
+                  <span className="mt-1 block text-xs text-muted">
+                    Sugerido para este horário (pode trocar entre quem atende o
+                    serviço).
+                  </span>
+                )}
               </label>
             )}
 
@@ -312,7 +380,7 @@ export function ManualBookingModal({
               <button
                 type="submit"
                 className="btn-primary !text-sm"
-                disabled={submitting}
+                disabled={submitting || (businessMode === "SALON" && !isProfessionalView && !pickedProId)}
               >
                 {submitting ? "Salvando…" : "Criar agendamento"}
               </button>

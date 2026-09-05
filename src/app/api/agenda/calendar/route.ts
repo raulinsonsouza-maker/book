@@ -1,14 +1,39 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getTheoreticalSlots, getBusyIntervals } from "@/lib/availability";
+import {
+  getAvailableSlots,
+  getTheoreticalSlots,
+  getBusyIntervals,
+} from "@/lib/availability";
 import { getGoogleCalendarEvents } from "@/lib/google/calendar";
 import {
   apiAuthContext,
   bookingScopeWhere,
+  isAdminRole,
   isProfessionalRole,
   resolveProfessionalScope,
 } from "@/lib/rbac";
 import { addDays, parseISO, startOfDay, endOfDay } from "date-fns";
+
+type SlotOut = {
+  date: string;
+  startAt: string;
+  endAt: string;
+  label: string;
+  professionalId?: string | null;
+};
+
+async function linkedProfessionals(organizationId: string, serviceId: string) {
+  return prisma.professional.findMany({
+    where: {
+      organizationId,
+      isActive: true,
+      services: { some: { serviceId } },
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true, displayName: true },
+  });
+}
 
 export async function GET(req: Request) {
   const auth = await apiAuthContext();
@@ -21,6 +46,7 @@ export async function GET(req: Request) {
   const bookingPageId = searchParams.get("bookingPageId");
   const serviceId = searchParams.get("serviceId");
   const professionalIdParam = searchParams.get("professionalId");
+  const anyone = searchParams.get("anyone") === "1";
 
   if (!from || !to || !bookingPageId || !serviceId) {
     return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
@@ -33,13 +59,20 @@ export async function GET(req: Request) {
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const service = await prisma.service.findFirst({
-    where: { id: serviceId, bookingPageId: page.id },
+    where: {
+      id: serviceId,
+      organizationId: ctx.organizationId,
+      pages: { some: { bookingPageId: page.id } },
+    },
   });
   if (!service) {
     return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
   }
 
-  const professionalId = resolveProfessionalScope(ctx, professionalIdParam);
+  const salonMode = page.organization.businessMode === "SALON";
+  const adminSalon = salonMode && isAdminRole(ctx.role);
+
+  let professionalId = resolveProfessionalScope(ctx, professionalIdParam);
 
   if (isProfessionalRole(ctx.role) && ctx.professionalId) {
     const linked = await prisma.professionalService.findFirst({
@@ -54,6 +87,49 @@ export async function GET(req: Request) {
         { error: "Sem permissão para este serviço" },
         { status: 403 },
       );
+    }
+  }
+
+  const linkedPros = adminSalon
+    ? await linkedProfessionals(ctx.organizationId, service.id)
+    : [];
+
+  if (adminSalon) {
+    if (linkedPros.length === 0) {
+      return NextResponse.json({
+        bookings: [],
+        availableSlots: [] as SlotOut[],
+        googleEvents: [],
+        googleConnected: false,
+        timezone: page.timezone,
+        professionalId: null,
+        anyone: false,
+        linkedProfessionals: [],
+        setupHint: "NO_PROS" as const,
+      });
+    }
+
+    if (!anyone && !professionalId) {
+      return NextResponse.json({
+        bookings: [],
+        availableSlots: [] as SlotOut[],
+        googleEvents: [],
+        googleConnected: false,
+        timezone: page.timezone,
+        professionalId: null,
+        anyone: false,
+        linkedProfessionals: linkedPros,
+        setupHint: "NEED_PRO_FILTER" as const,
+      });
+    }
+
+    if (professionalId && !anyone) {
+      if (!linkedPros.some((p) => p.id === professionalId)) {
+        return NextResponse.json(
+          { error: "Profissional não atende este serviço" },
+          { status: 400 },
+        );
+      }
     }
   } else if (professionalId) {
     const pro = await prisma.professional.findFirst({
@@ -74,70 +150,145 @@ export async function GET(req: Request) {
   const fromDate = parseISO(from);
   const toDate = parseISO(to);
 
+  const bookingProFilter =
+    professionalId && !anyone
+      ? { professionalId }
+      : anyone
+        ? { professionalId: { in: linkedPros.map((p) => p.id) } }
+        : {};
+
   const bookings = await prisma.booking.findMany({
     where: {
       ...bookingScopeWhere(ctx),
       bookingPageId: page.id,
-      ...(professionalId && !isProfessionalRole(ctx.role)
+      ...(adminSalon && (anyone || professionalId) ? bookingProFilter : {}),
+      ...(!adminSalon && professionalId && !isProfessionalRole(ctx.role)
         ? { professionalId }
         : {}),
       startAt: { gte: startOfDay(fromDate), lte: endOfDay(toDate) },
       status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
     },
-    include: { service: true, payment: true },
+    include: { service: true, payment: true, professional: true },
     orderBy: { startAt: "asc" },
   });
 
-  const availableSlots: {
-    date: string;
-    startAt: string;
-    endAt: string;
-    label: string;
-  }[] = [];
+  const availableSlots: SlotOut[] = [];
+  const slotParamsBase = {
+    bookingPageId: page.id,
+    serviceId: service.id,
+    timezone: page.timezone,
+    durationMinutes: service.durationMinutes,
+    bufferBefore: service.bufferBefore,
+    bufferAfter: service.bufferAfter,
+    slotStepMinutes: page.slotStepMinutes,
+  };
 
   let d = startOfDay(fromDate);
   while (d <= toDate) {
     const dateStr = d.toISOString().slice(0, 10);
-    const { slots } = await getTheoreticalSlots({
-      bookingPageId: page.id,
-      date: dateStr,
-      timezone: page.timezone,
-      durationMinutes: service.durationMinutes,
-      bufferBefore: service.bufferBefore,
-      bufferAfter: service.bufferAfter,
-      slotStepMinutes: page.slotStepMinutes,
-      professionalId,
-    });
-    const busy = await getBusyIntervals({
-      bookingPageId: page.id,
-      date: dateStr,
-      timezone: page.timezone,
-      bufferBefore: service.bufferBefore,
-      bufferAfter: service.bufferAfter,
-      professionalId,
-    });
-    for (const slot of slots) {
-      const s = new Date(slot.startAt);
-      const e = new Date(slot.endAt);
-      const conflict = busy.some((b) => s < b.end && e > b.start);
-      const booked = bookings.some(
-        (b) =>
-          b.status !== "CANCELLED" &&
-          b.startAt.toISOString() === slot.startAt,
+
+    if (adminSalon && anyone) {
+      const byStart = new Map<string, SlotOut>();
+      for (const pro of linkedPros) {
+        const slots = await getAvailableSlots({
+          ...slotParamsBase,
+          date: dateStr,
+          professionalId: pro.id,
+        });
+        for (const slot of slots) {
+          if (!byStart.has(slot.startAt)) {
+            byStart.set(slot.startAt, {
+              date: dateStr,
+              startAt: slot.startAt,
+              endAt: slot.endAt,
+              label: slot.label,
+              professionalId: pro.id,
+            });
+          }
+        }
+      }
+      availableSlots.push(
+        ...[...byStart.values()].sort(
+          (a, b) =>
+            new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+        ),
       );
-      if (!conflict && !booked) {
+    } else if (adminSalon && professionalId) {
+      const slots = await getAvailableSlots({
+        ...slotParamsBase,
+        date: dateStr,
+        professionalId,
+      });
+      for (const slot of slots) {
         availableSlots.push({
           date: dateStr,
           startAt: slot.startAt,
           endAt: slot.endAt,
           label: slot.label,
+          professionalId,
         });
       }
+    } else {
+      // SOLO ou profissional logado: horas da página / do próprio pro
+      const { slots } = await getTheoreticalSlots({
+        bookingPageId: page.id,
+        date: dateStr,
+        timezone: page.timezone,
+        durationMinutes: service.durationMinutes,
+        bufferBefore: service.bufferBefore,
+        bufferAfter: service.bufferAfter,
+        slotStepMinutes: page.slotStepMinutes,
+        professionalId,
+      });
+      const busy = await getBusyIntervals({
+        bookingPageId: page.id,
+        date: dateStr,
+        timezone: page.timezone,
+        bufferBefore: service.bufferBefore,
+        bufferAfter: service.bufferAfter,
+        professionalId,
+      });
+      for (const slot of slots) {
+        const s = new Date(slot.startAt);
+        const e = new Date(slot.endAt);
+        const conflict = busy.some((b) => s < b.end && e > b.start);
+        const booked = bookings.some(
+          (b) =>
+            b.status !== "CANCELLED" &&
+            b.startAt.toISOString() === slot.startAt,
+        );
+        if (!conflict && !booked) {
+          availableSlots.push({
+            date: dateStr,
+            startAt: slot.startAt,
+            endAt: slot.endAt,
+            label: slot.label,
+            professionalId: professionalId || null,
+          });
+        }
+      }
     }
+
     d = addDays(d, 1);
   }
 
+  let setupHint: "NO_PROS" | "NO_HOURS" | "NEED_PRO_FILTER" | null = null;
+  if (adminSalon && linkedPros.length > 0 && availableSlots.length === 0) {
+    const targetIds = anyone
+      ? linkedPros.map((p) => p.id)
+      : professionalId
+        ? [professionalId]
+        : [];
+    if (targetIds.length) {
+      const rules = await prisma.availabilityRule.count({
+        where: { professionalId: { in: targetIds } },
+      });
+      if (rules === 0) setupHint = "NO_HOURS";
+    }
+  }
+
   const googleConnected =
+    !salonMode &&
     !professionalId &&
     Boolean(
       page.organization.googleRefreshToken || page.organization.googleAccessToken,
@@ -181,6 +332,7 @@ export async function GET(req: Request) {
       customerName: b.customerName,
       customerEmail: b.customerEmail,
       serviceTitle: b.service.title,
+      professionalName: b.professional?.displayName ?? null,
       googleEventId: b.googleEventId,
       paymentStatus: b.payment?.status,
     })),
@@ -188,6 +340,9 @@ export async function GET(req: Request) {
     googleEvents,
     googleConnected,
     timezone: page.timezone,
-    professionalId,
+    professionalId: anyone ? null : professionalId,
+    anyone: adminSalon && anyone,
+    linkedProfessionals: linkedPros,
+    setupHint,
   });
 }

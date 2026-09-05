@@ -24,6 +24,21 @@ function detailKey(field: FormFieldConfig): keyof Props["details"] | null {
   return null;
 }
 
+function placeholderFor(field: FormFieldConfig): string {
+  if (field.preset === "customerName") return "Seu nome completo";
+  if (field.preset === "customerEmail" || field.type === "email")
+    return "voce@email.com";
+  if (field.preset === "customerPhone" || field.type === "phone")
+    return "(11) 99999-9999";
+  if (field.preset === "customerCpf" || field.type === "cpf")
+    return "000.000.000-00";
+  if (field.preset === "message" || field.type === "textarea")
+    return "Alguma observação?";
+  if (field.preset === "company") return "Nome da empresa";
+  if (field.type === "select") return "Selecione";
+  return field.label;
+}
+
 export function FunnelFormFields({
   fields,
   values,
@@ -32,13 +47,15 @@ export function FunnelFormFields({
   onDetailsChange,
 }: Props) {
   return (
-    <>
+    <div className="booking-form-fields">
       {fields.map((field) => {
         const dk = detailKey(field);
         const label = (
-          <span className="mb-1.5 block font-medium">
+          <span className="booking-field-label">
             {field.label}
-            {!field.required ? " (opcional)" : ""}
+            {!field.required ? (
+              <span className="booking-field-optional"> opcional</span>
+            ) : null}
           </span>
         );
 
@@ -47,12 +64,14 @@ export function FunnelFormFields({
           const set = (v: string) => onDetailsChange({ [dk]: v });
           if (field.type === "phone") {
             return (
-              <label key={field.id} className="block text-sm">
+              <label key={field.id} className="booking-field">
                 {label}
                 <input
                   required={field.required}
                   inputMode="tel"
-                  className="input-field"
+                  autoComplete="tel"
+                  placeholder={placeholderFor(field)}
+                  className="booking-field-input"
                   value={val}
                   onChange={(e) => set(formatPhone(e.target.value))}
                 />
@@ -61,12 +80,14 @@ export function FunnelFormFields({
           }
           if (field.type === "cpf") {
             return (
-              <label key={field.id} className="block text-sm sm:col-span-2">
+              <label key={field.id} className="booking-field">
                 {label}
                 <input
                   required={field.required}
                   inputMode="numeric"
-                  className="input-field"
+                  autoComplete="off"
+                  placeholder={placeholderFor(field)}
+                  className="booking-field-input"
                   value={val}
                   onChange={(e) => set(formatCpf(e.target.value))}
                 />
@@ -75,12 +96,14 @@ export function FunnelFormFields({
           }
           if (field.type === "email") {
             return (
-              <label key={field.id} className="block text-sm">
+              <label key={field.id} className="booking-field">
                 {label}
                 <input
                   required={field.required}
                   type="email"
-                  className="input-field"
+                  autoComplete="email"
+                  placeholder={placeholderFor(field)}
+                  className="booking-field-input"
                   value={val}
                   onChange={(e) => set(e.target.value)}
                 />
@@ -88,11 +111,13 @@ export function FunnelFormFields({
             );
           }
           return (
-            <label key={field.id} className="block text-sm sm:col-span-2">
+            <label key={field.id} className="booking-field">
               {label}
               <input
                 required={field.required}
-                className="input-field"
+                autoComplete="name"
+                placeholder={placeholderFor(field)}
+                className="booking-field-input"
                 value={val}
                 onChange={(e) => set(e.target.value)}
               />
@@ -102,12 +127,13 @@ export function FunnelFormFields({
 
         if (field.type === "textarea") {
           return (
-            <label key={field.id} className="block text-sm sm:col-span-2">
+            <label key={field.id} className="booking-field">
               {label}
               <textarea
                 required={field.required}
                 rows={3}
-                className="input-field"
+                placeholder={placeholderFor(field)}
+                className="booking-field-input booking-field-textarea"
                 value={values[field.id] || ""}
                 onChange={(e) => onChange(field.id, e.target.value)}
               />
@@ -117,15 +143,15 @@ export function FunnelFormFields({
 
         if (field.type === "select") {
           return (
-            <label key={field.id} className="block text-sm sm:col-span-2">
+            <label key={field.id} className="booking-field">
               {label}
               <select
                 required={field.required}
-                className="input-field"
+                className="booking-field-input"
                 value={values[field.id] || ""}
                 onChange={(e) => onChange(field.id, e.target.value)}
               >
-                <option value="">Selecione</option>
+                <option value="">{placeholderFor(field)}</option>
                 {(field.options || []).map((o) => (
                   <option key={o} value={o}>
                     {o}
@@ -137,17 +163,18 @@ export function FunnelFormFields({
         }
 
         return (
-          <label key={field.id} className="block text-sm sm:col-span-2">
+          <label key={field.id} className="booking-field">
             {label}
             <input
               required={field.required}
-              className="input-field"
+              placeholder={placeholderFor(field)}
+              className="booking-field-input"
               value={values[field.id] || ""}
               onChange={(e) => onChange(field.id, e.target.value)}
             />
           </label>
         );
       })}
-    </>
+    </div>
   );
 }

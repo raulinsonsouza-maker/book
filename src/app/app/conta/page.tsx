@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { DESCRIPTION_MAX } from "@/lib/branding";
+import { readLogoFile } from "@/lib/image-upload";
 import { SubscriptionSubscribeButton } from "@/components/billing/SubscriptionSubscribeButton";
+import { EquipePanel } from "@/components/admin/EquipePanel";
+import {
+  SettingsTabs,
+  useSettingsTab,
+} from "@/components/admin/SettingsTabs";
 
 type BillingStatus = {
   billingEnabled: boolean;
@@ -30,9 +36,8 @@ type Org = {
   cardMaxInstallments: number;
 };
 
-const MAX_LOGO_BYTES = 350_000;
-
-export default function SettingsPage() {
+function ContaSettingsBody() {
+  const tab = useSettingsTab();
   const [org, setOrg] = useState<Org | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -131,21 +136,7 @@ export default function SettingsPage() {
   }
   function onLogoFile(file: File | null) {
     setError("");
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Envie uma imagem (PNG, JPG ou WebP)");
-      return;
-    }
-    if (file.size > MAX_LOGO_BYTES) {
-      setError("Logo muito grande — use até ~350 KB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result || "");
-      setLogoUrl(result);
-    };
-    reader.readAsDataURL(file);
+    readLogoFile(file, setLogoUrl, setError);
   }
 
   async function saveOrg(e: React.FormEvent) {
@@ -198,7 +189,13 @@ export default function SettingsPage() {
   const previewDesc = description.trim().slice(0, DESCRIPTION_MAX);
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className={`mx-auto space-y-6 ${tab === "equipe" ? "max-w-3xl" : "max-w-xl"}`}>
+      <SettingsTabs active={tab} />
+
+      {tab === "equipe" ? (
+        <EquipePanel />
+      ) : (
+        <>
       {msg && (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
           {msg}
@@ -443,7 +440,9 @@ export default function SettingsPage() {
               </button>
             )}
           </div>
-          <p className="text-xs text-muted">PNG, JPG ou WebP até ~350 KB.</p>
+          <p className="text-xs text-muted">
+            PNG, JPG ou WebP até 5 MB — otimizamos automaticamente.
+          </p>
         </div>
 
         <label className="block text-sm">
@@ -545,6 +544,16 @@ export default function SettingsPage() {
           {savingComms ? "Salvando…" : "Salvar comunicação"}
         </button>
       </form>
+        </>
+      )}
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted">Carregando…</p>}>
+      <ContaSettingsBody />
+    </Suspense>
   );
 }

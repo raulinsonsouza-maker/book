@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import {
   AdminFlashMessage,
   AdminPageIntro,
@@ -20,12 +20,8 @@ import {
   parseBRLMaskToCents,
 } from "@/lib/utils";
 
-type PageOpt = { id: string; title: string };
-
 type ServiceRow = {
   id: string;
-  bookingPageId: string;
-  pageTitle: string;
   title: string;
   description: string | null;
   imageUrl: string | null;
@@ -36,7 +32,6 @@ type ServiceRow = {
 };
 
 type FormState = {
-  bookingPageId: string;
   title: string;
   description: string;
   imageUrl: string;
@@ -44,8 +39,7 @@ type FormState = {
   priceMasked: string;
 };
 
-const emptyForm = (pageId = ""): FormState => ({
-  bookingPageId: pageId,
+const emptyForm = (): FormState => ({
   title: "",
   description: "",
   imageUrl: "",
@@ -53,10 +47,11 @@ const emptyForm = (pageId = ""): FormState => ({
   priceMasked: centsToBRLMask(15000),
 });
 
-export default function ServicesAdminPage() {
+function ServicesAdminInner() {
   const { confirm } = useConfirm();
+  const searchParams = useSearchParams();
+  const openCreate = searchParams.get("novo") === "1";
   const [services, setServices] = useState<ServiceRow[]>([]);
-  const [pages, setPages] = useState<PageOpt[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
   const [msgTone, setMsgTone] = useState<"ok" | "err">("ok");
@@ -68,32 +63,18 @@ export default function ServicesAdminPage() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   async function load() {
-    const [svcRes, pagesRes] = await Promise.all([
-      fetch("/api/services"),
-      fetch("/api/pages"),
-    ]);
+    const svcRes = await fetch("/api/services");
     if (svcRes.ok) setServices(await svcRes.json());
-    if (pagesRes.ok) {
-      const list = await pagesRes.json();
-      const opts: PageOpt[] = (list || []).map(
-        (p: { id: string; title: string }) => ({
-          id: p.id,
-          title: p.title,
-        }),
-      );
-      setPages(opts);
-      if (opts.length === 1) {
-        setForm((f) =>
-          f.bookingPageId ? f : { ...f, bookingPageId: opts[0].id },
-        );
-      }
-    }
     setLoading(false);
   }
 
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (openCreate) setShowCreate(true);
+  }, [openCreate]);
 
   function flash(text: string, tone: "ok" | "err" = "ok") {
     setMsg(text);
@@ -102,11 +83,6 @@ export default function ServicesAdminPage() {
 
   async function createService(e: React.FormEvent) {
     e.preventDefault();
-    const pageId = form.bookingPageId || pages[0]?.id;
-    if (!pageId) {
-      flash("Crie uma página de agendamento antes", "err");
-      return;
-    }
     const duration = Math.max(
       5,
       parseInt(form.durationMinutes || "0", 10) || 0,
@@ -119,7 +95,6 @@ export default function ServicesAdminPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        bookingPageId: pageId,
         title: form.title.trim(),
         description: form.description.trim() || null,
         imageUrl: form.imageUrl || null,
@@ -134,7 +109,7 @@ export default function ServicesAdminPage() {
       flash(data.error || "Erro ao criar", "err");
       return;
     }
-    setForm(emptyForm(pageId));
+    setForm(emptyForm());
     setShowCreate(false);
     flash("Serviço criado — a imagem aparece na escolha do cliente");
     await load();
@@ -143,7 +118,6 @@ export default function ServicesAdminPage() {
   function openEdit(s: ServiceRow) {
     setEditId(s.id);
     setEditForm({
-      bookingPageId: s.bookingPageId,
       title: s.title,
       description: s.description || "",
       imageUrl: s.imageUrl || "",
@@ -237,27 +211,12 @@ export default function ServicesAdminPage() {
 
   if (loading) return <p className="text-sm text-muted">Carregando…</p>;
 
-  if (pages.length === 0) {
-    return (
-      <div className="surface space-y-3 p-6">
-        <h1 className="font-semibold tracking-tight">Nenhuma agenda ainda</h1>
-        <p className="text-sm text-muted">
-          Antes de cadastrar serviços, configure os horários e o link público.
-        </p>
-        <Link href="/app/agendador" className="btn-primary inline-block !text-xs">
-          Ir ao Agendador
-        </Link>
-      </div>
-    );
-  }
-
-  const multiPage = pages.length > 1;
-
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <AdminPageIntro link={{ href: "/app/agendador", label: "Agendador →" }}>
-        Crie e edite o que você oferece. A imagem aparece no link público quando
-        o cliente escolhe o serviço.
+      <AdminPageIntro link={{ href: "/app/agendador", label: "Páginas →" }}>
+        Catálogo da conta — os mesmos serviços ficam disponíveis em todas as
+        páginas de agendamento. A imagem aparece no link público quando o
+        cliente escolhe.
       </AdminPageIntro>
 
       {msg && <AdminFlashMessage tone={msgTone}>{msg}</AdminFlashMessage>}
@@ -267,7 +226,7 @@ export default function ServicesAdminPage() {
           type="button"
           className="btn-primary"
           onClick={() => {
-            setForm(emptyForm(pages[0]?.id || ""));
+            setForm(emptyForm());
             setShowCreate(true);
           }}
         >
@@ -301,7 +260,8 @@ export default function ServicesAdminPage() {
                   Novo serviço
                 </h2>
                 <p className="mt-1 text-sm text-muted">
-                  Nome, duração, preço e imagem opcional.
+                  Nome, duração, preço e imagem opcional. Vale para todas as
+                  páginas.
                 </p>
               </div>
 
@@ -313,26 +273,6 @@ export default function ServicesAdminPage() {
                 onChange={(url) => setForm({ ...form, imageUrl: url || "" })}
                 onError={(err) => flash(err, "err")}
               />
-
-              {multiPage && (
-                <label className="block text-sm">
-                  <span className="mb-1 block font-medium">Página</span>
-                  <select
-                    required
-                    className="input-field"
-                    value={form.bookingPageId}
-                    onChange={(e) =>
-                      setForm({ ...form, bookingPageId: e.target.value })
-                    }
-                  >
-                    {pages.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
 
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Nome</span>
@@ -501,7 +441,10 @@ export default function ServicesAdminPage() {
               </div>
 
               <label className="block text-sm">
-                <span className="mb-1 block font-medium">Descrição</span>
+                <span className="mb-1 block font-medium">
+                  Descrição{" "}
+                  <span className="font-normal text-muted">(opcional)</span>
+                </span>
                 <textarea
                   className="input-field"
                   rows={2}
@@ -547,12 +490,12 @@ export default function ServicesAdminPage() {
               inactive={!s.isActive}
               image={
                 <EntityListImage
-                  shape="square"
-                  maxBytes={MAX_SERVICE_PHOTO_BYTES}
                   value={s.imageUrl}
-                  fallbackLabel={s.title.slice(0, 1).toUpperCase() || "?"}
+                  shape="square"
+                  fallbackLabel={s.title.slice(0, 1)}
                   onChange={(url) => void saveImage(s, url)}
                   onError={(err) => flash(err, "err")}
+                  maxBytes={MAX_SERVICE_PHOTO_BYTES}
                 />
               }
               title={
@@ -567,10 +510,11 @@ export default function ServicesAdminPage() {
               meta={
                 <>
                   {s.durationMinutes} min · {formatBRL(s.priceCents)}
-                  {multiPage ? ` · ${s.pageTitle}` : ""}
+                  {s.bookingsCount > 0
+                    ? ` · ${s.bookingsCount} agendamento(s)`
+                    : ""}
                 </>
               }
-              description={s.description}
               actions={
                 <>
                   <button
@@ -592,17 +536,8 @@ export default function ServicesAdminPage() {
                     className="btn-secondary !py-1.5 !text-xs text-danger"
                     onClick={() => void removeService(s)}
                   >
-                    {s.bookingsCount > 0 ? "Desativar" : "Excluir"}
+                    Excluir
                   </button>
-                  {s.imageUrl && (
-                    <button
-                      type="button"
-                      className="btn-secondary !py-1.5 !text-xs text-danger"
-                      onClick={() => void saveImage(s, null)}
-                    >
-                      Remover foto
-                    </button>
-                  )}
                 </>
               }
             />
@@ -610,5 +545,13 @@ export default function ServicesAdminPage() {
         </ul>
       )}
     </div>
+  );
+}
+
+export default function ServicesAdminPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted">Carregando…</p>}>
+      <ServicesAdminInner />
+    </Suspense>
   );
 }

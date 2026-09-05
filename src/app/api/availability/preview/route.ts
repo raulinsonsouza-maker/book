@@ -25,7 +25,11 @@ export async function GET(req: Request) {
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const service = await prisma.service.findFirst({
-    where: { id: serviceId, bookingPageId: page.id },
+    where: {
+      id: serviceId,
+      organizationId: session.user.organizationId,
+      pages: { some: { bookingPageId: page.id } },
+    },
   });
   if (!service) return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
 

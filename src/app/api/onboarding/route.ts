@@ -12,25 +12,60 @@ const PRESET_WEEKDAYS = [1, 2, 3, 4, 5].flatMap((dayOfWeek) => [
 ]);
 
 const serviceSchema = z.object({
-  title: z.string().min(2).max(80),
-  durationMinutes: z.number().int().min(5).max(480),
-  priceCents: z.number().int().min(0),
+  title: z.string().trim().min(2).max(80),
+  durationMinutes: z.coerce.number().int().min(5).max(480),
+  priceCents: z.coerce.number().int().min(0),
 });
 
 const schema = z.object({
-  name: z.string().min(2).max(120),
-  description: z.string().min(2).max(DESCRIPTION_MAX),
-  logoUrl: z.string().nullable().optional(),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().min(2).max(DESCRIPTION_MAX),
+  logoUrl: z
+    .union([z.string(), z.null()])
+    .optional()
+    .transform((v) => {
+      if (v == null) return null;
+      const s = v.trim();
+      return s || null;
+    }),
   accentColor: z.string().optional(),
   businessMode: z.enum(["SOLO", "SALON"]),
   professionals: z
-    .array(z.object({ displayName: z.string().min(2).max(80) }))
+    .array(z.object({ displayName: z.string().trim().min(2).max(80) }))
     .max(20)
     .optional(),
   services: z.array(serviceSchema).min(1).max(30),
   applyBusinessHours: z.boolean().optional().default(true),
-  paymentProvider: z.enum(["MERCADO_PAGO", "ASAAS"]).optional(),
+  paymentProvider: z
+    .enum(["MERCADO_PAGO", "ASAAS"])
+    .nullable()
+    .optional()
+    .transform((v) => v ?? undefined),
 });
+
+function zodUserMessage(err: z.ZodError) {
+  const issue = err.issues[0];
+  if (!issue) return "Revise os dados do assistente";
+  const path = issue.path.join(".");
+  if (path.startsWith("name")) return "Informe o nome da empresa (mín. 2 caracteres)";
+  if (path.startsWith("description")) {
+    if (issue.code === "too_big") {
+      return `A descrição pode ter no máximo ${DESCRIPTION_MAX} caracteres`;
+    }
+    return "Informe o que você oferece (mín. 2 caracteres)";
+  }
+  if (path.includes("displayName") || path.startsWith("professionals")) {
+    return "Nome do profissional inválido (mín. 2 caracteres)";
+  }
+  if (path.includes("title") || path.startsWith("services")) {
+    if (path.includes("duration")) return "Duração do serviço inválida (5–480 min)";
+    if (path.includes("price")) return "Preço do serviço inválido";
+    return "Revise os serviços (título com mín. 2 caracteres)";
+  }
+  if (path.startsWith("paymentProvider")) return "Escolha de pagamento inválida";
+  if (path.startsWith("logoUrl")) return "Logo inválida — tente outra imagem";
+  return "Revise os dados do assistente";
+}
 
 export async function GET() {
   const auth = await apiRequireAdmin();
@@ -140,14 +175,15 @@ export async function POST(req: Request) {
 
       await tx.service.deleteMany({
         where: {
-          bookingPageId: page.id,
+          organizationId: orgId,
           bookings: { none: {} },
         },
       });
 
       const existingServices = await tx.service.findMany({
-        where: { bookingPageId: page.id },
+        where: { organizationId: orgId },
         select: { id: true },
+        orderBy: { sortOrder: "asc" },
       });
 
       const createdServices = [];
@@ -166,7 +202,7 @@ export async function POST(req: Request) {
         } else {
           const created = await tx.service.create({
             data: {
-              bookingPageId: page.id,
+              organizationId: orgId,
               title: s.title.trim(),
               durationMinutes: s.durationMinutes,
               priceCents: s.priceCents,
@@ -193,6 +229,20 @@ export async function POST(req: Request) {
       }
 
       const serviceIds = createdServices.map((s) => s.id);
+
+      await tx.bookingPageService.deleteMany({
+        where: { bookingPageId: page.id },
+      });
+      if (serviceIds.length) {
+        await tx.bookingPageService.createMany({
+          data: serviceIds.map((serviceId, i) => ({
+            bookingPageId: page.id,
+            serviceId,
+            sortOrder: i,
+          })),
+        });
+      }
+
       const proIds: string[] = [];
 
       if (body.businessMode === "SALON") {
@@ -299,8 +349,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     if (e instanceof z.ZodError) {
+      console.warn("[onboarding] validation", e.flatten());
       return NextResponse.json(
-        { error: "Revise os dados do assistente", details: e.flatten() },
+        {
+          error: zodUserMessage(e),
+          details: e.flatten(),
+        },
         { status: 400 },
       );
     }

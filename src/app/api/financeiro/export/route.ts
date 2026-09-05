@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { format } from "date-fns";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { commissionCents } from "@/lib/payments/commission";
 import { buildPaymentWhere } from "@/lib/payments/org-filter";
 import { apiAuthContext, isProfessionalRole, resolveProfessionalScope } from "@/lib/rbac";
 
@@ -45,6 +46,13 @@ export async function GET(req: Request) {
           customerName: true,
           service: { select: { title: true } },
           bookingPage: { select: { title: true } },
+          professional: {
+            select: {
+              displayName: true,
+              commissionEnabled: true,
+              commissionPercent: true,
+            },
+          },
         },
       },
       checkoutOrder: {
@@ -63,9 +71,12 @@ export async function GET(req: Request) {
     "tipo",
     "titulo",
     "cliente",
+    "profissional",
     "metodo",
     "status",
     "valor_centavos",
+    "comissao_centavos",
+    "comissao_percent",
     "pago_em",
   ];
   const rows = payments.map((p) => {
@@ -76,14 +87,24 @@ export async function GET(req: Request) {
     const customer = isBooking
       ? p.booking?.customerName || ""
       : p.checkoutOrder?.customerName || "";
+    const pro = p.booking?.professional;
+    const commission = isBooking
+      ? commissionCents(p.amountCents, {
+          enabled: pro?.commissionEnabled,
+          percent: pro?.commissionPercent,
+        })
+      : 0;
     return [
       format(p.createdAt, "yyyy-MM-dd HH:mm"),
       isBooking ? "agendamento" : "checkout",
       csvEscape(title),
       csvEscape(customer),
+      csvEscape(pro?.displayName || ""),
       p.method,
       p.status,
       String(p.amountCents),
+      String(commission),
+      pro?.commissionEnabled ? String(pro.commissionPercent) : "",
       p.paidAt ? format(p.paidAt, "yyyy-MM-dd HH:mm") : "",
     ].join(",");
   });

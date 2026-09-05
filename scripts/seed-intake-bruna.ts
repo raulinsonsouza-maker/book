@@ -81,7 +81,7 @@ async function main() {
   const page = org.bookingPages[0];
   if (page) {
     const existingService = await prisma.service.findFirst({
-      where: { bookingPageId: page.id, intakeProductId: product.id },
+      where: { organizationId: org.id, intakeProductId: product.id },
     });
     if (existingService) {
       await prisma.service.update({
@@ -97,12 +97,12 @@ async function main() {
       console.log("Serviço atualizado:", existingService.id);
     } else {
       const maxSort = await prisma.service.aggregate({
-        where: { bookingPageId: page.id },
+        where: { organizationId: org.id },
         _max: { sortOrder: true },
       });
       const service = await prisma.service.create({
         data: {
-          bookingPageId: page.id,
+          organizationId: org.id,
           title: SERVICE_TITLE,
           description: product.description,
           priceCents: PRICE_CENTS,

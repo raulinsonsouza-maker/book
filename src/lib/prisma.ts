@@ -19,8 +19,9 @@ async function configureSqlite() {
   if (!process.env.DATABASE_URL?.startsWith("file:")) return;
   globalForPrisma.sqliteConfigured = true;
   try {
-    await prisma.$executeRawUnsafe("PRAGMA journal_mode=WAL");
-    await prisma.$executeRawUnsafe("PRAGMA busy_timeout=30000");
+    // journal_mode returns a row — use queryRaw, not executeRaw
+    await prisma.$queryRawUnsafe("PRAGMA journal_mode=WAL");
+    await prisma.$queryRawUnsafe("PRAGMA busy_timeout=30000");
   } catch (e) {
     console.error("[prisma] sqlite pragma", e);
   }

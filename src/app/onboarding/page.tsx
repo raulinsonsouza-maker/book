@@ -12,6 +12,8 @@ import {
   maskBRLFromDigits,
   parseBRLMaskToCents,
 } from "@/lib/utils";
+import { DESCRIPTION_MAX } from "@/lib/branding";
+import { readLogoFile } from "@/lib/image-upload";
 
 type Step = "empresa" | "modo" | "servicos" | "pagamento" | "pronto";
 
@@ -28,8 +30,6 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "pagamento", label: "Pagamento" },
   { id: "pronto", label: "Pronto" },
 ];
-
-const MAX_LOGO_BYTES = 350_000;
 
 const POPUP_FEATURES =
   "popup=yes,width=520,height=720,left=100,top=100,scrollbars=yes,resizable=yes";
@@ -89,61 +89,83 @@ export default function OnboardingPage() {
 
   function onLogoFile(file: File | null) {
     setError("");
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Envie uma imagem (PNG, JPG ou WebP)");
-      return;
-    }
-    if (file.size > MAX_LOGO_BYTES) {
-      setError("Logo muito grande — use até ~350 KB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setLogoUrl(String(reader.result || ""));
-    reader.readAsDataURL(file);
+    readLogoFile(file, setLogoUrl, setError);
   }
 
   function stepIndex(id: Step) {
     return STEPS.findIndex((s) => s.id === id);
   }
 
+  /** Valida um passo; retorna mensagem de erro ou null se ok. */
+  function validateStep(id: Step): string | null {
+    if (id === "empresa") {
+      if (name.trim().length < 2) return "Informe o nome da empresa (mín. 2 caracteres)";
+      if (name.trim().length > 120) return "Nome da empresa muito longo";
+      if (description.trim().length < 2) {
+        return "Informe o que você oferece (mín. 2 caracteres)";
+      }
+      if (description.trim().length > DESCRIPTION_MAX) {
+        return `A descrição pode ter no máximo ${DESCRIPTION_MAX} caracteres`;
+      }
+      return null;
+    }
+    if (id === "modo") {
+      if (businessMode === "SALON") {
+        const names = proNames.map((n) => n.trim()).filter(Boolean);
+        if (names.length < 1) {
+          return "Informe pelo menos um profissional";
+        }
+        const short = names.find((n) => n.length < 2);
+        if (short) {
+          return `Nome “${short}” é curto demais (mín. 2 letras)`;
+        }
+        const long = names.find((n) => n.length > 80);
+        if (long) return "Nome de profissional muito longo";
+      }
+      return null;
+    }
+    if (id === "servicos") {
+      const filled = services.filter((s) => s.title.trim().length > 0);
+      if (!filled.length) return "Adicione pelo menos um serviço";
+      for (const s of filled) {
+        const title = s.title.trim();
+        if (title.length < 2) {
+          return `Título “${title}” é curto demais (mín. 2 caracteres)`;
+        }
+        if (title.length > 80) return `Título “${title.slice(0, 24)}…” muito longo`;
+        const mins = Number(s.durationMinutes);
+        if (!Number.isFinite(mins) || mins < 5 || mins > 480) {
+          return `Duração de “${title}” deve ser entre 5 e 480 minutos`;
+        }
+      }
+      return null;
+    }
+    return null;
+  }
+
+  function firstInvalidStep(): Step | null {
+    for (const id of ["empresa", "modo", "servicos"] as Step[]) {
+      if (validateStep(id)) return id;
+    }
+    return null;
+  }
+
   function goNext() {
+    const msg = validateStep(step);
+    if (msg) {
+      setError(msg);
+      return;
+    }
     setError("");
     if (step === "empresa") {
-      if (name.trim().length < 2) {
-        setError("Informe o nome da empresa");
-        return;
-      }
-      if (description.trim().length < 2) {
-        setError("Informe o que você oferece");
-        return;
-      }
       setStep("modo");
       return;
     }
     if (step === "modo") {
-      if (businessMode === "SALON") {
-        const names = proNames.map((n) => n.trim()).filter(Boolean);
-        if (names.length < 1) {
-          setError("Informe pelo menos um profissional");
-          return;
-        }
-      }
       setStep("servicos");
       return;
     }
     if (step === "servicos") {
-      const valid = services.filter((s) => s.title.trim().length >= 2);
-      if (!valid.length) {
-        setError("Adicione pelo menos um serviço");
-        return;
-      }
-      for (const s of valid) {
-        if (s.durationMinutes < 5) {
-          setError(`Duração inválida em “${s.title}”`);
-          return;
-        }
-      }
       setStep("pagamento");
       return;
     }
@@ -231,37 +253,52 @@ export default function OnboardingPage() {
     window.location.assign("/app");
   }
 
-  async function finish() {
+  async function finish(opts?: { skipPayment?: boolean }) {
+    const bad = firstInvalidStep();
+    if (bad) {
+      setStep(bad);
+      setError(validateStep(bad) || "Revise os dados deste passo");
+      return;
+    }
+
+    const trimmedName = name.trim();
+    const trimmedDescription = description.trim().slice(0, DESCRIPTION_MAX);
+    const validServices = services
+      .filter((s) => s.title.trim().length >= 2)
+      .map((s) => ({
+        title: s.title.trim().slice(0, 80),
+        durationMinutes: Math.min(480, Math.max(5, Number(s.durationMinutes) || 30)),
+        priceCents: parseBRLMaskToCents(s.priceMask) || 0,
+      }));
+    const validPros =
+      businessMode === "SALON"
+        ? proNames
+            .map((n) => n.trim())
+            .filter((n) => n.length >= 2)
+            .map((displayName) => ({ displayName: displayName.slice(0, 80) }))
+        : [];
+
     setSaving(true);
     setError("");
+    const skipPayment = opts?.skipPayment === true;
     const payload = {
-      name: name.trim(),
-      description: description.trim(),
+      name: trimmedName,
+      description: trimmedDescription,
       logoUrl: logoUrl || null,
       accentColor,
       businessMode,
-      professionals:
-        businessMode === "SALON"
-          ? proNames
-              .map((n) => n.trim())
-              .filter(Boolean)
-              .map((displayName) => ({ displayName }))
-          : [],
-      services: services
-        .filter((s) => s.title.trim().length >= 2)
-        .map((s) => ({
-          title: s.title.trim(),
-          durationMinutes: s.durationMinutes,
-          priceCents: parseBRLMaskToCents(s.priceMask) || 0,
-        })),
+      professionals: validPros,
+      services: validServices,
       applyBusinessHours: true,
-      paymentProvider: mpConnected
-        ? "MERCADO_PAGO"
-        : asaasConnected
-          ? "ASAAS"
-          : paymentChoice === "LATER"
-            ? undefined
-            : paymentChoice,
+      paymentProvider: skipPayment
+        ? undefined
+        : mpConnected
+          ? "MERCADO_PAGO"
+          : asaasConnected
+            ? "ASAAS"
+            : paymentChoice === "LATER"
+              ? undefined
+              : paymentChoice,
     };
 
     const res = await fetch("/api/onboarding", {
@@ -269,9 +306,11 @@ export default function OnboardingPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     setSaving(false);
     if (!res.ok) {
+      const apiBad = firstInvalidStep();
+      if (apiBad) setStep(apiBad);
       setError(data.error || "Não foi possível salvar");
       return;
     }
@@ -291,8 +330,8 @@ export default function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="dot-grid flex min-h-screen items-center justify-center px-4">
-        <p className="text-sm text-muted">Preparando assistente…</p>
+      <div className="onboard-shell flex items-center justify-center px-4">
+        <p className="text-sm text-[var(--lp-steel)]">Preparando assistente…</p>
       </div>
     );
   }
@@ -301,31 +340,28 @@ export default function OnboardingPage() {
   const progress = ((idx + 1) / STEPS.length) * 100;
 
   return (
-    <div className="dot-grid min-h-screen px-4 py-8">
+    <div className="onboard-shell px-4 py-8 md:py-12">
       <div className="mx-auto w-full max-w-xl">
         <div className="mb-6 flex items-center justify-between gap-3">
           <BrandLogo href="/" size="md" showText />
-          <p className="text-xs text-muted">
+          <span className="onboard-chip">
             Passo {idx + 1} de {STEPS.length}
-          </p>
+          </span>
         </div>
 
-        <div className="mb-6 h-1.5 overflow-hidden rounded-full bg-border">
-          <div
-            className="h-full rounded-full bg-foreground transition-all"
-            style={{ width: `${progress}%` }}
-          />
+        <div className="onboard-progress mb-6">
+          <span style={{ width: `${progress}%` }} />
         </div>
 
-        <div className="surface space-y-5 p-6 sm:p-8">
+        <div className="onboard-card space-y-5 p-6 sm:p-8">
           {step === "empresa" && (
             <>
               <div>
-                <p className="eyebrow">Bem-vindo</p>
-                <h1 className="mt-1 text-2xl font-bold tracking-tight">
+                <p className="onboard-kicker">Bem-vindo</p>
+                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
                   Configure sua empresa
                 </h1>
-                <p className="mt-1 text-sm text-muted">
+                <p className="onboard-lead mt-1.5">
                   Em poucos minutos seus serviços e pagamentos ficam prontos para
                   receber clientes.
                 </p>
@@ -335,7 +371,10 @@ export default function OnboardingPage() {
                 <input
                   className="input-field"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (error) setError("");
+                  }}
                   placeholder="Ex.: Studio Ana"
                   autoFocus
                 />
@@ -345,121 +384,120 @@ export default function OnboardingPage() {
                 <textarea
                   required
                   minLength={2}
+                  maxLength={DESCRIPTION_MAX}
                   className="input-field min-h-[72px]"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    if (error) setError("");
+                  }}
                   placeholder="Ex.: Corte, coloração e escova"
                 />
               </label>
-              <div className="space-y-4 border-t border-border pt-4">
-                <div className="space-y-2">
-                  <span className="block text-sm font-medium">Logotipo (opcional)</span>
-                  <div className="flex flex-wrap items-center gap-3">
+
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-medium">Logotipo (opcional)</span>
+                <div className="onboard-logo-row">
+                  <div className="onboard-logo-preview">
                     {logoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={logoUrl}
-                        alt=""
-                        className="h-11 w-11 rounded-lg border border-border bg-white object-contain p-1"
-                      />
+                      <img src={logoUrl} alt="" />
                     ) : (
-                      <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-border bg-muted-bg text-[10px] font-medium text-muted">
-                        —
-                      </div>
-                    )}
-                    <label className="btn-secondary cursor-pointer !py-2 text-sm">
-                      Enviar imagem
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        className="hidden"
-                        onChange={(e) => onLogoFile(e.target.files?.[0] || null)}
-                      />
-                    </label>
-                    {logoUrl && (
-                      <button
-                        type="button"
-                        className="text-sm text-danger"
-                        onClick={() => setLogoUrl("")}
-                      >
-                        Remover
-                      </button>
+                      <span>Logo</span>
                     )}
                   </div>
-                  <p className="text-xs text-muted">PNG, JPG ou WebP até ~350 KB.</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="btn-secondary cursor-pointer !py-2 !text-xs">
+                        Enviar imagem
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={(e) => onLogoFile(e.target.files?.[0] || null)}
+                        />
+                      </label>
+                      {logoUrl && (
+                        <button
+                          type="button"
+                            className="text-xs font-medium text-[var(--lp-steel)] hover:text-danger"
+                          onClick={() => setLogoUrl("")}
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+              </label>
 
-                <label className="block text-sm">
-                  <span className="mb-1.5 block font-medium">Cor de destaque</span>
-                  <div className="flex items-center gap-3">
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-medium">Cor de destaque</span>
+                <div className="onboard-color-row">
+                  <span className="onboard-color-swatch">
                     <input
                       type="color"
-                      className="h-10 w-14 shrink-0 cursor-pointer rounded-lg border border-border bg-white p-1"
                       value={accentColor}
                       onChange={(e) => setAccentColor(e.target.value)}
+                      aria-label="Escolher cor de destaque"
                     />
-                    <input
-                      className="input-field max-w-[8.5rem] font-mono text-sm uppercase"
-                      value={accentColor}
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      pattern="^#[0-9A-Fa-f]{6}$"
-                    />
-                    <span
-                      className="hidden h-10 min-w-[5.5rem] rounded-lg px-3 text-sm font-semibold text-white sm:inline-flex sm:items-center sm:justify-center"
-                      style={{ background: accentColor }}
-                    >
-                      Botão
-                    </span>
-                  </div>
-                </label>
-              </div>
+                  </span>
+                  <input
+                    className="input-field max-w-[7.5rem] font-mono text-sm uppercase"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    pattern="^#[0-9A-Fa-f]{6}$"
+                  />
+                  <span
+                    className="onboard-color-preview"
+                    style={{ background: accentColor }}
+                  >
+                    Prévia
+                  </span>
+                </div>
+              </label>
             </>
           )}
 
           {step === "modo" && (
             <>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight">
+                <p className="onboard-kicker">Equipe</p>
+                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
                   Quem atende?
                 </h1>
-                <p className="mt-1 text-sm text-muted">
+                <p className="onboard-lead mt-1.5">
                   Individual se for só você. Com equipe se várias pessoas atenderem no mesmo link.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => setBusinessMode("SOLO")}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    businessMode === "SOLO"
-                      ? "border-foreground bg-foreground text-white"
-                      : "border-border bg-white hover:bg-muted-bg"
+                  onClick={() => {
+                    setBusinessMode("SOLO");
+                    if (error) setError("");
+                  }}
+                  className={`onboard-choice ${
+                    businessMode === "SOLO" ? "onboard-choice-active" : ""
                   }`}
                 >
                   <p className="font-semibold">Individual</p>
-                  <p
-                    className={`mt-1 text-xs ${
-                      businessMode === "SOLO" ? "text-white/80" : "text-muted"
-                    }`}
-                  >
+                  <p className="onboard-choice-desc mt-1 text-xs">
                     Uma pessoa atende. Ideal para profissionais autônomos.
                   </p>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setBusinessMode("SALON")}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    businessMode === "SALON"
-                      ? "border-foreground bg-foreground text-white"
-                      : "border-border bg-white hover:bg-muted-bg"
+                  onClick={() => {
+                    setBusinessMode("SALON");
+                    if (error) setError("");
+                  }}
+                  className={`onboard-choice ${
+                    businessMode === "SALON" ? "onboard-choice-active" : ""
                   }`}
                 >
                   <p className="font-semibold">Equipe</p>
-                  <p
-                    className={`mt-1 text-xs ${
-                      businessMode === "SALON" ? "text-white/80" : "text-muted"
-                    }`}
-                  >
+                  <p className="onboard-choice-desc mt-1 text-xs">
                     Vários profissionais. O cliente escolhe quem prefere.
                   </p>
                 </button>
@@ -477,6 +515,7 @@ export default function OnboardingPage() {
                           const next = [...proNames];
                           next[i] = e.target.value;
                           setProNames(next);
+                          if (error) setError("");
                         }}
                       />
                       {proNames.length > 1 && (
@@ -510,10 +549,11 @@ export default function OnboardingPage() {
           {step === "servicos" && (
             <>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight">
+                <p className="onboard-kicker">Serviços</p>
+                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
                   O que você oferece?
                 </h1>
-                <p className="mt-1 text-sm text-muted">
+                <p className="onboard-lead mt-1.5">
                   Cadastre os serviços principais. Horário comercial
                   (seg–sex, 9h–18h) será aplicado automaticamente — você ajusta
                   depois.
@@ -535,6 +575,7 @@ export default function OnboardingPage() {
                           const next = [...services];
                           next[i] = { ...s, title: e.target.value };
                           setServices(next);
+                          if (error) setError("");
                         }}
                       />
                     </label>
@@ -546,6 +587,7 @@ export default function OnboardingPage() {
                         <input
                           type="number"
                           min={5}
+                          max={480}
                           className="input-field"
                           value={s.durationMinutes}
                           onChange={(e) => {
@@ -555,6 +597,7 @@ export default function OnboardingPage() {
                               durationMinutes: Number(e.target.value) || 30,
                             };
                             setServices(next);
+                            if (error) setError("");
                           }}
                         />
                       </label>
@@ -571,6 +614,7 @@ export default function OnboardingPage() {
                               priceMask: maskBRLFromDigits(e.target.value),
                             };
                             setServices(next);
+                            if (error) setError("");
                           }}
                         />
                       </label>
@@ -607,10 +651,11 @@ export default function OnboardingPage() {
           {step === "pagamento" && (
             <>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight">
+                <p className="onboard-kicker">Pagamento</p>
+                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
                   Receber pagamentos
                 </h1>
-                <p className="mt-1 text-sm text-muted">
+                <p className="onboard-lead mt-1.5">
                   Conecte agora ou deixe para depois.
                 </p>
               </div>
@@ -622,7 +667,7 @@ export default function OnboardingPage() {
                     <div className="flex-1">
                       <p className="font-semibold">Mercado Pago</p>
                       <p className="text-xs text-muted">
-                        Pix e cartão · OAuth em um clique
+                        Pix e cartão · conecte em um clique
                       </p>
                     </div>
                     {mpConnected ? (
@@ -682,16 +727,16 @@ export default function OnboardingPage() {
 
                 <button
                   type="button"
-                  onClick={() => setPaymentChoice("LATER")}
-                  className={`w-full rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                    paymentChoice === "LATER" && !mpConnected && !asaasConnected
-                      ? "border-foreground"
-                      : "border-border"
-                  }`}
+                  disabled={saving}
+                  onClick={() => {
+                    setPaymentChoice("LATER");
+                    void finish({ skipPayment: true });
+                  }}
+                  className="onboard-choice w-full"
                 >
-                  <p className="font-medium">Configurar depois</p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    Seu link de agendamento já pode ser compartilhado.
+                  <p className="font-semibold">Configurar depois</p>
+                  <p className="onboard-choice-desc mt-1 text-xs text-[var(--lp-steel)]">
+                    Pule esta etapa e conecte o pagamento quando quiser, no painel.
                   </p>
                 </button>
               </div>
@@ -700,14 +745,21 @@ export default function OnboardingPage() {
 
           {step === "pronto" && (
             <div className="space-y-5 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-800">
+              <div
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-semibold"
+                style={{
+                  background: "var(--lp-accent-soft)",
+                  color: "var(--lp-accent)",
+                }}
+              >
                 ✓
               </div>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight">
+                <p className="onboard-kicker justify-center">Pronto</p>
+                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
                   Tudo pronto!
                 </h1>
-                <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+                <p className="onboard-lead mx-auto mt-2 max-w-sm text-center">
                   Seus serviços estão configurados
                   {services[0]?.title
                     ? ` com ${services.filter((s) => s.title.trim()).length} serviço(s)`
@@ -745,7 +797,10 @@ export default function OnboardingPage() {
           )}
 
           {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
+            <p
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger"
+            >
               {error}
             </p>
           )}
@@ -782,12 +837,12 @@ export default function OnboardingPage() {
         </div>
 
         {step !== "pronto" && (
-          <div className="mt-4 text-center">
+          <div className="mt-5 text-center">
             <button
               type="button"
               disabled={saving}
               onClick={() => void skipWizard()}
-              className="text-sm font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
+              className="text-sm font-medium text-[var(--lp-steel)] underline-offset-2 hover:text-[var(--lp-ink)] hover:underline"
             >
               Não quero fazer isso agora
             </button>

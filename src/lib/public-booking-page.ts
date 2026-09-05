@@ -18,48 +18,57 @@ const orgSelect = {
   asaasApiKey: true,
 } as const;
 
+const serviceInclude = {
+  customFields: { orderBy: { sortOrder: "asc" as const } },
+  intakeProduct: {
+    include: {
+      checkoutLinks: {
+        where: { isActive: true },
+        take: 1,
+        orderBy: { createdAt: "asc" as const },
+        select: { slug: true },
+      },
+    },
+  },
+  professionals: {
+    where: { professional: { isActive: true } },
+    include: {
+      professional: {
+        select: {
+          id: true,
+          displayName: true,
+          photoUrl: true,
+          sortOrder: true,
+          isActive: true,
+        },
+      },
+    },
+  },
+} as const;
+
 export async function findPublicBookingPage(orgSlug: string, pageSlug: string) {
-  return prisma.bookingPage.findFirst({
+  const page = await prisma.bookingPage.findFirst({
     where: {
       slug: pageSlug,
       isActive: true,
       organization: { slug: orgSlug },
     },
     include: {
-      services: {
-        where: { isActive: true },
-        include: {
-          customFields: { orderBy: { sortOrder: "asc" } },
-          intakeProduct: {
-            include: {
-              checkoutLinks: {
-                where: { isActive: true },
-                take: 1,
-                orderBy: { createdAt: "asc" },
-                select: { slug: true },
-              },
-            },
-          },
-          professionals: {
-            where: { professional: { isActive: true } },
-            include: {
-              professional: {
-                select: {
-                  id: true,
-                  displayName: true,
-                  photoUrl: true,
-                  sortOrder: true,
-                  isActive: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { sortOrder: "asc" },
-      },
       organization: { select: orgSelect },
+      pageServices: {
+        where: { service: { isActive: true } },
+        orderBy: { sortOrder: "asc" },
+        include: {
+          service: { include: serviceInclude },
+        },
+      },
     },
   });
+  if (!page) return null;
+
+  const services = page.pageServices.map((ps) => ps.service);
+  const { pageServices: _ps, ...rest } = page;
+  return { ...rest, services };
 }
 
 /** Links antigos /p/{slug} — só funciona se o slug ainda for único no sistema. */

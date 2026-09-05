@@ -17,11 +17,6 @@ export async function GET(
   const page = await prisma.bookingPage.findFirst({
     where: { slug, isActive: true },
     include: {
-      services: {
-        where: { isActive: true },
-        include: { customFields: { orderBy: { sortOrder: "asc" } } },
-        orderBy: { sortOrder: "asc" },
-      },
       organization: {
         select: {
           name: true,
@@ -45,6 +40,16 @@ export async function GET(
   if (!page) {
     return NextResponse.json({ error: "Página não encontrada" }, { status: 404 });
   }
+
+  const services = await prisma.service.findMany({
+    where: {
+      isActive: true,
+      pages: { some: { bookingPageId: page.id } },
+    },
+    include: { customFields: { orderBy: { sortOrder: "asc" } } },
+    orderBy: { sortOrder: "asc" },
+  });
+  const pageWithServices = { ...page, services };
 
   if (!date) {
     const days = await getAvailableDays({
@@ -95,7 +100,7 @@ export async function GET(
             mergedFunnel.theme.heroSubtitle || brand.description || undefined,
         },
       },
-      services: page.services,
+      services: pageWithServices.services,
       availableDays: days,
       paymentProvider: provider,
       paymentProviderLabel: paymentProviderLabel(provider),
@@ -113,7 +118,7 @@ export async function GET(
     return NextResponse.json({ error: "serviceId obrigatório" }, { status: 400 });
   }
 
-  const service = page.services.find((s) => s.id === serviceId);
+  const service = pageWithServices.services.find((s) => s.id === serviceId);
   if (!service) {
     return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
   }

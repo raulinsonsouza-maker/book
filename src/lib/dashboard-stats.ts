@@ -84,32 +84,19 @@ export async function getDashboardStats(
         startAt: { gte: tomorrow.start, lte: tomorrow.end },
       },
     }),
-    professionalId
-      ? prisma.bookingPage.count({
-          where: {
-            organizationId,
-            isActive: true,
-            services: {
-              some: {
-                isActive: true,
-                professionals: { some: { professionalId } },
-              },
-            },
-          },
-        })
-      : prisma.bookingPage.count({
-          where: { organizationId, isActive: true },
-        }),
+    prisma.bookingPage.count({
+      where: { organizationId, isActive: true },
+    }),
     professionalId
       ? prisma.service.count({
           where: {
+            organizationId,
             isActive: true,
             professionals: { some: { professionalId } },
-            bookingPage: { organizationId },
           },
         })
       : prisma.service.count({
-          where: { bookingPage: { organizationId }, isActive: true },
+          where: { organizationId, isActive: true },
         }),
     prisma.booking.count({
       where: {

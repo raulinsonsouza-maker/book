@@ -12,49 +12,40 @@ export default async function AgendaCalendarioPage() {
   const professionalId = isPro ? ctx!.professionalId : null;
 
   const pages = await prisma.bookingPage.findMany({
-    where: {
-      organizationId: org.id,
-      isActive: true,
-      ...(isPro
-        ? {
-            services: {
-              some: {
-                isActive: true,
-                professionals: {
-                  some: { professionalId: professionalId! },
-                },
-              },
-            },
-          }
-        : {}),
-    },
-    include: {
-      services: {
+    where: { organizationId: org.id, isActive: true },
+    orderBy: { title: "asc" },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      pageServices: {
         where: {
-          isActive: true,
-          ...(isPro
-            ? {
-                professionals: {
-                  some: { professionalId: professionalId! },
-                },
-              }
-            : {}),
+          service: {
+            isActive: true,
+            ...(isPro
+              ? {
+                  professionals: {
+                    some: { professionalId: professionalId! },
+                  },
+                }
+              : {}),
+          },
         },
         orderBy: { sortOrder: "asc" },
-        take: isPro ? undefined : 1,
+        take: 1,
+        select: { serviceId: true },
       },
     },
-    orderBy: { title: "asc" },
   });
 
-  const withServices = pages.filter((p) => p.services.length > 0);
+  const withServices = pages.filter((p) => p.pageServices.length > 0);
   if (withServices.length === 0) {
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted">
           {isPro
             ? "Ainda não há serviços vinculados à sua agenda. Peça ao administrador para associá-los ao seu perfil."
-            : "Ainda não há serviços com horários. Configure para ver a grade e os compromissos."}
+            : "Ainda não há serviços nesta página. Configure para ver a grade e os compromissos."}
         </p>
         {!isPro && (
           <a
@@ -72,13 +63,17 @@ export default async function AgendaCalendarioPage() {
     );
   }
 
-  const first = withServices[0];
+  const first = withServices[0]!;
 
   return (
     <WeekCalendar
-      pages={withServices.map((p) => ({ id: p.id, title: p.title, slug: p.slug }))}
+      pages={withServices.map((p) => ({
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+      }))}
       initialPageId={first.id}
-      initialServiceId={first.services[0].id}
+      initialServiceId={first.pageServices[0]!.serviceId}
       professionalId={professionalId}
       isProfessionalView={isPro}
       businessMode={org.businessMode === "SALON" ? "SALON" : "SOLO"}

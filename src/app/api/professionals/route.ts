@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { sendProfessionalWelcome } from "@/lib/email";
+import { appUrl } from "@/lib/email/templates/layout";
+import { normalizeCommissionPercent } from "@/lib/payments/commission";
 import { apiRequireAdmin } from "@/lib/rbac";
 
 const createSchema = z.object({
@@ -11,6 +14,8 @@ const createSchema = z.object({
   serviceIds: z.array(z.string()).optional(),
   photoUrl: z.string().nullable().optional(),
   copyHoursFromPageId: z.string().optional(),
+  commissionEnabled: z.boolean().optional(),
+  commissionPercent: z.number().int().min(0).max(100).optional(),
 });
 
 export async function GET() {
@@ -37,6 +42,8 @@ export async function GET() {
       email: p.membership.user.email,
       serviceIds: p.services.map((s) => s.serviceId),
       bookingsCount: p._count.bookings,
+      commissionEnabled: p.commissionEnabled,
+      commissionPercent: p.commissionPercent,
     })),
   );
 }
@@ -47,7 +54,7 @@ export async function POST(req: Request) {
 
   const org = await prisma.organization.findUnique({
     where: { id: auth.ctx.organizationId },
-    select: { businessMode: true },
+    select: { businessMode: true, name: true },
   });
   if (org?.businessMode !== "SALON") {
     return NextResponse.json(
@@ -59,6 +66,11 @@ export async function POST(req: Request) {
   try {
     const body = createSchema.parse(await req.json());
     const email = body.email.toLowerCase().trim();
+    const commissionEnabled = Boolean(body.commissionEnabled);
+    const commissionPercent = normalizeCommissionPercent(
+      body.commissionPercent,
+      50,
+    );
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -72,7 +84,7 @@ export async function POST(req: Request) {
       const valid = await prisma.service.count({
         where: {
           id: { in: body.serviceIds },
-          bookingPage: { organizationId: auth.ctx.organizationId },
+          organizationId: auth.ctx.organizationId,
         },
       });
       if (valid !== body.serviceIds.length) {
@@ -86,6 +98,7 @@ export async function POST(req: Request) {
     });
 
     const passwordHash = await bcrypt.hash(body.password, 10);
+    const temporaryPassword = body.password;
 
     const professional = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -93,6 +106,7 @@ export async function POST(req: Request) {
           email,
           name: body.displayName,
           passwordHash,
+          mustChangePassword: true,
         },
       });
 
@@ -111,6 +125,8 @@ export async function POST(req: Request) {
           displayName: body.displayName,
           photoUrl: body.photoUrl || null,
           sortOrder: (maxOrder._max.sortOrder ?? 0) + 1,
+          commissionEnabled,
+          commissionPercent,
           services: body.serviceIds?.length
             ? {
                 create: body.serviceIds.map((serviceId) => ({ serviceId })),
@@ -168,6 +184,33 @@ export async function POST(req: Request) {
 
       return pro;
     });
+
+    let serviceTitles: string[] = [];
+    if (body.serviceIds?.length) {
+      const services = await prisma.service.findMany({
+        where: {
+          id: { in: body.serviceIds },
+          organizationId: auth.ctx.organizationId,
+        },
+        select: { title: true },
+        orderBy: { sortOrder: "asc" },
+      });
+      serviceTitles = services.map((s) => s.title);
+    }
+
+    try {
+      await sendProfessionalWelcome({
+        to: email,
+        displayName: body.displayName,
+        organizationName: org.name,
+        email,
+        temporaryPassword,
+        serviceTitles,
+        loginUrl: appUrl("/login"),
+      });
+    } catch (err) {
+      console.error("[professionals] welcome email", err);
+    }
 
     return NextResponse.json({ id: professional.id }, { status: 201 });
   } catch (e) {

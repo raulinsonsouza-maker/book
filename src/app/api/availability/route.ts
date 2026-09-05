@@ -8,19 +8,27 @@ import {
   isProfessionalRole,
 } from "@/lib/rbac";
 
-const schema = z.object({
-  bookingPageId: z.string().optional(),
-  professionalId: z.string().optional(),
-  rules: z.array(
-    z.object({
-      dayOfWeek: z.number().int().min(0).max(6),
-      startTime: z.string(),
-      endTime: z.string(),
-    }),
-  ),
-}).refine((d) => Boolean(d.bookingPageId) !== Boolean(d.professionalId) || (d.bookingPageId && !d.professionalId) || (!d.bookingPageId && d.professionalId), {
-  message: "Informe bookingPageId ou professionalId",
-});
+const schema = z
+  .object({
+    bookingPageId: z.string().optional(),
+    professionalId: z.string().optional(),
+    /** Admin: grava as mesmas regras em todos os profissionais ativos (modo salão). */
+    applyToAllProfessionals: z.boolean().optional(),
+    rules: z.array(
+      z.object({
+        dayOfWeek: z.number().int().min(0).max(6),
+        startTime: z.string(),
+        endTime: z.string(),
+      }),
+    ),
+  })
+  .refine(
+    (d) =>
+      Boolean(d.applyToAllProfessionals) ||
+      Boolean(d.bookingPageId) ||
+      Boolean(d.professionalId),
+    { message: "Informe bookingPageId, professionalId ou applyToAllProfessionals" },
+  );
 
 export async function PUT(req: Request) {
   const auth = await apiAuthContext();
@@ -30,6 +38,46 @@ export async function PUT(req: Request) {
   try {
     const body = schema.parse(await req.json());
     const normalized = normalizeRules(body.rules);
+
+    if (body.applyToAllProfessionals) {
+      if (!isAdminRole(ctx.role)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      const pros = await prisma.professional.findMany({
+        where: {
+          organizationId: ctx.organizationId,
+          isActive: true,
+        },
+        select: { id: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      });
+      if (!pros.length) {
+        return NextResponse.json(
+          { error: "Cadastre pelo menos um profissional ativo" },
+          { status: 400 },
+        );
+      }
+
+      const proIds = pros.map((p) => p.id);
+      await prisma.$transaction([
+        prisma.availabilityRule.deleteMany({
+          where: { professionalId: { in: proIds } },
+        }),
+        prisma.availabilityRule.createMany({
+          data: proIds.flatMap((professionalId) =>
+            normalized.map((r) => ({
+              professionalId,
+              dayOfWeek: r.dayOfWeek,
+              startTime: r.startTime,
+              endTime: r.endTime,
+            })),
+          ),
+        }),
+      ]);
+
+      return NextResponse.json(normalized);
+    }
 
     if (body.professionalId) {
       const pro = await prisma.professional.findFirst({

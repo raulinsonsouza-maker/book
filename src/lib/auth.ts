@@ -25,6 +25,7 @@ async function loadUserContext(userId: string) {
     email: user.email,
     name: user.name,
     isPlatformAdmin: user.isPlatformAdmin,
+    mustChangePassword: user.mustChangePassword,
     organizationId: membership?.organizationId,
     organizationName: membership?.organization.name,
     role: membership?.role,
@@ -121,6 +122,7 @@ export const authOptions: NextAuthOptions = {
         if (ctx) {
           token.id = ctx.id;
           token.isPlatformAdmin = ctx.isPlatformAdmin;
+          token.mustChangePassword = ctx.mustChangePassword;
           token.organizationId = ctx.organizationId;
           token.organizationName = ctx.organizationName;
           token.role = ctx.role;
@@ -135,6 +137,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.isPlatformAdmin = Boolean(token.isPlatformAdmin);
+        session.user.mustChangePassword = Boolean(token.mustChangePassword);
         session.user.organizationId = token.organizationId as string | undefined;
         session.user.organizationName = token.organizationName as
           | string
