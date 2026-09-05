@@ -652,11 +652,16 @@ function AgendadorInner() {
         : `${appUrl}/p/${wPage.slug}`
       : "";
 
-    const steps = ["Nome", "Serviços", "Horários", "Página", "Pronto"];
+    const steps = ["Nome", "Serviços", "Horários", "Página", "Aparência"];
     const teamProCount = wPage?.teamProfessionals?.length ?? 0;
+    const isAppearanceStep = wizardStep === 4;
 
     return (
-      <div className="pages-hub mx-auto max-w-xl space-y-6">
+      <div
+        className={`pages-hub mx-auto space-y-6 ${
+          isAppearanceStep ? "max-w-3xl" : "max-w-xl"
+        }`}
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Link
             href="/app/agendador"
@@ -685,7 +690,11 @@ function AgendadorInner() {
           ))}
         </div>
 
-        <div className="surface space-y-5 p-6">
+        <div
+          className={`surface space-y-5 ${
+            isAppearanceStep ? "p-3 sm:p-5" : "p-6"
+          }`}
+        >
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
               {steps[wizardStep]}
@@ -697,8 +706,8 @@ function AgendadorInner() {
                 (isSalon
                   ? "Quando a equipe atende?"
                   : "Quando você atende?")}
-              {wizardStep === 3 && "Como o cliente vê"}
-              {wizardStep === 4 && "Tudo pronto!"}
+              {wizardStep === 3 && "Como o cliente vê o nome"}
+              {wizardStep === 4 && "Ajustes finais no celular"}
             </h1>
           </div>
 
@@ -1094,27 +1103,55 @@ function AgendadorInner() {
           )}
 
           {wizardStep === 4 && wPage && (
-            <div className="space-y-4 text-center">
+            <div className="space-y-5">
               <p className="text-sm text-muted">
-                Sua página está pronta para compartilhar.
+                Defina a imagem de destaque, revise o texto e confira no
+                preview do iPhone. Depois é só compartilhar o link.
               </p>
-              <p className="break-all rounded-xl bg-muted-bg px-3 py-2 text-xs">
-                {publicUrl}
-              </p>
-              <div className="flex flex-wrap justify-center gap-2">
-                <CopyLinkButton url={publicUrl} />
-                <a
-                  href={publicUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-secondary"
-                >
-                  Abrir
-                </a>
-              </div>
-              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-center">
-                <Link href="/app/agendador" className="btn-secondary">
-                  Ir para a lista
+              <AgendadorWelcomeEditor
+                pageId={wPage.id}
+                title={wPage.title}
+                description={wPage.description || ""}
+                coverImageUrl={wPage.coverImageUrl}
+                orgLogoUrl={orgLogoUrl}
+                orgAccent={orgAccent}
+                publicUrl={publicUrl}
+                showShareActions
+                services={wPage.services.map((s) => ({
+                  id: s.id,
+                  title: s.title,
+                  description: s.description,
+                  imageUrl: s.imageUrl,
+                  durationMinutes: s.durationMinutes,
+                  priceCents: s.priceCents,
+                  isActive: s.isActive,
+                }))}
+                businessMode={businessMode}
+                demoPayments={demoPayments}
+                onTitleChange={(value) =>
+                  setPage((p) => (p ? { ...p, title: value } : p))
+                }
+                onDescriptionChange={(value) =>
+                  setPage((p) =>
+                    p ? { ...p, description: value } : p,
+                  )
+                }
+                onCoverFile={handleCoverFile}
+                onRemoveCover={() => {
+                  setPage((p) =>
+                    p ? { ...p, coverImageUrl: null } : p,
+                  );
+                  void fetch(`/api/pages/${wPage.id}/cover`, {
+                    method: "DELETE",
+                  });
+                }}
+                onServiceChange={handleServiceChange}
+                onServiceImageFile={handleServiceImageFile}
+                onSaveAll={saveAllPageChanges}
+              />
+              <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:flex-wrap sm:justify-center">
+                <Link href="/app/agendador" className="btn-primary">
+                  Concluir
                 </Link>
                 {isSalon && (
                   <Link href="/app/profissionais" className="btn-secondary">
@@ -1123,9 +1160,9 @@ function AgendadorInner() {
                 )}
                 <Link
                   href={`/app/agendador?id=${wPage.id}`}
-                  className="btn-primary"
+                  className="btn-secondary"
                 >
-                  Editar
+                  Continuar editando
                 </Link>
               </div>
             </div>

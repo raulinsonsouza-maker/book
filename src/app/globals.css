@@ -1220,7 +1220,9 @@ button {
 
 .booking-welcome-hero--preview .booking-welcome-dock {
   max-width: none;
-  padding-bottom: max(1.75rem, calc(0.75rem + env(safe-area-inset-bottom, 0px)));
+  /* Sobe o bloco acima da home indicator do mockup */
+  padding-bottom: max(3rem, calc(2.25rem + env(safe-area-inset-bottom, 0px)));
+  margin-bottom: 0.35rem;
 }
 
 .booking-welcome-hero--preview .booking-welcome-cover-chip {
