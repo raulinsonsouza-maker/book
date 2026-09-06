@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Instrument_Serif, Syne } from "next/font/google";
+import { Fraunces, Geist, Instrument_Serif, Outfit } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
@@ -8,10 +8,16 @@ const geist = Geist({
   subsets: ["latin"],
 });
 
-const syne = Syne({
-  variable: "--font-syne",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
+});
+
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["600", "700"],
 });
 
 const instrument = Instrument_Serif({
@@ -39,7 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${geist.variable} ${syne.variable} ${instrument.variable} h-full`}
+      className={`${geist.variable} ${outfit.variable} ${fraunces.variable} ${instrument.variable} h-full`}
     >
       <body className="min-h-full antialiased font-sans">
         <Providers>{children}</Providers>

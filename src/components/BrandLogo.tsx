@@ -15,6 +15,8 @@ type Props = {
   title?: string;
   subtitle?: string;
   logoUrl?: string | null;
+  /** Use white mark on dark backgrounds */
+  light?: boolean;
   href?: string;
   className?: string;
   onClick?: () => void;
@@ -23,19 +25,22 @@ type Props = {
 function LogoMark({
   size = "md",
   logoUrl,
+  light = false,
 }: {
   size?: Size;
   logoUrl?: string | null;
+  light?: boolean;
 }) {
   const { box, px } = SIZES[size];
   const custom = Boolean(logoUrl?.trim());
+  const src = custom ? logoUrl! : light ? "/logo-white.png" : "/logo.png";
 
   return (
     <span className={`${box} relative inline-flex shrink-0`}>
       {custom ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={logoUrl!}
+          src={src}
           alt=""
           width={px}
           height={px}
@@ -43,7 +48,7 @@ function LogoMark({
         />
       ) : (
         <Image
-          src="/logo.png"
+          src={src}
           alt=""
           width={px}
           height={px}
@@ -61,22 +66,31 @@ export function BrandLogo({
   title = "Book Symbius",
   subtitle,
   logoUrl,
+  light = false,
   href,
   className = "",
   onClick,
 }: Props) {
   const content = (
     <>
-      <LogoMark size={size} logoUrl={logoUrl} />
+      <LogoMark size={size} logoUrl={logoUrl} light={light} />
       {showText && (
         <span className="min-w-0">
           <span
-            className={`block truncate font-semibold tracking-tight text-foreground ${SIZES[size].title}`}
+            className={`block truncate font-semibold tracking-tight ${
+              light ? "text-white" : "text-foreground"
+            } ${SIZES[size].title}`}
           >
             {title}
           </span>
           {subtitle && (
-            <span className="block truncate text-[11px] text-muted">{subtitle}</span>
+            <span
+              className={`block truncate text-[11px] ${
+                light ? "text-white/65" : "text-muted"
+              }`}
+            >
+              {subtitle}
+            </span>
           )}
         </span>
       )}

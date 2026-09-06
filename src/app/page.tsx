@@ -5,36 +5,42 @@ const SEGMENTS = [
   {
     title: "Barbearia",
     body: "Cadeiras cheias, encaixe sem buraco e pagamento antes de sentar.",
+    href: "/barbearias",
     image:
       "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=900&q=80",
   },
   {
     title: "Salão de beleza",
     body: "Equipe alinhada, horários por profissional e gestão à vista no dia.",
+    href: "/salao-de-beleza",
     image:
       "https://images.unsplash.com/photo-1629397685944-7073f5589754?auto=format&fit=crop&w=900&q=80",
   },
   {
     title: "Clínica e estética",
     body: "Serviços com duração e preço claros. Cliente confirma e paga no link.",
+    href: "/clinica-e-estetica",
     image:
       "https://images.unsplash.com/photo-1700760933574-9f0f4ea9aa3b?auto=format&fit=crop&w=900&q=80",
   },
   {
     title: "Consultório",
     body: "Uma página com sua marca. Menos ida e volta no WhatsApp.",
+    href: "/consultorio",
     image:
       "https://images.unsplash.com/photo-1598256989800-fe5f95da9787?auto=format&fit=crop&w=900&q=80",
   },
   {
     title: "Esmalteria",
     body: "Alta rotatividade sem fila: o link preenche a semana sozinho.",
+    href: "/esmalteria",
     image:
       "https://images.unsplash.com/photo-1619607146034-5a05296c8f9a?auto=format&fit=crop&w=900&q=80",
   },
   {
     title: "Estúdio e bem-estar",
     body: "Sessões, retornos e caixa juntos — do horário marcado ao Pix.",
+    href: "/estudio-e-bem-estar",
     image:
       "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=900&q=80",
   },
@@ -137,7 +143,7 @@ export default function HomePage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-6">
           <Link href="/" className="inline-flex items-center gap-2.5">
             <Image src="/logo.png" alt="" width={28} height={28} priority />
-            <span className="font-display text-[15px] font-bold tracking-tight">
+            <span className="font-brand text-[15px] tracking-tight">
               Book Symbius
             </span>
           </Link>
@@ -176,24 +182,21 @@ export default function HomePage() {
         <section className="lp-hero">
           <div className="relative z-10 mx-auto max-w-6xl px-5 pb-12 pt-12 md:px-6 md:pb-16 md:pt-16">
             <div className="mx-auto max-w-3xl text-center">
-              <p className="lp-fade lp-brand text-[clamp(2.6rem,8.5vw,5.25rem)] text-[var(--lp-ink)]">
-                Book Symbius
-              </p>
-              <p className="lp-fade lp-fade-delay-1 mt-4 text-sm font-semibold tracking-wide text-[var(--lp-accent)] md:text-base">
+              <p className="lp-fade text-sm font-semibold tracking-wide text-[var(--lp-accent)] md:text-base">
                 Agenda online com cobrança na hora — para salão, barbearia,
                 clínica e consultório
               </p>
-              <h1 className="lp-fade lp-fade-delay-2 lp-headline mt-5 text-[clamp(1.65rem,4.4vw,2.85rem)] text-[var(--lp-ink)]">
+              <h1 className="lp-fade lp-fade-delay-1 lp-headline mt-5 text-[clamp(1.65rem,4.4vw,2.85rem)] text-[var(--lp-ink)]">
                 Seu cliente marca o horário e{" "}
                 <span className="font-accent text-[var(--lp-accent)]">paga.</span>{" "}
                 Você só atende.
               </h1>
-              <p className="lp-fade lp-fade-delay-3 mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[var(--lp-steel)] md:text-lg">
+              <p className="lp-fade lp-fade-delay-2 mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[var(--lp-steel)] md:text-lg">
                 Em vez de ficar no WhatsApp combinando horário e pedindo Pix,
                 você manda um link. A pessoa escolhe o serviço, o dia e paga ali
                 mesmo — e o compromisso já entra na sua agenda.
               </p>
-              <div className="lp-fade lp-fade-delay-4 mt-8 flex flex-wrap items-center justify-center gap-3">
+              <div className="lp-fade lp-fade-delay-3 mt-8 flex flex-wrap items-center justify-center gap-3">
                 <Link href="/signup" className="lp-cta">
                   Criar minha agenda
                 </Link>
@@ -201,7 +204,7 @@ export default function HomePage() {
                   Entender em 30 segundos
                 </a>
               </div>
-              <p className="lp-fade lp-fade-delay-5 mt-5 text-xs text-[var(--lp-steel)] md:text-sm">
+              <p className="lp-fade lp-fade-delay-4 mt-5 text-xs text-[var(--lp-steel)] md:text-sm">
                 Configure em minutos · Suporte em português
               </p>
             </div>
@@ -498,23 +501,39 @@ export default function HomePage() {
           </p>
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {SEGMENTS.map((seg) => (
-              <article key={seg.title} className="lp-segment flex flex-col">
-                <Image
-                  src={seg.image}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 100vw, 33vw"
-                />
-                <div className="lp-segment-copy">
-                  <h3 className="font-display text-xl font-bold tracking-tight">
-                    {seg.title}
-                  </h3>
-                  <p className="mt-1.5 text-sm leading-relaxed">{seg.body}</p>
-                </div>
-              </article>
-            ))}
+            {SEGMENTS.map((seg) => {
+              const inner = (
+                <>
+                  <Image
+                    src={seg.image}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 640px) 100vw, 33vw"
+                  />
+                  <div className="lp-segment-copy">
+                    <h3 className="font-display text-xl font-bold tracking-tight">
+                      {seg.title}
+                    </h3>
+                    <p className="mt-1.5 text-sm leading-relaxed">{seg.body}</p>
+                  </div>
+                </>
+              );
+              const href = "href" in seg ? seg.href : undefined;
+              return href ? (
+                <Link
+                  key={seg.title}
+                  href={href}
+                  className="lp-segment flex flex-col"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <article key={seg.title} className="lp-segment flex flex-col">
+                  {inner}
+                </article>
+              );
+            })}
           </div>
           <p className="mt-8 text-center text-sm text-[var(--lp-steel)]">
             Outro segmento? Se a sua operação vive de agenda, o Book Symbius
@@ -593,7 +612,7 @@ export default function HomePage() {
                 height={24}
                 className="brightness-0 invert"
               />
-              <span className="font-display text-sm font-bold tracking-tight text-white">
+              <span className="font-brand text-sm tracking-tight text-white">
                 Book Symbius
               </span>
             </div>
