@@ -430,7 +430,6 @@ export function InstantCheckout({ slug }: { slug: string }) {
       });
     } else if (paymentProvider === "MERCADO_PAGO" && mercadoPagoPublicKey && typeof window !== "undefined") {
       try {
-        // @ts-expect-error MercadoPago global
         if (!window.MercadoPago) {
           await new Promise<void>((resolve, reject) => {
             const s = document.createElement("script");
