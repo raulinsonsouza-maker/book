@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import {
+  parseVerticalSlug,
+  setVerticalCookie,
+} from "@/lib/onboarding/verticals";
 
-export default function CompleteGoogleSignupPage() {
+function CompleteGoogleSignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status, update } = useSession();
   const [organizationName, setOrganizationName] = useState("");
   const [error, setError] = useState("");
@@ -15,6 +20,11 @@ export default function CompleteGoogleSignupPage() {
   const [done, setDone] = useState(false);
 
   const hasOrg = Boolean(session?.user?.organizationId);
+
+  useEffect(() => {
+    const tipo = parseVerticalSlug(searchParams.get("tipo"));
+    if (tipo) setVerticalCookie(tipo);
+  }, [searchParams]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -67,9 +77,7 @@ export default function CompleteGoogleSignupPage() {
           <BrandLogo size="lg" showText />
         </div>
         <p className="eyebrow">Quase lá</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">
-          Sua empresa
-        </h1>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight">Sua empresa</h1>
         <p className="mt-1 text-sm text-muted">
           Olá{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}!
           Informe o nome da empresa. Em seguida um assistente configura agenda,
@@ -111,5 +119,19 @@ export default function CompleteGoogleSignupPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function CompleteGoogleSignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="dot-grid flex min-h-screen items-center justify-center px-4">
+          <p className="text-sm text-muted">Carregando…</p>
+        </div>
+      }
+    >
+      <CompleteGoogleSignupForm />
+    </Suspense>
   );
 }

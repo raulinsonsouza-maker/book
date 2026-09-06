@@ -35,16 +35,62 @@ async function main() {
     },
   });
 
-  await prisma.plan.upsert({
+  // Legacy single plan → deactivate (replaced by mensal/semestral)
+  await prisma.plan.updateMany({
     where: { slug: "essencial" },
+    data: { isActive: false },
+  });
+
+  await prisma.plan.upsert({
+    where: { slug: "essencial-mensal" },
+    update: {
+      name: "Essencial Mensal",
+      priceCents: 9700,
+      interval: "MONTH",
+      trialDays: 0,
+      isActive: true,
+      whatsappQuotaMonthly: 600,
+    },
+    create: {
+      name: "Essencial Mensal",
+      slug: "essencial-mensal",
+      priceCents: 9700,
+      interval: "MONTH",
+      trialDays: 0,
+      isActive: true,
+      whatsappQuotaMonthly: 600,
+    },
+  });
+
+  await prisma.plan.upsert({
+    where: { slug: "essencial-semestral" },
+    update: {
+      name: "Essencial Semestral",
+      priceCents: 40200,
+      interval: "SEMESTER",
+      trialDays: 0,
+      isActive: true,
+      whatsappQuotaMonthly: 600,
+    },
+    create: {
+      name: "Essencial Semestral",
+      slug: "essencial-semestral",
+      priceCents: 40200,
+      interval: "SEMESTER",
+      trialDays: 0,
+      isActive: true,
+      whatsappQuotaMonthly: 600,
+    },
+  });
+
+  await prisma.platformWhatsAppConfig.upsert({
+    where: { id: "singleton" },
     update: {},
     create: {
-      id: "plan_essencial",
-      name: "Essencial",
-      slug: "essencial",
-      priceCents: 9900,
-      trialDays: 14,
-      isActive: true,
+      id: "singleton",
+      enabled: false,
+      templateOtpName: "book_auth_otp",
+      templateReminderName: "book_booking_reminder",
     },
   });
 

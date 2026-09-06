@@ -10,7 +10,6 @@ import {
   isTeamMemberRole,
 } from "@/lib/rbac";
 import { getDashboardStats } from "@/lib/dashboard-stats";
-import { paymentProviderLabel } from "@/lib/payments/resolve-provider";
 import { DashboardStatCard } from "@/components/admin/DashboardStatCard";
 import { DashboardTrendChart } from "@/components/admin/DashboardTrendChart";
 import {
@@ -31,38 +30,31 @@ function ProfessionalHome({
   const firstName = userName?.trim().split(/\s+/)[0];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">
           {firstName ? `Olá, ${firstName}` : "Sua agenda"}
         </h2>
-        <p className="mt-1 text-sm text-muted">
-          Resumo dos seus agendamentos — somente o que está na sua agenda.
-        </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <DashboardStatCard
           title="Hoje"
           value={stats.todayCount}
           href="/app/agenda/calendario"
-          hrefLabel="Ver calendário"
           variant="blue"
         />
         <DashboardStatCard
           title="Amanhã"
           value={stats.tomorrowCount}
           href="/app/agenda/calendario"
-          hrefLabel="Ver calendário"
           variant="pink"
         />
       </div>
 
-      <div className="dashboard-panel rounded-2xl bg-white p-5 shadow-sm">
+      <div className="dashboard-panel rounded-xl bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold tracking-tight">
-            Próximos na sua agenda
-          </h2>
+          <h2 className="text-sm font-semibold tracking-tight">Próximos</h2>
           <Link
             href="/app/agenda/listagem"
             className="text-xs font-medium text-[#2563eb] hover:underline"
@@ -72,23 +64,21 @@ function ProfessionalHome({
         </div>
 
         {stats.upcoming.length === 0 ? (
-          <p className="mt-4 text-sm text-muted">
-            Nenhum agendamento confirmado nos próximos dias.
-          </p>
+          <p className="mt-3 text-sm text-muted">Nada confirmado nos próximos dias.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-border">
+          <ul className="mt-2 divide-y divide-border">
             {stats.upcoming.map((b) => {
               const local = toZonedTime(b.startAt, b.timezone);
               return (
                 <li
                   key={b.id}
-                  className="flex items-center justify-between gap-4 py-3 text-sm"
+                  className="flex items-center justify-between gap-4 py-2.5 text-sm"
                 >
                   <div className="min-w-0">
                     <p className="font-medium">{b.customerName}</p>
-                    <p className="truncate text-muted">{b.service.title}</p>
+                    <p className="truncate text-xs text-muted">{b.service.title}</p>
                   </div>
-                  <p className="shrink-0 text-right text-muted">
+                  <p className="shrink-0 text-right text-xs text-muted">
                     {format(local, "dd MMM · HH:mm", { locale: ptBR })}
                   </p>
                 </li>
@@ -96,15 +86,6 @@ function ProfessionalHome({
             })}
           </ul>
         )}
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Link href="/app/agenda/calendario" className="btn-primary !text-sm">
-            Abrir calendário
-          </Link>
-          <Link href="/app/agenda/listagem" className="btn-secondary !text-sm">
-            Lista de agendamentos
-          </Link>
-        </div>
       </div>
     </div>
   );
@@ -138,53 +119,43 @@ export default async function AppHomePage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {!stats.paymentReady && (
         <PaymentSetupBanner organizationId={org.id} />
       )}
 
       {stats.totalServices === 0 && (
-        <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold tracking-tight">
-            Configure seus serviços
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            Ainda não há serviços e horários definidos — o link público só mostra
-            vagas depois que você concluir a configuração.
+        <div className="dashboard-panel flex flex-wrap items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-sm">
+          <p className="min-w-0 flex-1 text-sm">
+            <span className="font-semibold">Configure os serviços</span>
+            <span className="text-muted"> para liberar horários no link</span>
           </p>
-          <Link href="/app/servicos" className="btn-primary mt-4 inline-flex">
-            Ir para Serviços
+          <Link
+            href="/app/servicos"
+            className="btn-primary shrink-0 !px-3 !py-1.5 !text-xs"
+          >
+            Serviços
           </Link>
         </div>
       )}
 
-      {stats.paymentReady && (
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          Pagamentos ativos via {paymentProviderLabel(stats.paymentProvider)}
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <DashboardStatCard
-          title="Agendamentos hoje"
+          title="Hoje"
           value={stats.todayCount}
           href="/app/agenda/calendario"
-          hrefLabel="Acessar"
           variant="blue"
         />
         <DashboardStatCard
-          title="Agendamentos amanhã"
+          title="Amanhã"
           value={stats.tomorrowCount}
           href="/app/agenda/calendario"
-          hrefLabel="Acessar"
           variant="pink"
         />
         <DashboardStatCard
-          title="Links ativos"
+          title="Links"
           value={stats.activePages}
           href="/app/agendador"
-          hrefLabel="Agendador"
           variant="orange"
         />
       </div>
@@ -192,69 +163,62 @@ export default async function AppHomePage() {
       {org.businessMode === "SALON" && (
         <Link
           href="/app/salao"
-          className="dashboard-panel flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm transition hover:ring-2 hover:ring-foreground/10"
+          className="dashboard-panel flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-sm transition hover:ring-1 hover:ring-foreground/10"
         >
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-              Operação do dia
-            </p>
-            <h2 className="mt-1 text-base font-semibold tracking-tight">
-              Gestão à vista
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              Abra na recepção ou no balcão — equipe na lateral, próximo cliente em
-              tempo real. Atualiza sozinho.
-            </p>
-          </div>
-          <span className="btn-primary shrink-0 !text-xs">Abrir painel</span>
+          <span className="text-sm font-semibold tracking-tight">
+            Gestão à vista
+          </span>
+          <span className="text-xs font-semibold text-[#2563eb]">Abrir →</span>
         </Link>
       )}
 
-      <DashboardTrendChart
-        months={stats.chartMonths}
-        maxValue={stats.maxChart}
-        totalScheduled={chartTotals.scheduled}
-        totalConfirmed={chartTotals.confirmed}
-      />
+      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <DashboardTrendChart
+          months={stats.chartMonths}
+          maxValue={stats.maxChart}
+          totalScheduled={chartTotals.scheduled}
+          totalConfirmed={chartTotals.confirmed}
+        />
 
-      <DashboardUtilization items={buildUtilizationItems(stats)} />
-
-      {stats.upcoming.length > 0 && (
-        <div className="dashboard-panel rounded-2xl bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold tracking-tight">
-              Próximos agendamentos
-            </h2>
+        <div className="dashboard-panel rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold tracking-tight">Próximos</h2>
             <Link
               href="/app/agenda/listagem"
               className="text-xs font-medium text-[#2563eb] hover:underline"
             >
-              Ver todos
+              Lista
             </Link>
           </div>
-          <ul className="mt-4 divide-y divide-border">
-            {stats.upcoming.map((b) => {
-              const local = toZonedTime(b.startAt, b.timezone);
-              return (
-                <li
-                  key={b.id}
-                  className="flex items-center justify-between gap-4 py-3 text-sm"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium">{b.customerName}</p>
-                    <p className="truncate text-muted">
-                      {b.service.title} · {b.bookingPage.title}
+          {stats.upcoming.length === 0 ? (
+            <p className="mt-3 text-sm text-muted">Nenhum nas próximas horas.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-border">
+              {stats.upcoming.slice(0, 5).map((b) => {
+                const local = toZonedTime(b.startAt, b.timezone);
+                return (
+                  <li
+                    key={b.id}
+                    className="flex items-center justify-between gap-3 py-2.5 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{b.customerName}</p>
+                      <p className="truncate text-xs text-muted">
+                        {b.service.title}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-xs text-muted">
+                      {format(local, "dd MMM · HH:mm", { locale: ptBR })}
                     </p>
-                  </div>
-                  <p className="shrink-0 text-right text-muted">
-                    {format(local, "dd MMM · HH:mm", { locale: ptBR })}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
-      )}
+      </div>
+
+      <DashboardUtilization items={buildUtilizationItems(stats)} />
     </div>
   );
 }

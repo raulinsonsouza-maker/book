@@ -11,6 +11,7 @@ export default function BarbeariasPage() {
   return (
     <NicheLanding
       content={{
+        tipo: "barbearias",
         theme: "barber",
         logoLight: true,
         hero: {

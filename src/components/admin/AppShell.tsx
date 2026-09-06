@@ -184,10 +184,12 @@ function SidebarNavLink({
   item,
   pathname,
   onNavigate,
+  collapsed = false,
 }: {
   item: NavItem;
   pathname: string;
   onNavigate: () => void;
+  collapsed?: boolean;
 }) {
   const active = item.match ? item.match(pathname) : pathname === item.href;
   const Icon = item.icon;
@@ -197,12 +199,14 @@ function SidebarNavLink({
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
+      title={item.label}
       className={`sidebar-link group ${active ? "sidebar-link-active" : ""}`}
     >
       <span className={`sidebar-icon ${active ? "sidebar-icon-active" : ""}`}>
         <Icon />
       </span>
-      <span className="truncate">{item.label}</span>
+      {!collapsed && <span className="sidebar-link-label truncate">{item.label}</span>}
+      {collapsed && <span className="sr-only">{item.label}</span>}
     </Link>
   );
 }
@@ -382,11 +386,20 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const isBuilder = pathname.includes("/builder");
   const isFloor = pathname.startsWith("/app/salao");
   const displayName = organizationName || userName || "Sua conta";
   const accountName = userName || organizationName || "Sua conta";
   const sections = navForRole(role, businessMode);
+
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem("admin_sidebar_collapsed") === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     if (role === "PROFESSIONAL") {
@@ -407,63 +420,116 @@ export function AppShell({
 
   const closeMobile = () => setMobileOpen(false);
 
-  const sidebar = (
-    <div className="flex h-full flex-col">
-      <BrandLogo
-        href="/app"
-        size="md"
-        showText
-        title={displayName}
-        logoUrl={organizationLogoUrl}
-        className="sidebar-brand admin-topbar"
-        onClick={closeMobile}
-      />
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("admin_sidebar_collapsed", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
-        {sections.map((section) => (
-          <div key={section.title}>
-            {section.title && (
-              <p className="sidebar-section-label">{section.title}</p>
-            )}
-            <div className="space-y-0.5">
-              {section.items.map((item) => (
-                <SidebarNavLink
-                  key={item.href}
-                  item={item}
-                  pathname={pathname}
-                  onNavigate={closeMobile}
-                />
-              ))}
+  function renderSidebar(opts: {
+    collapsed: boolean;
+    showCollapseToggle: boolean;
+    onNavigate: () => void;
+  }) {
+    const { collapsed: isCollapsed, showCollapseToggle, onNavigate } = opts;
+    return (
+      <div className="flex h-full flex-col">
+        <BrandLogo
+          href="/app"
+          size="md"
+          showText={!isCollapsed}
+          title={displayName}
+          logoUrl={organizationLogoUrl}
+          className={`sidebar-brand admin-topbar ${
+            isCollapsed ? "is-collapsed-brand" : ""
+          }`}
+          onClick={onNavigate}
+        />
+
+        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
+          {sections.map((section) => (
+            <div key={section.title}>
+              {section.title && !isCollapsed && (
+                <p className="sidebar-section-label">{section.title}</p>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <SidebarNavLink
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                    onNavigate={onNavigate}
+                    collapsed={isCollapsed}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </nav>
+          ))}
+        </nav>
 
-      <div className="sidebar-footer">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="sidebar-user-avatar">{initials(accountName)}</span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{accountName}</p>
-            <p className="text-[11px] text-muted">
-              {role === "PROFESSIONAL"
-                ? "Profissional"
-                : role === "MEMBER"
-                  ? "Equipe · Intake"
-                  : businessMode === "SALON"
-                    ? "Equipe"
-                    : "Individual"}
-            </p>
+        <div className="sidebar-footer">
+          <div
+            className={`flex min-w-0 items-center gap-3 ${
+              isCollapsed ? "justify-center" : ""
+            }`}
+          >
+            <span className="sidebar-user-avatar" title={accountName}>
+              {initials(accountName)}
+            </span>
+            {!isCollapsed && (
+              <div className="sidebar-user-meta min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {accountName}
+                </p>
+                <p className="text-[11px] text-muted">
+                  {role === "PROFESSIONAL"
+                    ? "Profissional"
+                    : role === "MEMBER"
+                      ? "Equipe · Intake"
+                      : businessMode === "SALON"
+                        ? "Equipe"
+                        : "Individual"}
+                </p>
+              </div>
+            )}
           </div>
+          {showCollapseToggle && (
+            <button
+              type="button"
+              className="sidebar-collapse-btn"
+              onClick={toggleCollapsed}
+              aria-label={isCollapsed ? "Expandir menu" : "Minimizar menu"}
+              aria-expanded={!isCollapsed}
+              title={isCollapsed ? "Expandir" : "Minimizar"}
+            >
+              <span aria-hidden>{isCollapsed ? "›" : "‹"}</span>
+              {!isCollapsed && <span>Minimizar</span>}
+            </button>
+          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <ConfirmProvider>
-    <div className="admin-shell flex min-h-screen">
-      <aside className="admin-sidebar hidden w-[15.5rem] shrink-0 lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-col">
-        {sidebar}
+    <div className={`admin-shell flex min-h-screen ${collapsed ? "sidebar-is-collapsed" : ""}`}>
+      <aside
+        className={`admin-sidebar hidden shrink-0 lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-col ${
+          collapsed ? "is-collapsed" : ""
+        }`}
+      >
+        {renderSidebar({
+          collapsed,
+          showCollapseToggle: true,
+          onNavigate: closeMobile,
+        })}
       </aside>
 
       {mobileOpen && (
@@ -475,7 +541,11 @@ export function AppShell({
             onClick={closeMobile}
           />
           <div className="relative z-10 flex h-full w-[15.5rem] flex-col bg-white shadow-xl">
-            {sidebar}
+            {renderSidebar({
+              collapsed: false,
+              showCollapseToggle: false,
+              onNavigate: closeMobile,
+            })}
           </div>
         </div>
       )}

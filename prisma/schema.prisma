@@ -87,12 +87,15 @@ enum SubscriptionStatus {
 
 enum PlanInterval {
   MONTH
+  SEMESTER
 }
 
 model User {
   id                  String               @id @default(cuid())
   name                String
   email               String               @unique
+  /** Celular em E.164 (ex.: +5511999999999). */
+  phone               String?
   passwordHash        String?
   googleId            String?              @unique
   isPlatformAdmin     Boolean              @default(false)
@@ -163,6 +166,10 @@ model Organization {
   /** Null = wizard de primeiro acesso ainda não concluído. */
   onboardingCompletedAt    DateTime?
   subscriptionStatus       SubscriptionStatus @default(TRIALING)
+  /** Canal WhatsApp da plataforma liberado para esta org. */
+  whatsappEnabled          Boolean @default(true)
+  /** Nota interna (só gerencial). */
+  internalNote             String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   memberships        Membership[]
@@ -174,6 +181,9 @@ model Organization {
   subscription       Subscription?
   platformPayments   PlatformPayment[]
   intakeSubmissions  IntakeSubmission[]
+  customers          Customer[]
+  whatsappMessages   WhatsAppMessageLog[]
+  otpChallenges      OtpChallenge[]
 }
 
 model Membership {
@@ -194,6 +204,8 @@ model Professional {
   organizationId     String
   membershipId       String      @unique
   displayName        String
+  /** Celular em E.164 (ex.: +5511999999999) para convite WhatsApp. */
+  phone              String?
   photoUrl           String?
   isActive           Boolean     @default(true)
   sortOrder          Int         @default(0)
@@ -338,6 +350,7 @@ model Booking {
   bookingPageId   String
   serviceId       String
   professionalId  String?
+  customerId      String?
   status          BookingStatus @default(PENDING_PAYMENT)
   startAt         DateTime
   endAt           DateTime
@@ -361,14 +374,18 @@ model Booking {
   bookingPage     BookingPage   @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
   service         Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   professional    Professional? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+  customer        Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   payment         Payment?
   slotHold        SlotHold?
   eventLogs       BookingEventLog[]
+  whatsappMessages WhatsAppMessageLog[]
 
   @@index([bookingPageId, startAt])
   @@index([professionalId, startAt])
   @@index([status, holdExpiresAt])
   @@index([customerEmail])
+  @@index([customerPhone])
+  @@index([customerId, startAt])
   @@index([status, startAt])
 }
 
@@ -532,18 +549,20 @@ model SlotHold {
 }
 
 model Plan {
-  id                  String        @id @default(cuid())
-  name                String
-  slug                String        @unique
-  priceCents          Int
-  currency            String        @default("BRL")
-  interval            PlanInterval  @default(MONTH)
-  trialDays           Int           @default(14)
-  isActive            Boolean       @default(true)
-  mpPreapprovalPlanId String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  subscriptions       Subscription[]
+  id                    String        @id @default(cuid())
+  name                  String
+  slug                  String        @unique
+  priceCents            Int
+  currency              String        @default("BRL")
+  interval              PlanInterval  @default(MONTH)
+  trialDays             Int           @default(14)
+  isActive              Boolean       @default(true)
+  mpPreapprovalPlanId   String?
+  /** Franquia mensal de msgs WhatsApp (Utility/Auth) da plataforma. */
+  whatsappQuotaMonthly  Int           @default(200)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  subscriptions         Subscription[]
 }
 
 model Subscription {
@@ -552,6 +571,8 @@ model Subscription {
   planId           String?
   status           SubscriptionStatus @default(TRIALING)
   mpPreapprovalId  String?
+  /** Checkout Preference id (pagamento único semestral). */
+  mpPreferenceId   String?
   trialEndsAt      DateTime?
   currentPeriodEnd DateTime?
   canceledAt       DateTime?
@@ -569,6 +590,25 @@ model PlatformConfig {
   updatedAt           DateTime @updatedAt
 }
 
+/** Credenciais e templates do canal WhatsApp único da plataforma. */
+model PlatformWhatsAppConfig {
+  id                    String    @id @default("singleton")
+  enabled               Boolean   @default(false)
+  phoneNumberId         String?
+  wabaId                String?
+  /** Token criptografado (AES); vazio = usar env WHATSAPP_ACCESS_TOKEN. */
+  accessTokenEncrypted  String?
+  displayNumber         String?
+  templateOtpName       String    @default("book_auth_otp")
+  templateReminderName  String    @default("book_booking_reminder")
+  templateConfirmName   String?
+  webhookVerifyToken    String?
+  defaultButtonBaseUrl  String?
+  lastError             String?
+  lastTestAt            DateTime?
+  updatedAt             DateTime  @updatedAt
+}
+
 model PlatformPayment {
   id             String       @id @default(cuid())
   organizationId String
@@ -580,4 +620,91 @@ model PlatformPayment {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+}
+
+model PlatformAuditLog {
+  id         String   @id @default(cuid())
+  actorUserId String?
+  action     String
+  targetType String
+  targetId   String?
+  meta       String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+}
+
+model Customer {
+  id             String       @id @default(cuid())
+  organizationId String
+  phoneE164      String
+  name           String
+  email          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookings       Booking[]
+  sessions       CustomerSession[]
+  whatsappMessages WhatsAppMessageLog[]
+
+  @@unique([organizationId, phoneE164])
+  @@index([organizationId, phoneE164])
+}
+
+model CustomerSession {
+  id         String   @id @default(cuid())
+  customerId String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([expiresAt])
+}
+
+model OtpChallenge {
+  id             String       @id @default(cuid())
+  organizationId String
+  phoneE164      String
+  codeHash       String
+  expiresAt      DateTime
+  attempts       Int          @default(0)
+  consumedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, phoneE164])
+  @@index([expiresAt])
+}
+
+enum WhatsAppMessageCategory {
+  AUTH
+  UTILITY
+  MARKETING
+  OTHER
+}
+
+model WhatsAppMessageLog {
+  id             String                   @id @default(cuid())
+  organizationId String?
+  bookingId      String?
+  customerId     String?
+  category       WhatsAppMessageCategory
+  templateName   String
+  toPhoneE164    String
+  status         String                   @default("queued")
+  metaMessageId  String?
+  billable       Boolean                  @default(true)
+  error          String?
+  createdAt      DateTime                 @default(now())
+  organization   Organization?            @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  booking        Booking?                 @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  customer       Customer?                @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([metaMessageId])
 }

@@ -139,39 +139,39 @@ function HeroVisual() {
 export default function HomePage() {
   return (
     <div className="lp-shell min-h-screen">
-      <header className="lp-nav sticky top-0 z-30">
+      <header className="lp-nav lp-nav--over-hero sticky top-0 z-30">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-6">
           <Link href="/" className="inline-flex items-center gap-2.5">
-            <Image src="/logo.png" alt="" width={28} height={28} priority />
-            <span className="font-brand text-[15px] tracking-tight">
+            <Image src="/logo-white.png" alt="" width={28} height={28} priority />
+            <span className="font-brand text-[15px] tracking-tight text-white">
               Book Symbius
             </span>
           </Link>
-          <nav className="hidden items-center gap-7 text-sm font-medium text-[var(--lp-steel)] md:flex">
-            <a href="#o-que-e" className="transition hover:text-[var(--lp-ink)]">
+          <nav className="hidden items-center gap-7 text-sm font-medium text-white/70 md:flex">
+            <a href="#o-que-e" className="transition hover:text-white">
               O que é
             </a>
-            <a href="#produto" className="transition hover:text-[var(--lp-ink)]">
+            <a href="#produto" className="transition hover:text-white">
               Produto
             </a>
-            <a href="#pagamento" className="transition hover:text-[var(--lp-ink)]">
+            <a href="#pagamento" className="transition hover:text-white">
               Pagamento
             </a>
-            <a href="#salao" className="transition hover:text-[var(--lp-ink)]">
+            <a href="#salao" className="transition hover:text-white">
               Salão
             </a>
-            <a href="#segmentos" className="transition hover:text-[var(--lp-ink)]">
+            <a href="#segmentos" className="transition hover:text-white">
               Segmentos
             </a>
           </nav>
           <div className="flex items-center gap-2">
             <Link
               href="/login"
-              className="px-3.5 py-2 text-sm font-semibold text-[var(--lp-steel)] transition hover:text-[var(--lp-ink)]"
+              className="px-3.5 py-2 text-sm font-semibold text-white/75 transition hover:text-white"
             >
               Entrar
             </Link>
-            <Link href="/signup" className="lp-cta !px-4 !py-2 !text-sm">
+            <Link href="/onboarding" className="lp-cta !bg-[var(--lp-lime)] !px-4 !py-2 !text-sm !text-[var(--lp-ink)]">
               Crie sua conta
             </Link>
           </div>
@@ -180,37 +180,36 @@ export default function HomePage() {
 
       <main>
         <section className="lp-hero">
-          <div className="relative z-10 mx-auto max-w-6xl px-5 pb-12 pt-12 md:px-6 md:pb-16 md:pt-16">
-            <div className="mx-auto max-w-3xl text-center">
-              <p className="lp-fade text-sm font-semibold tracking-wide text-[var(--lp-accent)] md:text-base">
-                Agenda online com cobrança na hora — para salão, barbearia,
-                clínica e consultório
-              </p>
-              <h1 className="lp-fade lp-fade-delay-1 lp-headline mt-5 text-[clamp(1.65rem,4.4vw,2.85rem)] text-[var(--lp-ink)]">
-                Seu cliente marca o horário e{" "}
-                <span className="font-accent text-[var(--lp-accent)]">paga.</span>{" "}
-                Você só atende.
-              </h1>
-              <p className="lp-fade lp-fade-delay-2 mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[var(--lp-steel)] md:text-lg">
-                Em vez de ficar no WhatsApp combinando horário e pedindo Pix,
-                você manda um link. A pessoa escolhe o serviço, o dia e paga ali
-                mesmo — e o compromisso já entra na sua agenda.
-              </p>
-              <div className="lp-fade lp-fade-delay-3 mt-8 flex flex-wrap items-center justify-center gap-3">
-                <Link href="/signup" className="lp-cta">
-                  Criar minha agenda
-                </Link>
-                <a href="#o-que-e" className="lp-cta-ghost">
-                  Entender em 30 segundos
-                </a>
-              </div>
-              <p className="lp-fade lp-fade-delay-4 mt-5 text-xs text-[var(--lp-steel)] md:text-sm">
-                Configure em minutos · Suporte em português
-              </p>
-            </div>
-
-            <div className="lp-fade lp-fade-delay-5 mt-12 md:mt-14">
-              <HeroVisual />
+          <div className="lp-hero-media" aria-hidden>
+            <Image
+              src="https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1920&q=85"
+              alt="Profissional atendendo cliente em salão"
+              fill
+              priority
+              quality={90}
+              className="object-cover object-[center_28%]"
+              sizes="100vw"
+            />
+          </div>
+          <div className="lp-hero-scrim" aria-hidden />
+          <div className="lp-hero-inner">
+            <p className="lp-fade lp-hero-brand">Book Symbius</p>
+            <h1 className="lp-fade lp-fade-delay-1 lp-hero-headline">
+              O cliente marca,{" "}
+              <span className="font-accent text-[var(--lp-lime)]">paga</span> e
+              aparece.
+            </h1>
+            <p className="lp-fade lp-fade-delay-2 lp-hero-lead">
+              Agenda online com Pix e cartão no mesmo link — para salão,
+              barbearia, clínica e consultório.
+            </p>
+            <div className="lp-fade lp-fade-delay-3 mt-8 flex flex-wrap gap-3">
+              <Link href="/onboarding" className="lp-cta">
+                Criar minha agenda
+              </Link>
+              <a href="#o-que-e" className="lp-cta-ghost">
+                Ver como funciona
+              </a>
             </div>
           </div>
         </section>
@@ -282,6 +281,10 @@ export default function HomePage() {
             <span className="font-accent text-[var(--lp-accent)]">em ordem.</span>
           </h2>
 
+          <div className="mt-10 md:mt-12">
+            <HeroVisual />
+          </div>
+
           <div className="mt-16 grid gap-12 md:grid-cols-2 md:items-center md:gap-16">
             <div>
               <p className="lp-kicker">Agenda</p>
@@ -305,7 +308,7 @@ export default function HomePage() {
                 </li>
               </ul>
               <Link
-                href="/signup"
+                href="/onboarding"
                 className="mt-8 inline-flex text-sm font-semibold text-[var(--lp-accent)] hover:underline"
               >
                 Começar agora →
@@ -459,7 +462,7 @@ export default function HomePage() {
                   Cliente escolhe o profissional — ou “qualquer disponível”
                 </li>
               </ul>
-              <Link href="/signup" className="lp-cta-accent mt-8">
+              <Link href="/onboarding" className="lp-cta-accent mt-8">
                 Quero operar como salão
               </Link>
             </div>
@@ -538,7 +541,7 @@ export default function HomePage() {
           <p className="mt-8 text-center text-sm text-[var(--lp-steel)]">
             Outro segmento? Se a sua operação vive de agenda, o Book Symbius
             serve.{" "}
-            <Link href="/signup" className="font-semibold text-[var(--lp-accent)] hover:underline">
+            <Link href="/onboarding" className="font-semibold text-[var(--lp-accent)] hover:underline">
               Criar conta →
             </Link>
           </p>
@@ -562,7 +565,7 @@ export default function HomePage() {
                 do agendamento. Só falta você.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link href="/signup" className="lp-cta-accent">
+                <Link href="/onboarding" className="lp-cta-accent">
                   Criar minha agenda
                 </Link>
                 <Link
@@ -645,7 +648,7 @@ export default function HomePage() {
               Conta
             </p>
             <nav className="mt-3 flex flex-col gap-2 text-sm">
-              <Link href="/signup" className="hover:text-white">
+              <Link href="/onboarding" className="hover:text-white">
                 Crie sua conta
               </Link>
               <Link href="/login" className="hover:text-white">

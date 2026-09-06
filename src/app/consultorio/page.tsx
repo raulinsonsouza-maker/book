@@ -11,6 +11,7 @@ export default function ConsultorioPage() {
   return (
     <NicheLanding
       content={{
+        tipo: "consultorio",
         theme: "consult",
         hero: {
           src: "/lp/consult-hero.jpg",

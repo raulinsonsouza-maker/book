@@ -22,7 +22,7 @@ export default async function AppLayout({
   }
 
   if (session.user.isPlatformAdmin) {
-    redirect("/gerencial");
+    redirect("/admin");
   }
 
   if (!session.user.organizationId) redirect("/signup/complete");

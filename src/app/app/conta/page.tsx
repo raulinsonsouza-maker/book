@@ -34,6 +34,9 @@ type Org = {
   notifyProReschedule: boolean;
   reminderHoursBefore: number;
   cardMaxInstallments: number;
+  whatsappEnabled?: boolean;
+  whatsappPlatformReady?: boolean;
+  whatsappUsage?: { used: number; quota: number; remaining: number };
 };
 
 function ContaSettingsBody() {
@@ -259,6 +262,33 @@ function ContaSettingsBody() {
           {billing.status !== "ACTIVE" && !billing.mpConfigured && (
             <p className="text-sm text-muted">
               Assinatura online em breve. Entre em contato com o suporte.
+            </p>
+          )}
+        </section>
+      )}
+
+      {org?.whatsappUsage && (
+        <section className="surface space-y-3 p-6">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">WhatsApp (plataforma)</h2>
+            <p className="mt-1 text-xs text-muted">
+              OTP e lembretes enviados pelo canal Book Symbius. Franquia do seu plano.
+            </p>
+          </div>
+          <p className="text-2xl font-semibold tabular-nums">
+            {org.whatsappUsage.used}{" "}
+            <span className="text-base font-normal text-muted">
+              / {org.whatsappUsage.quota} este mês
+            </span>
+          </p>
+          {!org.whatsappPlatformReady && (
+            <p className="text-xs text-muted">
+              Canal ainda não ativado pela plataforma — lembretes seguem por e-mail.
+            </p>
+          )}
+          {org.whatsappUsage.remaining <= 0 && (
+            <p className="text-sm text-danger">
+              Franquia esgotada. Novos envios caem para e-mail até o próximo ciclo.
             </p>
           )}
         </section>

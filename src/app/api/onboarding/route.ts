@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { apiRequireAdmin } from "@/lib/rbac";
 import { DESCRIPTION_MAX, normalizeAccent } from "@/lib/branding";
 import { ASAAS_ENABLED } from "@/lib/feature-flags";
+import { toE164 } from "@/lib/whatsapp/phone";
 
 const PRESET_WEEKDAYS = [1, 2, 3, 4, 5].flatMap((dayOfWeek) => [
   { dayOfWeek, startTime: "09:00", endTime: "12:00" },
@@ -19,7 +20,7 @@ const serviceSchema = z.object({
 
 const schema = z.object({
   name: z.string().trim().min(2).max(120),
-  description: z.string().trim().min(2).max(DESCRIPTION_MAX),
+  description: z.string().trim().max(DESCRIPTION_MAX).optional().default(""),
   logoUrl: z
     .union([z.string(), z.null()])
     .optional()
@@ -31,17 +32,42 @@ const schema = z.object({
   accentColor: z.string().optional(),
   businessMode: z.enum(["SOLO", "SALON"]),
   professionals: z
-    .array(z.object({ displayName: z.string().trim().min(2).max(80) }))
+    .array(
+      z.object({
+        displayName: z.string().trim().min(2).max(80),
+        email: z.string().trim().email(),
+        phone: z.string().trim().min(8).max(20),
+      }),
+    )
     .max(20)
     .optional(),
   services: z.array(serviceSchema).min(1).max(30),
   applyBusinessHours: z.boolean().optional().default(true),
+  availabilityRules: z
+    .array(
+      z.object({
+        dayOfWeek: z.coerce.number().int().min(0).max(6),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/),
+        endTime: z.string().regex(/^\d{2}:\d{2}$/),
+      }),
+    )
+    .max(28)
+    .optional(),
   paymentProvider: z
     .enum(["MERCADO_PAGO", "ASAAS"])
     .nullable()
     .optional()
     .transform((v) => v ?? undefined),
 });
+
+function resolveDescription(description: string, businessName: string) {
+  const trimmed = description.trim();
+  if (trimmed.length >= 2) return trimmed.slice(0, DESCRIPTION_MAX);
+  return `Agendamentos em ${businessName.trim() || "seu negócio"}`.slice(
+    0,
+    DESCRIPTION_MAX,
+  );
+}
 
 function zodUserMessage(err: z.ZodError) {
   const issue = err.issues[0];
@@ -52,7 +78,13 @@ function zodUserMessage(err: z.ZodError) {
     if (issue.code === "too_big") {
       return `A descrição pode ter no máximo ${DESCRIPTION_MAX} caracteres`;
     }
-    return "Informe o que você oferece (mín. 2 caracteres)";
+    return "Revise a descrição";
+  }
+  if (path.includes("phone") && path.startsWith("professionals")) {
+    return "Informe um WhatsApp válido com DDD para cada profissional";
+  }
+  if (path.includes("email") && path.startsWith("professionals")) {
+    return "Informe um e-mail válido para cada profissional";
   }
   if (path.includes("displayName") || path.startsWith("professionals")) {
     return "Nome do profissional inválido (mín. 2 caracteres)";
@@ -63,6 +95,7 @@ function zodUserMessage(err: z.ZodError) {
     return "Revise os serviços (título com mín. 2 caracteres)";
   }
   if (path.startsWith("paymentProvider")) return "Escolha de pagamento inválida";
+  if (path.startsWith("availabilityRules")) return "Revise os horários de atendimento";
   if (path.startsWith("logoUrl")) return "Logo inválida — tente outra imagem";
   return "Revise os dados do assistente";
 }
@@ -117,12 +150,25 @@ export async function POST(req: Request) {
     const orgId = auth.ctx.organizationId;
 
     if (body.businessMode === "SALON") {
-      const names = (body.professionals || [])
-        .map((p) => p.displayName.trim())
-        .filter(Boolean);
-      if (names.length < 1) {
+      const entries = (body.professionals || [])
+        .map((p) => ({
+          displayName: p.displayName.trim(),
+          email: p.email.trim().toLowerCase(),
+          phone: toE164(p.phone),
+        }))
+        .filter((p) => p.displayName.length >= 2 && p.email.includes("@"));
+      if (entries.length < 1) {
         return NextResponse.json(
-          { error: "No modo equipe, informe ao menos um profissional" },
+          {
+            error:
+              "No modo equipe, informe ao menos um profissional com e-mail e WhatsApp",
+          },
+          { status: 400 },
+        );
+      }
+      if (entries.some((p) => !p.phone)) {
+        return NextResponse.json(
+          { error: "Informe um WhatsApp válido com DDD para cada profissional" },
           { status: 400 },
         );
       }
@@ -135,12 +181,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const description = resolveDescription(body.description || "", body.name);
+
     const result = await prisma.$transaction(async (tx) => {
       const org = await tx.organization.update({
         where: { id: orgId },
         data: {
           name: body.name.trim(),
-          description: body.description.trim(),
+          description,
           logoUrl: body.logoUrl || null,
           accentColor: normalizeAccent(body.accentColor || "#0a0a0a"),
           businessMode: body.businessMode,
@@ -214,12 +262,17 @@ export async function POST(req: Request) {
         }
       }
 
+      const hourRules =
+        body.availabilityRules && body.availabilityRules.length > 0
+          ? body.availabilityRules
+          : PRESET_WEEKDAYS;
+
       if (body.applyBusinessHours !== false) {
         await tx.availabilityRule.deleteMany({
           where: { bookingPageId: page.id, professionalId: null },
         });
         await tx.availabilityRule.createMany({
-          data: PRESET_WEEKDAYS.map((r) => ({
+          data: hourRules.map((r) => ({
             bookingPageId: page.id,
             dayOfWeek: r.dayOfWeek,
             startTime: r.startTime,
@@ -246,20 +299,41 @@ export async function POST(req: Request) {
       const proIds: string[] = [];
 
       if (body.businessMode === "SALON") {
-        const names = (body.professionals || [])
-          .map((p) => p.displayName.trim())
-          .filter(Boolean);
+        const entries = (body.professionals || [])
+          .map((p) => ({
+            displayName: p.displayName.trim(),
+            email: p.email.trim().toLowerCase(),
+            phone: toE164(p.phone) || null,
+          }))
+          .filter((p) => p.displayName.length >= 2 && p.email.includes("@"));
 
         const existingPros = await tx.professional.findMany({
           where: { organizationId: orgId },
-          select: { id: true },
+          select: { id: true, membershipId: true },
         });
 
-        for (const [i, displayName] of names.entries()) {
+        for (const [i, entry] of entries.entries()) {
+          const { displayName, email, phone } = entry;
+
           if (i < existingPros.length) {
+            const existing = existingPros[i]!;
+            const membership = await tx.membership.findUnique({
+              where: { id: existing.membershipId },
+              select: { userId: true },
+            });
+            if (membership) {
+              await tx.user.update({
+                where: { id: membership.userId },
+                data: {
+                  name: displayName,
+                  email,
+                  mustChangePassword: true,
+                },
+              });
+            }
             const pro = await tx.professional.update({
-              where: { id: existingPros[i]!.id },
-              data: { displayName, isActive: true, sortOrder: i },
+              where: { id: existing.id },
+              data: { displayName, phone, isActive: true, sortOrder: i },
             });
             await tx.professionalService.deleteMany({
               where: { professionalId: pro.id },
@@ -277,7 +351,7 @@ export async function POST(req: Request) {
             });
             if (body.applyBusinessHours !== false) {
               await tx.availabilityRule.createMany({
-                data: PRESET_WEEKDAYS.map((r) => ({
+                data: hourRules.map((r) => ({
                   professionalId: pro.id,
                   dayOfWeek: r.dayOfWeek,
                   startTime: r.startTime,
@@ -289,17 +363,22 @@ export async function POST(req: Request) {
             continue;
           }
 
-          const placeholderEmail = `pro-${org.slug}-${i + 1}-${Date.now().toString(36)}@book.local`;
+          const taken = await tx.user.findUnique({ where: { email } });
+          if (taken) {
+            throw new Error(`E-mail já cadastrado: ${email}`);
+          }
+
           const passwordHash = await bcrypt.hash(
-            `tmp-${Math.random().toString(36).slice(2, 10)}`,
+            `tmp-${Math.random().toString(36).slice(2, 12)}`,
             10,
           );
 
           const user = await tx.user.create({
             data: {
-              email: placeholderEmail,
+              email,
               name: displayName,
               passwordHash,
+              mustChangePassword: true,
             },
           });
           const membership = await tx.membership.create({
@@ -314,6 +393,7 @@ export async function POST(req: Request) {
               organizationId: orgId,
               membershipId: membership.id,
               displayName,
+              phone,
               sortOrder: i,
               services: serviceIds.length
                 ? {
@@ -324,7 +404,7 @@ export async function POST(req: Request) {
           });
           if (body.applyBusinessHours !== false) {
             await tx.availabilityRule.createMany({
-              data: PRESET_WEEKDAYS.map((r) => ({
+              data: hourRules.map((r) => ({
                 professionalId: pro.id,
                 dayOfWeek: r.dayOfWeek,
                 startTime: r.startTime,

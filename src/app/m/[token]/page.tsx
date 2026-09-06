@@ -23,6 +23,7 @@ type BookingView = {
   meetLink: string | null;
   priceCents: number;
   canReschedule: boolean;
+  canCancel?: boolean;
   paymentStatus: string | null;
   durationMinutes: number;
 };
@@ -130,6 +131,33 @@ function ManageBookingInner() {
     setSelectedSlot(null);
     setSlots([]);
     if (token) void load(token);
+  }
+
+  async function cancelBooking() {
+    if (!token) return;
+    const ok = await confirm({
+      title: "Cancelar agendamento?",
+      description: "Esta ação não pode ser desfeita.",
+      confirmLabel: "Cancelar agendamento",
+      cancelLabel: "Voltar",
+      tone: "danger",
+    });
+    if (!ok) return;
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/public/manage/${token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel" }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error || "Não foi possível cancelar");
+      return;
+    }
+    setBooking(data.booking);
+    setMsg("Agendamento cancelado");
   }
 
   if (loading) {
@@ -285,9 +313,16 @@ function ManageBookingInner() {
                 >
                   Remarcar horário
                 </button>
-                <p className="text-center text-xs leading-relaxed text-muted">
-                  Precisa cancelar? Fale com {booking.orgName}.
-                </p>
+                {booking.canCancel !== false && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="btn-secondary w-full !rounded-2xl !py-3 text-danger"
+                    onClick={() => void cancelBooking()}
+                  >
+                    Cancelar agendamento
+                  </button>
+                )}
               </div>
             )}
 

@@ -13,6 +13,8 @@ import { newManageToken } from "@/lib/booking-notify";
 import { requiresOnlinePayment } from "@/lib/payments/resolve-provider";
 import { emitBookingEvent } from "@/lib/events/booking-events";
 import { releaseCustomerPendingBookings } from "@/lib/booking-release-pending";
+import { upsertCustomer } from "@/lib/customer-auth";
+import { toE164 } from "@/lib/whatsapp/phone";
 
 const HOLD_MINUTES = 15;
 
@@ -125,6 +127,21 @@ export async function POST(
       professionalId = null;
     }
 
+    let customerId: string | null = null;
+    try {
+      if (body.customerPhone) {
+        const customer = await upsertCustomer({
+          organizationId: page.organizationId,
+          phone: body.customerPhone,
+          name: body.customerName,
+          email: body.customerEmail?.toLowerCase() ?? null,
+        });
+        customerId = customer.id;
+      }
+    } catch {
+      customerId = null;
+    }
+
     const booking = await prisma.$transaction(async (tx) => {
       await releaseCustomerPendingBookings(
         tx,
@@ -162,18 +179,24 @@ export async function POST(
         );
       }
 
+      const phoneDigits =
+        toE164(body.customerPhone || "")?.replace(/\D/g, "") ||
+        body.customerPhone?.replace(/\D/g, "") ||
+        "";
+
       const b = await tx.booking.create({
         data: {
           bookingPageId: page.id,
           serviceId: service.id,
           professionalId,
+          customerId,
           status: needsPayment ? "PENDING_PAYMENT" : "CONFIRMED",
           startAt,
           endAt,
           timezone,
           customerName: body.customerName,
           customerEmail: body.customerEmail?.toLowerCase() ?? "",
-          customerPhone: body.customerPhone?.replace(/\D/g, "") ?? "",
+          customerPhone: phoneDigits,
           customerCpf: body.customerCpf?.replace(/\D/g, "") || null,
           customAnswers: body.customAnswers
             ? JSON.stringify(body.customAnswers)

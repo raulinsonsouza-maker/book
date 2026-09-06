@@ -11,6 +11,8 @@ import {
 import { mercadoPagoOAuthConfigured } from "@/lib/mercadopago/oauth";
 import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
 import { DESCRIPTION_MAX, normalizeAccent } from "@/lib/branding";
+import { getOrgWhatsAppUsage } from "@/lib/whatsapp/quota";
+import { getPlatformWhatsAppConfig } from "@/lib/whatsapp/config";
 
 const schema = z.object({
   name: z.string().min(2).optional(),
@@ -120,7 +122,18 @@ export async function GET() {
     where: { id: auth.ctx.organizationId },
   });
   if (!org) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(serializeOrg(org));
+  const [usage, waCfg] = await Promise.all([
+    getOrgWhatsAppUsage(org.id),
+    getPlatformWhatsAppConfig(),
+  ]);
+  return NextResponse.json({
+    ...serializeOrg(org),
+    whatsappEnabled: org.whatsappEnabled,
+    whatsappPlatformReady: Boolean(
+      waCfg.enabled && waCfg.accessToken && waCfg.phoneNumberId,
+    ),
+    whatsappUsage: usage,
+  });
 }
 
 export async function PATCH(req: Request) {

@@ -21,7 +21,7 @@ export default function PrimeiroAcessoPage() {
     }
     if (status === "authenticated" && !session?.user?.mustChangePassword) {
       router.replace(
-        session.user.isPlatformAdmin ? "/gerencial" : "/app",
+        session.user.isPlatformAdmin ? "/admin" : "/app",
       );
     }
   }, [status, session, router]);
@@ -56,7 +56,7 @@ export default function PrimeiroAcessoPage() {
     }
     setLoading(false);
     router.replace(
-      session?.user?.isPlatformAdmin ? "/gerencial" : "/app",
+      session?.user?.isPlatformAdmin ? "/admin" : "/app",
     );
     router.refresh();
   }

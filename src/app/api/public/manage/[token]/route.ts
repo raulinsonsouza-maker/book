@@ -48,6 +48,7 @@ function publicBooking(booking: NonNullable<Awaited<ReturnType<typeof loadByToke
       null,
     meetLink: booking.googleMeetLink,
     canReschedule: booking.status === "CONFIRMED",
+    canCancel: booking.status === "CONFIRMED",
     paymentStatus: booking.payment?.status ?? null,
     professionalId: booking.professionalId,
     holdExpiresAt: booking.holdExpiresAt?.toISOString() ?? null,
@@ -101,10 +102,15 @@ export async function GET(
   });
 }
 
-const actionSchema = z.object({
-  action: z.literal("reschedule"),
-  startAt: z.string().datetime(),
-});
+const actionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("reschedule"),
+    startAt: z.string().datetime(),
+  }),
+  z.object({
+    action: z.literal("cancel"),
+  }),
+]);
 
 export async function POST(
   req: Request,
@@ -115,15 +121,41 @@ export async function POST(
   if (!booking) {
     return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
   }
-  if (booking.status !== "CONFIRMED") {
-    return NextResponse.json(
-      { error: "Só é possível remarcar agendamentos confirmados" },
-      { status: 400 },
-    );
-  }
 
   try {
     const body = actionSchema.parse(await req.json());
+
+    if (body.action === "cancel") {
+      if (booking.status !== "CONFIRMED") {
+        return NextResponse.json(
+          { error: "Só é possível cancelar agendamentos confirmados" },
+          { status: 400 },
+        );
+      }
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: "CANCELLED", cancelledAt: new Date() },
+      });
+      await emitBookingEvent({
+        type: "booking.cancelled",
+        organizationId: booking.bookingPage.organizationId,
+        bookingId: booking.id,
+        dedupeKey: `manage-cancel-${booking.id}-${Date.now()}`,
+      });
+      const updated = await loadByToken(token);
+      return NextResponse.json({
+        ok: true,
+        booking: updated ? publicBooking(updated) : null,
+      });
+    }
+
+    if (booking.status !== "CONFIRMED") {
+      return NextResponse.json(
+        { error: "Só é possível remarcar agendamentos confirmados" },
+        { status: 400 },
+      );
+    }
+
     const startAt = new Date(body.startAt);
     const endAt = addMinutes(startAt, booking.service.durationMinutes);
     const salon = booking.bookingPage.organization.businessMode === "SALON";

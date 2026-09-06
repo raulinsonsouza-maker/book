@@ -1,109 +1,315 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
-import { BrandLogo } from "@/components/BrandLogo";
-import { AsaasIcon } from "@/components/icons/AsaasIcon";
-import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
-import { ASAAS_ENABLED } from "@/lib/feature-flags";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
+import { ContaStep } from "@/components/onboarding/steps/ContaStep";
+import { EmpresaStep } from "@/components/onboarding/steps/EmpresaStep";
+import { EquipeStep } from "@/components/onboarding/steps/EquipeStep";
+import { ExpedienteStep } from "@/components/onboarding/steps/ExpedienteStep";
+import { ProntoStep } from "@/components/onboarding/steps/ProntoStep";
+import { SegmentoStep } from "@/components/onboarding/steps/SegmentoStep";
+import { ServicosStep } from "@/components/onboarding/steps/ServicosStep";
 import {
-  maskBRLFromDigits,
-  parseBRLMaskToCents,
-} from "@/lib/utils";
+  DEFAULT_COMMERCIAL_HOURS,
+  ONBOARDING_DRAFT_KEY,
+  visibleOnboardingSteps,
+  type AvailabilityRuleDraft,
+  type OnboardingDraft,
+  type OnboardingStepId,
+  type ProDraft,
+  type ServiceDraft,
+} from "@/components/onboarding/types";
 import { DESCRIPTION_MAX } from "@/lib/branding";
+import { PLATFORM_PLAN_SLUGS, type PlatformPlanSlug } from "@/lib/billing/plans-catalog";
 import { readLogoFile } from "@/lib/image-upload";
+import {
+  clearVerticalCookie,
+  defaultCopy,
+  getVertical,
+  getVerticalCookie,
+  parseVerticalSlug,
+  setVerticalCookie,
+  type VerticalSlug,
+} from "@/lib/onboarding/verticals";
+import { centsToBRLMask, parseBRLMaskToCents } from "@/lib/utils";
+import { toE164 } from "@/lib/whatsapp/phone";
 
-type Step = "empresa" | "modo" | "servicos" | "pagamento" | "pronto";
+function servicesFromVertical(slug: VerticalSlug | null): ServiceDraft[] {
+  const v = getVertical(slug);
+  if (!v) return [];
+  return v.suggestedServices.map((s) => ({
+    title: s.title,
+    durationMinutes: s.durationMinutes,
+    priceMask: centsToBRLMask(s.priceCents),
+  }));
+}
 
-type ServiceDraft = {
-  title: string;
-  durationMinutes: number;
-  priceMask: string;
-};
+function resolvePageDescription(
+  description: string,
+  vertical: VerticalSlug | null,
+  businessName: string,
+) {
+  const trimmed = description.trim();
+  if (trimmed.length >= 2) return trimmed.slice(0, DESCRIPTION_MAX);
+  const v = getVertical(vertical);
+  if (v) {
+    return v.descriptionPlaceholder
+      .replace(/^Ex\.:\s*/i, "")
+      .slice(0, DESCRIPTION_MAX);
+  }
+  const name = businessName.trim() || "seu negócio";
+  return `Agendamentos em ${name}`.slice(0, DESCRIPTION_MAX);
+}
 
-const STEPS: { id: Step; label: string }[] = [
-  { id: "empresa", label: "Empresa" },
-  { id: "modo", label: "Equipe" },
-  { id: "servicos", label: "Serviços" },
-  { id: "pagamento", label: "Pagamento" },
-  { id: "pronto", label: "Pronto" },
-];
+function isLikelyEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
 
-const POPUP_FEATURES =
-  "popup=yes,width=520,height=720,left=100,top=100,scrollbars=yes,resizable=yes";
+function isLikelyPhone(value: string) {
+  return Boolean(toE164(value));
+}
 
-export default function OnboardingPage() {
+function professionalsFromDraft(draft: OnboardingDraft): ProDraft[] {
+  if (draft.professionals?.length) {
+    return draft.professionals.map((p) => ({
+      displayName: p.displayName || "",
+      email: p.email || "",
+      phone: p.phone || "",
+    }));
+  }
+  if (draft.proNames?.length) {
+    return draft.proNames.map((n) => ({
+      displayName: n,
+      email: "",
+      phone: "",
+    }));
+  }
+  return [{ displayName: "", email: "", phone: "" }];
+}
+
+function loadDraft(): OnboardingDraft | null {
+  try {
+    const raw = localStorage.getItem(ONBOARDING_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as OnboardingDraft;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(draft: OnboardingDraft) {
+  try {
+    localStorage.setItem(ONBOARDING_DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    /* quota */
+  }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function OnboardingWizard() {
   const router = useRouter();
-  const { update } = useSession();
-  const [step, setStep] = useState<Step>("empresa");
+  const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus, update } = useSession();
+  const [step, setStep] = useState<OnboardingStepId>("segmento");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [orgSlug, setOrgSlug] = useState("");
-  const [pageSlug, setPageSlug] = useState("");
   const [publicPath, setPublicPath] = useState("");
+
+  const [vertical, setVertical] = useState<VerticalSlug | null>(null);
+  const [pickedVertical, setPickedVertical] = useState(false);
+  const servicesHydrated = useRef(false);
+  const draftLoaded = useRef(false);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [accentColor, setAccentColor] = useState("#0a0a0a");
   const [businessMode, setBusinessMode] = useState<"SOLO" | "SALON">("SOLO");
-  const [proNames, setProNames] = useState<string[]>([""]);
-  const [services, setServices] = useState<ServiceDraft[]>([
-    { title: "", durationMinutes: 60, priceMask: "" },
+  const [professionals, setProfessionals] = useState<ProDraft[]>([
+    { displayName: "", email: "", phone: "" },
   ]);
-  const [paymentChoice, setPaymentChoice] = useState<
-    "MERCADO_PAGO" | "ASAAS" | "LATER"
-  >("LATER");
-  const [mpConnected, setMpConnected] = useState(false);
-  const [asaasConnected, setAsaasConnected] = useState(false);
-  const [asaasKey, setAsaasKey] = useState("");
-  const [connectingMp, setConnectingMp] = useState(false);
+  const [services, setServices] = useState<ServiceDraft[]>([]);
+  const [hours, setHours] = useState<AvailabilityRuleDraft[]>(DEFAULT_COMMERCIAL_HOURS);
+  const [planSlug, setPlanSlug] = useState<PlatformPlanSlug>(
+    PLATFORM_PLAN_SLUGS.semester,
+  );
+  const [accountName, setAccountName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+
+  const isLoggedInWithOrg = Boolean(
+    sessionStatus === "authenticated" && session?.user?.organizationId,
+  );
+
+  const needsSegmento = !pickedVertical && !isLoggedInWithOrg;
+  const stepOrder = useMemo(() => {
+    const mid: OnboardingStepId[] = ["empresa", "modo", "servicos", "expediente"];
+    if (isLoggedInWithOrg) {
+      return needsSegmento
+        ? (["segmento", ...mid, "pronto"] as OnboardingStepId[])
+        : ([...mid, "pronto"] as OnboardingStepId[]);
+    }
+    return needsSegmento
+      ? (["segmento", ...mid, "conta", "pronto"] as OnboardingStepId[])
+      : ([...mid, "conta", "pronto"] as OnboardingStepId[]);
+  }, [needsSegmento, isLoggedInWithOrg]);
+
+  const sidebarSteps = useMemo(() => {
+    let steps = visibleOnboardingSteps(needsSegmento);
+    if (isLoggedInWithOrg) {
+      steps = steps.filter((s) => s.id !== "conta");
+    }
+    return steps;
+  }, [needsSegmento, isLoggedInWithOrg]);
 
   useEffect(() => {
-    fetch("/api/onboarding")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.completed) {
-          router.replace("/app");
-          return;
+    const tipo =
+      parseVerticalSlug(searchParams.get("tipo")) || getVerticalCookie();
+    if (tipo) {
+      setVertical(tipo);
+      setPickedVertical(true);
+      setVerticalCookie(tipo);
+      setStep((s) => (s === "segmento" ? "empresa" : s));
+    }
+
+    const draft = loadDraft();
+    if (draft && !draftLoaded.current) {
+      draftLoaded.current = true;
+      if (draft.vertical) {
+        const v = parseVerticalSlug(draft.vertical);
+        if (v) {
+          setVertical(v);
+          setPickedVertical(true);
         }
-        setName(data.name || "");
-        setDescription(data.description || "");
-        setLogoUrl(data.logoUrl || "");
-        setAccentColor(data.accentColor || "#0a0a0a");
-        setBusinessMode(data.businessMode || "SOLO");
-        setOrgSlug(data.slug || "");
-        setPageSlug(data.bookingPageSlug || "");
-        setMpConnected(Boolean(data.mercadoPagoConnected));
-        setAsaasConnected(Boolean(data.asaasConnected));
-        setLoading(false);
-      })
-      .catch(() => {
-        setError("Não foi possível carregar o assistente");
-        setLoading(false);
-      });
-  }, [router]);
+      }
+      setName(draft.name || "");
+      setDescription(draft.description || "");
+      setLogoUrl(draft.logoUrl || "");
+      setAccentColor(draft.accentColor || "#0a0a0a");
+      setBusinessMode(draft.businessMode || "SOLO");
+      setProfessionals(professionalsFromDraft(draft));
+      setServices(draft.services || []);
+      setHours(draft.hours?.length ? draft.hours : DEFAULT_COMMERCIAL_HOURS);
+      if (draft.planSlug === PLATFORM_PLAN_SLUGS.monthly || draft.planSlug === PLATFORM_PLAN_SLUGS.semester) {
+        setPlanSlug(draft.planSlug);
+      }
+      if (draft.step && draft.step !== "pronto") setStep(draft.step);
+      if (draft.services?.length) servicesHydrated.current = true;
+    }
+
+    if (sessionStatus === "authenticated" && session?.user?.organizationId) {
+      fetch("/api/onboarding")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.completed) {
+            router.replace("/app");
+            return;
+          }
+          if (data.name) setName(data.name);
+          if (data.description) setDescription(data.description);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    } else if (sessionStatus !== "loading") {
+      setLoading(false);
+    }
+  }, [searchParams, sessionStatus, session, router]);
+
+  useEffect(() => {
+    if (loading || servicesHydrated.current) return;
+    if (!vertical) return;
+    setServices(servicesFromVertical(vertical));
+    servicesHydrated.current = true;
+  }, [loading, vertical]);
+
+  useEffect(() => {
+    if (loading) return;
+    saveDraft({
+      vertical,
+      name,
+      description,
+      logoUrl,
+      accentColor,
+      businessMode,
+      professionals,
+      services,
+      hours,
+      planSlug,
+      step,
+    });
+  }, [
+    loading,
+    vertical,
+    name,
+    description,
+    logoUrl,
+    accentColor,
+    businessMode,
+    professionals,
+    services,
+    hours,
+    planSlug,
+    step,
+  ]);
+
+  const verticalConfig = getVertical(vertical);
+  const copy = verticalConfig
+    ? {
+        nameQuestion: verticalConfig.nameQuestion,
+        namePlaceholder: verticalConfig.namePlaceholder,
+        descriptionPlaceholder: verticalConfig.descriptionPlaceholder,
+        servicesLead: verticalConfig.servicesLead,
+      }
+    : defaultCopy();
 
   function onLogoFile(file: File | null) {
     setError("");
     readLogoFile(file, setLogoUrl, setError);
   }
 
-  function stepIndex(id: Step) {
-    return STEPS.findIndex((s) => s.id === id);
+  function applyVertical(slug: VerticalSlug) {
+    setVertical(slug);
+    setPickedVertical(true);
+    setVerticalCookie(slug);
+    setServices(servicesFromVertical(slug));
+    servicesHydrated.current = true;
+    setError("");
+    setStep("empresa");
   }
 
-  /** Valida um passo; retorna mensagem de erro ou null se ok. */
-  function validateStep(id: Step): string | null {
+  function validProfessionalsPayload() {
+    return professionals
+      .map((p) => ({
+        displayName: p.displayName.trim().slice(0, 80),
+        email: p.email.trim().toLowerCase(),
+        phone: toE164(p.phone) || "",
+      }))
+      .filter(
+        (p) =>
+          p.displayName.length >= 2 &&
+          isLikelyEmail(p.email) &&
+          Boolean(p.phone),
+      );
+  }
+
+  function validateStep(id: OnboardingStepId): string | null {
+    if (id === "segmento") {
+      if (!vertical) return "Escolha o segmento do seu negócio";
+      return null;
+    }
     if (id === "empresa") {
       if (name.trim().length < 2) return "Informe o nome da empresa (mín. 2 caracteres)";
-      if (name.trim().length > 120) return "Nome da empresa muito longo";
-      if (description.trim().length < 2) {
-        return "Informe o que você oferece (mín. 2 caracteres)";
-      }
       if (description.trim().length > DESCRIPTION_MAX) {
         return `A descrição pode ter no máximo ${DESCRIPTION_MAX} caracteres`;
       }
@@ -111,31 +317,67 @@ export default function OnboardingPage() {
     }
     if (id === "modo") {
       if (businessMode === "SALON") {
-        const names = proNames.map((n) => n.trim()).filter(Boolean);
-        if (names.length < 1) {
-          return "Informe pelo menos um profissional";
+        const filled = professionals.filter(
+          (p) =>
+            p.displayName.trim().length >= 2 ||
+            p.email.trim().length > 0 ||
+            p.phone.trim().length > 0,
+        );
+        if (!filled.length) {
+          return "Informe pelo menos um profissional com nome, e-mail e WhatsApp";
         }
-        const short = names.find((n) => n.length < 2);
-        if (short) {
-          return `Nome “${short}” é curto demais (mín. 2 letras)`;
+        for (const p of filled) {
+          if (p.displayName.trim().length < 2) {
+            return "Informe o nome de cada profissional (mín. 2 caracteres)";
+          }
+          if (!isLikelyEmail(p.email)) {
+            return "Informe um e-mail válido para cada profissional";
+          }
+          if (!isLikelyPhone(p.phone)) {
+            return "Informe um WhatsApp válido com DDD (ex.: 11 99999-9999)";
+          }
         }
-        const long = names.find((n) => n.length > 80);
-        if (long) return "Nome de profissional muito longo";
+        const emails = filled.map((p) => p.email.trim().toLowerCase());
+        if (new Set(emails).size !== emails.length) {
+          return "Os e-mails dos profissionais precisam ser diferentes";
+        }
+        const phones = filled
+          .map((p) => toE164(p.phone))
+          .filter(Boolean) as string[];
+        if (new Set(phones).size !== phones.length) {
+          return "Os WhatsApp dos profissionais precisam ser diferentes";
+        }
       }
       return null;
     }
     if (id === "servicos") {
       const filled = services.filter((s) => s.title.trim().length > 0);
       if (!filled.length) return "Adicione pelo menos um serviço";
-      for (const s of filled) {
-        const title = s.title.trim();
-        if (title.length < 2) {
-          return `Título “${title}” é curto demais (mín. 2 caracteres)`;
+      return null;
+    }
+    if (id === "expediente") {
+      if (!hours.length) return "Selecione ao menos um dia de atendimento";
+      return null;
+    }
+    if (id === "conta") {
+      if (accountName.trim().length < 2) return "Informe seu nome";
+      if (!email.includes("@")) return "Informe um e-mail válido";
+      if (!isLikelyPhone(phone)) {
+        return "Informe um WhatsApp válido com DDD (ex.: 11 99999-9999)";
+      }
+      if (password.length < 6) return "Senha com mínimo de 6 caracteres";
+      if (businessMode === "SALON") {
+        const owner = email.trim().toLowerCase();
+        const clash = validProfessionalsPayload().some((p) => p.email === owner);
+        if (clash) {
+          return "O e-mail da sua conta não pode ser o mesmo de um profissional";
         }
-        if (title.length > 80) return `Título “${title.slice(0, 24)}…” muito longo`;
-        const mins = Number(s.durationMinutes);
-        if (!Number.isFinite(mins) || mins < 5 || mins > 480) {
-          return `Duração de “${title}” deve ser entre 5 e 480 minutos`;
+        const ownerPhone = toE164(phone);
+        if (
+          ownerPhone &&
+          validProfessionalsPayload().some((p) => p.phone === ownerPhone)
+        ) {
+          return "O WhatsApp da sua conta não pode ser o mesmo de um profissional";
         }
       }
       return null;
@@ -143,11 +385,10 @@ export default function OnboardingPage() {
     return null;
   }
 
-  function firstInvalidStep(): Step | null {
-    for (const id of ["empresa", "modo", "servicos"] as Step[]) {
-      if (validateStep(id)) return id;
-    }
-    return null;
+  function goBack() {
+    setError("");
+    const idx = stepOrder.indexOf(step);
+    if (idx > 0) setStep(stepOrder[idx - 1]!);
   }
 
   function goNext() {
@@ -157,112 +398,31 @@ export default function OnboardingPage() {
       return;
     }
     setError("");
-    if (step === "empresa") {
-      setStep("modo");
+    if (step === "conta") {
+      void finishCheckout();
       return;
     }
-    if (step === "modo") {
-      setStep("servicos");
-      return;
-    }
-    if (step === "servicos") {
-      setStep("pagamento");
-      return;
-    }
-    if (step === "pagamento") {
-      void finish();
-    }
-  }
-
-  async function connectMercadoPago() {
-    setConnectingMp(true);
-    setError("");
-    const popup = window.open(
-      "/api/mercadopago/connect?popup=1",
-      "mp_oauth",
-      POPUP_FEATURES,
-    );
-    if (!popup) {
-      setConnectingMp(false);
-      setError("Permita pop-ups para conectar o Mercado Pago");
-      return;
-    }
-    const onMsg = (ev: MessageEvent) => {
-      if (ev.data?.type !== "mp-oauth") return;
-      window.removeEventListener("message", onMsg);
-      setConnectingMp(false);
-      if (ev.data.status === "connected") {
-        setMpConnected(true);
-        setPaymentChoice("MERCADO_PAGO");
-      } else {
-        setError("Não foi possível conectar o Mercado Pago");
+    const idx = stepOrder.indexOf(step);
+    if (idx >= 0 && idx < stepOrder.length - 1) {
+      const next = stepOrder[idx + 1]!;
+      if (next === "pronto" && isLoggedInWithOrg) {
+        void finishLoggedIn();
+        return;
       }
-    };
-    window.addEventListener("message", onMsg);
-    const timer = window.setInterval(() => {
-      if (popup.closed) {
-        window.clearInterval(timer);
-        window.removeEventListener("message", onMsg);
-        setConnectingMp(false);
-        fetch("/api/organization")
-          .then((r) => r.json())
-          .then((o) => {
-            if (o.mercadoPagoConnected) {
-              setMpConnected(true);
-              setPaymentChoice("MERCADO_PAGO");
-            }
-          })
-          .catch(() => undefined);
-      }
-    }, 800);
+      setStep(next);
+    }
   }
 
-  async function connectAsaas() {
-    if (!asaasKey.trim()) {
-      setError("Cole a API Key do Asaas");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    const res = await fetch("/api/asaas/status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiKey: asaasKey.trim() }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (!res.ok) {
-      setError(data.error || "Não foi possível conectar o Asaas");
-      return;
-    }
-    setAsaasConnected(true);
-    setPaymentChoice("ASAAS");
-  }
-
-  async function skipWizard() {
-    setSaving(true);
-    setError("");
-    const res = await fetch("/api/onboarding", { method: "PATCH" });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setSaving(false);
-      setError(data.error || "Não foi possível pular o assistente");
-      return;
-    }
-    await update();
-    window.location.assign("/app");
-  }
-
-  async function finish(opts?: { skipPayment?: boolean }) {
-    const bad = firstInvalidStep();
+  async function finishLoggedIn() {
+    const bad = (["empresa", "modo", "servicos", "expediente"] as OnboardingStepId[])
+      .map((id) => ({ id, msg: validateStep(id) }))
+      .find((x) => x.msg);
     if (bad) {
-      setStep(bad);
-      setError(validateStep(bad) || "Revise os dados deste passo");
+      setStep(bad.id);
+      setError(bad.msg || "Revise os dados");
       return;
     }
 
-    const trimmedName = name.trim();
-    const trimmedDescription = description.trim().slice(0, DESCRIPTION_MAX);
     const validServices = services
       .filter((s) => s.title.trim().length >= 2)
       .map((s) => ({
@@ -271,584 +431,287 @@ export default function OnboardingPage() {
         priceCents: parseBRLMaskToCents(s.priceMask) || 0,
       }));
     const validPros =
-      businessMode === "SALON"
-        ? proNames
-            .map((n) => n.trim())
-            .filter((n) => n.length >= 2)
-            .map((displayName) => ({ displayName: displayName.slice(0, 80) }))
-        : [];
+      businessMode === "SALON" ? validProfessionalsPayload() : [];
 
     setSaving(true);
     setError("");
-    const skipPayment = opts?.skipPayment === true;
-    const payload = {
-      name: trimmedName,
-      description: trimmedDescription,
-      logoUrl: logoUrl || null,
-      accentColor,
-      businessMode,
-      professionals: validPros,
-      services: validServices,
-      applyBusinessHours: true,
-      paymentProvider: skipPayment
-        ? undefined
-        : mpConnected
-          ? "MERCADO_PAGO"
-          : asaasConnected
-            ? "ASAAS"
-            : paymentChoice === "LATER"
-              ? undefined
-              : paymentChoice,
-    };
-
     const res = await fetch("/api/onboarding", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        name: name.trim(),
+        description: resolvePageDescription(description, vertical, name),
+        logoUrl: logoUrl || null,
+        accentColor,
+        businessMode,
+        professionals: validPros,
+        services: validServices,
+        availabilityRules: hours,
+        applyBusinessHours: true,
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setSaving(false);
     if (!res.ok) {
-      const apiBad = firstInvalidStep();
-      if (apiBad) setStep(apiBad);
       setError(data.error || "Não foi possível salvar");
       return;
     }
-
-    setOrgSlug(data.organizationSlug || orgSlug);
-    setPageSlug(data.bookingPageSlug || pageSlug);
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : "";
-    setPublicPath(
-      data.organizationSlug && data.bookingPageSlug
-        ? `${origin}/p/${data.organizationSlug}/${data.bookingPageSlug}`
-        : "",
-    );
+    clearDraft();
     await update();
-    setStep("pronto");
+    const sub = await fetch("/api/billing/subscribe", { method: "POST" });
+    const subData = await sub.json().catch(() => ({}));
+    if (sub.ok && subData.initPoint) {
+      window.location.assign(subData.initPoint);
+      return;
+    }
+    window.location.assign("/app");
   }
 
-  if (loading) {
+  async function finishCheckout() {
+    const bad = (["empresa", "modo", "servicos", "expediente", "conta"] as OnboardingStepId[])
+      .map((id) => ({ id, msg: validateStep(id) }))
+      .find((x) => x.msg);
+    if (bad) {
+      setStep(bad.id);
+      setError(bad.msg || "Revise os dados");
+      return;
+    }
+
+    const validServices = services
+      .filter((s) => s.title.trim().length >= 2)
+      .map((s) => ({
+        title: s.title.trim().slice(0, 80),
+        durationMinutes: Math.min(480, Math.max(5, Number(s.durationMinutes) || 30)),
+        priceCents: parseBRLMaskToCents(s.priceMask) || 0,
+      }));
+    const validPros =
+      businessMode === "SALON" ? validProfessionalsPayload() : [];
+
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/onboarding/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountName: accountName.trim(),
+          email: email.trim(),
+          phone: toE164(phone) || phone.trim(),
+          password,
+          planSlug,
+          name: name.trim(),
+          description: resolvePageDescription(description, vertical, name),
+          logoUrl: logoUrl || null,
+          accentColor,
+          businessMode,
+          professionals: validPros,
+          services: validServices,
+          availabilityRules: hours,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSaving(false);
+        setError(data.error || "Não foi possível criar a conta");
+        return;
+      }
+
+      const sign = await signIn("credentials", {
+        email: email.trim(),
+        password,
+        redirect: false,
+      });
+      if (sign?.error) {
+        setSaving(false);
+        setError("Conta criada, mas o login falhou. Entre em /login.");
+        return;
+      }
+
+      await update();
+      clearDraft();
+      clearVerticalCookie();
+
+      if (data.billingSkipped) {
+        window.location.assign(data.redirectTo || "/app");
+        return;
+      }
+
+      window.location.assign(data.redirectTo || "/onboarding/pagamento");
+    } catch {
+      setSaving(false);
+      setError("Erro de rede ao criar a conta");
+    }
+  }
+
+  if (loading || sessionStatus === "loading") {
     return (
       <div className="onboard-shell flex items-center justify-center px-4">
-        <p className="text-sm text-[var(--lp-steel)]">Preparando assistente…</p>
+        <p className="text-sm text-[var(--lp-steel)]">Preparando…</p>
       </div>
     );
   }
 
-  const idx = stepIndex(step);
-  const progress = ((idx + 1) / STEPS.length) * 100;
+  const showBack = step !== stepOrder[0] && step !== "pronto";
+  const primaryLabel = saving
+    ? "Processando…"
+    : step === "conta"
+      ? "Ir para o pagamento"
+      : step === "servicos"
+        ? "Salvar"
+        : "Continuar";
+
+  const skipLabel =
+    step === "expediente"
+      ? "Usar horário comercial padrão"
+      : step === "modo"
+        ? "Continuar sozinho"
+        : step === "servicos"
+          ? undefined
+          : step === "segmento" || step === "empresa"
+            ? undefined
+            : undefined;
+
+  function onSkip() {
+    if (step === "expediente") {
+      setHours(DEFAULT_COMMERCIAL_HOURS);
+      setError("");
+      setStep("conta");
+      return;
+    }
+    if (step === "modo") {
+      setBusinessMode("SOLO");
+      setError("");
+      setStep("servicos");
+    }
+  }
 
   return (
-    <div className="onboard-shell px-4 py-8 md:py-12">
-      <div className="mx-auto w-full max-w-xl">
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <BrandLogo href="/" size="md" showText />
-          <span className="onboard-chip">
-            Passo {idx + 1} de {STEPS.length}
-          </span>
-        </div>
+    <OnboardingShell
+      step={step}
+      steps={sidebarSteps}
+      sidebarTitle={
+        step === "conta" || step === "pronto"
+          ? "Pronto!"
+          : "Poucos passos para transformar seu negócio"
+      }
+      showBack={showBack}
+      onBack={goBack}
+      skipLabel={skipLabel}
+      onSkip={onSkip}
+      skipDisabled={saving}
+    >
+      <div className="onboard-panel space-y-5">
+        {step === "segmento" && (
+          <SegmentoStep vertical={vertical} onSelect={applyVertical} />
+        )}
 
-        <div className="onboard-progress mb-6">
-          <span style={{ width: `${progress}%` }} />
-        </div>
+        {step === "empresa" && (
+          <EmpresaStep
+            name={name}
+            description={description}
+            logoUrl={logoUrl}
+            accentColor={accentColor}
+            nameQuestion={copy.nameQuestion}
+            namePlaceholder={copy.namePlaceholder}
+            descriptionPlaceholder={copy.descriptionPlaceholder}
+            showVerticalPicker={false}
+            vertical={vertical}
+            onVerticalChange={applyVertical}
+            onNameChange={setName}
+            onDescriptionChange={setDescription}
+            onAccentChange={setAccentColor}
+            onLogoFile={onLogoFile}
+            onClearLogo={() => setLogoUrl("")}
+            onClearError={() => setError("")}
+          />
+        )}
 
-        <div className="onboard-card space-y-5 p-6 sm:p-8">
-          {step === "empresa" && (
-            <>
-              <div>
-                <p className="onboard-kicker">Bem-vindo</p>
-                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
-                  Configure sua empresa
-                </h1>
-                <p className="onboard-lead mt-1.5">
-                  Em poucos minutos seus serviços e pagamentos ficam prontos para
-                  receber clientes.
-                </p>
-              </div>
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-medium">Nome da empresa</span>
-                <input
-                  className="input-field"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (error) setError("");
-                  }}
-                  placeholder="Ex.: Studio Ana"
-                  autoFocus
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-medium">O que você oferece</span>
-                <textarea
-                  required
-                  minLength={2}
-                  maxLength={DESCRIPTION_MAX}
-                  className="input-field min-h-[72px]"
-                  value={description}
-                  onChange={(e) => {
-                    setDescription(e.target.value);
-                    if (error) setError("");
-                  }}
-                  placeholder="Ex.: Corte, coloração e escova"
-                />
-              </label>
+        {step === "modo" && (
+          <EquipeStep
+            businessMode={businessMode}
+            professionals={professionals}
+            onModeChange={setBusinessMode}
+            onProfessionalsChange={setProfessionals}
+            onClearError={() => setError("")}
+          />
+        )}
 
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-medium">Logotipo (opcional)</span>
-                <div className="onboard-logo-row">
-                  <div className="onboard-logo-preview">
-                    {logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={logoUrl} alt="" />
-                    ) : (
-                      <span>Logo</span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label className="btn-secondary cursor-pointer !py-2 !text-xs">
-                        Enviar imagem
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          className="hidden"
-                          onChange={(e) => onLogoFile(e.target.files?.[0] || null)}
-                        />
-                      </label>
-                      {logoUrl && (
-                        <button
-                          type="button"
-                            className="text-xs font-medium text-[var(--lp-steel)] hover:text-danger"
-                          onClick={() => setLogoUrl("")}
-                        >
-                          Remover
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </label>
+        {step === "servicos" && (
+          <ServicosStep
+            services={services}
+            servicesLead={copy.servicesLead}
+            onChange={setServices}
+            onClearError={() => setError("")}
+          />
+        )}
 
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-medium">Cor de destaque</span>
-                <div className="onboard-color-row">
-                  <span className="onboard-color-swatch">
-                    <input
-                      type="color"
-                      value={accentColor}
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      aria-label="Escolher cor de destaque"
-                    />
-                  </span>
-                  <input
-                    className="input-field max-w-[7.5rem] font-mono text-sm uppercase"
-                    value={accentColor}
-                    onChange={(e) => setAccentColor(e.target.value)}
-                    pattern="^#[0-9A-Fa-f]{6}$"
-                  />
-                  <span
-                    className="onboard-color-preview"
-                    style={{ background: accentColor }}
-                  >
-                    Prévia
-                  </span>
-                </div>
-              </label>
-            </>
-          )}
+        {step === "expediente" && (
+          <ExpedienteStep rules={hours} onChange={setHours} />
+        )}
 
-          {step === "modo" && (
-            <>
-              <div>
-                <p className="onboard-kicker">Equipe</p>
-                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
-                  Quem atende?
-                </h1>
-                <p className="onboard-lead mt-1.5">
-                  Individual se for só você. Com equipe se várias pessoas atenderem no mesmo link.
-                </p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBusinessMode("SOLO");
-                    if (error) setError("");
-                  }}
-                  className={`onboard-choice ${
-                    businessMode === "SOLO" ? "onboard-choice-active" : ""
-                  }`}
-                >
-                  <p className="font-semibold">Individual</p>
-                  <p className="onboard-choice-desc mt-1 text-xs">
-                    Uma pessoa atende. Ideal para profissionais autônomos.
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBusinessMode("SALON");
-                    if (error) setError("");
-                  }}
-                  className={`onboard-choice ${
-                    businessMode === "SALON" ? "onboard-choice-active" : ""
-                  }`}
-                >
-                  <p className="font-semibold">Equipe</p>
-                  <p className="onboard-choice-desc mt-1 text-xs">
-                    Vários profissionais. O cliente escolhe quem prefere.
-                  </p>
-                </button>
-              </div>
-              {businessMode === "SALON" && (
-                <div className="space-y-3">
-                  <p className="text-sm font-medium">Nomes da equipe</p>
-                  {proNames.map((n, i) => (
-                    <div key={i} className="flex gap-2">
-                      <input
-                        className="input-field flex-1"
-                        placeholder={`Profissional ${i + 1}`}
-                        value={n}
-                        onChange={(e) => {
-                          const next = [...proNames];
-                          next[i] = e.target.value;
-                          setProNames(next);
-                          if (error) setError("");
-                        }}
-                      />
-                      {proNames.length > 1 && (
-                        <button
-                          type="button"
-                          className="btn-secondary !px-3"
-                          onClick={() =>
-                            setProNames(proNames.filter((_, j) => j !== i))
-                          }
-                        >
-                          −
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setProNames([...proNames, ""])}
-                  >
-                    + Adicionar profissional
-                  </button>
-                  <p className="text-xs text-muted">
-                    Depois você pode criar logins para cada um em Profissionais.
-                  </p>
-                </div>
-              )}
-            </>
-          )}
+        {step === "conta" && (
+          <ContaStep
+            accountName={accountName}
+            email={email}
+            phone={phone}
+            password={password}
+            planSlug={planSlug}
+            onAccountNameChange={setAccountName}
+            onEmailChange={setEmail}
+            onPhoneChange={setPhone}
+            onPasswordChange={setPassword}
+            onPlanChange={setPlanSlug}
+            onClearError={() => setError("")}
+          />
+        )}
 
-          {step === "servicos" && (
-            <>
-              <div>
-                <p className="onboard-kicker">Serviços</p>
-                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
-                  O que você oferece?
-                </h1>
-                <p className="onboard-lead mt-1.5">
-                  Cadastre os serviços principais. Horário comercial
-                  (seg–sex, 9h–18h) será aplicado automaticamente — você ajusta
-                  depois.
-                </p>
-              </div>
-              <div className="space-y-4">
-                {services.map((s, i) => (
-                  <div
-                    key={i}
-                    className="space-y-3 rounded-2xl border border-border p-4"
-                  >
-                    <label className="block text-sm">
-                      <span className="mb-1.5 block font-medium">Serviço</span>
-                      <input
-                        className="input-field"
-                        placeholder="Ex.: Corte, Consulta, Sessão"
-                        value={s.title}
-                        onChange={(e) => {
-                          const next = [...services];
-                          next[i] = { ...s, title: e.target.value };
-                          setServices(next);
-                          if (error) setError("");
-                        }}
-                      />
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="block text-sm">
-                        <span className="mb-1.5 block font-medium">
-                          Duração (min)
-                        </span>
-                        <input
-                          type="number"
-                          min={5}
-                          max={480}
-                          className="input-field"
-                          value={s.durationMinutes}
-                          onChange={(e) => {
-                            const next = [...services];
-                            next[i] = {
-                              ...s,
-                              durationMinutes: Number(e.target.value) || 30,
-                            };
-                            setServices(next);
-                            if (error) setError("");
-                          }}
-                        />
-                      </label>
-                      <label className="block text-sm">
-                        <span className="mb-1.5 block font-medium">Preço</span>
-                        <input
-                          className="input-field"
-                          placeholder="R$ 0,00"
-                          value={s.priceMask}
-                          onChange={(e) => {
-                            const next = [...services];
-                            next[i] = {
-                              ...s,
-                              priceMask: maskBRLFromDigits(e.target.value),
-                            };
-                            setServices(next);
-                            if (error) setError("");
-                          }}
-                        />
-                      </label>
-                    </div>
-                    {services.length > 1 && (
-                      <button
-                        type="button"
-                        className="text-xs font-medium text-muted hover:text-foreground"
-                        onClick={() =>
-                          setServices(services.filter((_, j) => j !== i))
-                        }
-                      >
-                        Remover
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() =>
-                    setServices([
-                      ...services,
-                      { title: "", durationMinutes: 60, priceMask: "" },
-                    ])
-                  }
-                >
-                  + Outro serviço
-                </button>
-              </div>
-            </>
-          )}
+        {step === "pronto" && (
+          <ProntoStep
+            publicPath={publicPath}
+            serviceCount={services.filter((s) => s.title.trim()).length}
+            businessMode={businessMode}
+            proCount={professionals.filter((p) => p.displayName.trim()).length}
+            mpConnected={false}
+            asaasConnected={false}
+          />
+        )}
 
-          {step === "pagamento" && (
-            <>
-              <div>
-                <p className="onboard-kicker">Pagamento</p>
-                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
-                  Receber pagamentos
-                </h1>
-                <p className="onboard-lead mt-1.5">
-                  Conecte agora ou deixe para depois.
-                </p>
-              </div>
+        {error && (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger"
+          >
+            {error}
+          </p>
+        )}
 
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-border p-4">
-                  <div className="flex items-center gap-3">
-                    <MercadoPagoIcon size={32} />
-                    <div className="flex-1">
-                      <p className="font-semibold">Mercado Pago</p>
-                      <p className="text-xs text-muted">
-                        Pix e cartão · conecte em um clique
-                      </p>
-                    </div>
-                    {mpConnected ? (
-                      <span className="text-xs font-semibold text-emerald-700">
-                        Conectado
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={connectingMp}
-                        onClick={() => void connectMercadoPago()}
-                        className="btn-primary !py-2 !text-xs"
-                      >
-                        {connectingMp ? "Abrindo…" : "Conectar"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {ASAAS_ENABLED && (
-                  <div className="rounded-2xl border border-border p-4">
-                    <div className="flex items-start gap-3">
-                      <AsaasIcon size={32} />
-                      <div className="flex-1 space-y-2">
-                        <div>
-                          <p className="font-semibold">Asaas</p>
-                          <p className="text-xs text-muted">
-                            Pix e cartão · cole a API Key
-                          </p>
-                        </div>
-                        {asaasConnected ? (
-                          <span className="text-xs font-semibold text-emerald-700">
-                            Conectado
-                          </span>
-                        ) : (
-                          <div className="flex flex-col gap-2 sm:flex-row">
-                            <input
-                              className="input-field flex-1 font-mono text-xs"
-                              placeholder="API Key Asaas"
-                              value={asaasKey}
-                              onChange={(e) => setAsaasKey(e.target.value)}
-                            />
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => void connectAsaas()}
-                              className="btn-secondary whitespace-nowrap"
-                            >
-                              Salvar key
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => {
-                    setPaymentChoice("LATER");
-                    void finish({ skipPayment: true });
-                  }}
-                  className="onboard-choice w-full"
-                >
-                  <p className="font-semibold">Configurar depois</p>
-                  <p className="onboard-choice-desc mt-1 text-xs text-[var(--lp-steel)]">
-                    Pule esta etapa e conecte o pagamento quando quiser, no painel.
-                  </p>
-                </button>
-              </div>
-            </>
-          )}
-
-          {step === "pronto" && (
-            <div className="space-y-5 text-center">
-              <div
-                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-semibold"
-                style={{
-                  background: "var(--lp-accent-soft)",
-                  color: "var(--lp-accent)",
-                }}
-              >
-                ✓
-              </div>
-              <div>
-                <p className="onboard-kicker justify-center">Pronto</p>
-                <h1 className="onboard-title mt-2 text-2xl sm:text-[1.75rem]">
-                  Tudo pronto!
-                </h1>
-                <p className="onboard-lead mx-auto mt-2 max-w-sm text-center">
-                  Seus serviços estão configurados
-                  {services[0]?.title
-                    ? ` com ${services.filter((s) => s.title.trim()).length} serviço(s)`
-                    : ""}
-                  {businessMode === "SALON"
-                    ? ` e ${proNames.filter((n) => n.trim()).length} profissional(is)`
-                    : ""}
-                  .
-                </p>
-              </div>
-              {publicPath && (
-                <div className="rounded-2xl border border-border bg-muted-bg/50 p-4 text-left text-sm">
-                  <p className="text-xs font-medium text-muted">Link público</p>
-                  <a
-                    href={publicPath}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 block break-all font-medium underline-offset-2 hover:underline"
-                  >
-                    {publicPath}
-                  </a>
-                </div>
-              )}
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-                <Link href="/app" className="btn-primary">
-                  Ir para o painel
-                </Link>
-                {!mpConnected && !asaasConnected && (
-                  <Link href="/app/integracoes" className="btn-secondary">
-                    Conectar pagamento
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <p
-              role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger"
-            >
-              {error}
-            </p>
-          )}
-
-          {step !== "pronto" && (
-            <div className="flex items-center justify-between gap-3 pt-2">
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={step === "empresa" || saving}
-                onClick={() => {
-                  setError("");
-                  if (step === "modo") setStep("empresa");
-                  else if (step === "servicos") setStep("modo");
-                  else if (step === "pagamento") setStep("servicos");
-                }}
-              >
-                Voltar
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                disabled={saving}
-                onClick={() => goNext()}
-              >
-                {saving
-                  ? "Salvando…"
-                  : step === "pagamento"
-                    ? "Concluir configuração"
-                    : "Continuar"}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {step !== "pronto" && (
-          <div className="mt-5 text-center">
+        {step !== "pronto" && step !== "segmento" && (
+          <div className="pt-2">
             <button
               type="button"
+              className="btn-primary w-full py-3"
               disabled={saving}
-              onClick={() => void skipWizard()}
-              className="text-sm font-medium text-[var(--lp-steel)] underline-offset-2 hover:text-[var(--lp-ink)] hover:underline"
+              onClick={() => goNext()}
             >
-              Não quero fazer isso agora
+              {primaryLabel}
             </button>
           </div>
         )}
       </div>
-    </div>
+    </OnboardingShell>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="onboard-shell flex items-center justify-center px-4">
+          <p className="text-sm text-[var(--lp-steel)]">Preparando…</p>
+        </div>
+      }
+    >
+      <OnboardingWizard />
+    </Suspense>
   );
 }

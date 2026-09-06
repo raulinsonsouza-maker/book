@@ -11,6 +11,7 @@ export default function EstudioEBemEstarPage() {
   return (
     <NicheLanding
       content={{
+        tipo: "estudio-e-bem-estar",
         theme: "spa",
         hero: {
           src: "/lp/spa-hero.jpg",

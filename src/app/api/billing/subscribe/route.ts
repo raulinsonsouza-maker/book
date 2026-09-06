@@ -5,7 +5,10 @@ import {
   isPlatformBillingEnabled,
   platformMercadoPagoConfigured,
 } from "@/lib/billing/platform";
-import { createPlatformPreapproval } from "@/lib/billing/mercadopago-platform";
+import {
+  createPlatformPreapproval,
+  createPlatformPreference,
+} from "@/lib/billing/mercadopago-platform";
 
 export async function POST() {
   const auth = await apiRequireAdmin();
@@ -26,6 +29,9 @@ export async function POST() {
   const plan =
     sub?.plan ??
     (await prisma.plan.findFirst({
+      where: { isActive: true, slug: "essencial-mensal" },
+    })) ??
+    (await prisma.plan.findFirst({
       where: { isActive: true },
       orderBy: { priceCents: "asc" },
     }));
@@ -34,16 +40,48 @@ export async function POST() {
     return NextResponse.json({ error: "Nenhum plano ativo" }, { status: 400 });
   }
 
-  const base =
+  const base = (
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXTAUTH_URL ||
-    "http://localhost:3000";
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
+  const backUrl = `${base}/onboarding/aguardando`;
+  const email = auth.ctx.email || "cliente@empresa.com";
+
+  if (plan.interval === "SEMESTER") {
+    const mp = await createPlatformPreference({
+      reason: `Book Symbius — ${plan.name}`,
+      payerEmail: email,
+      amountCents: plan.priceCents,
+      backUrl,
+      externalReference: orgId,
+      maxInstallments: 6,
+    });
+    await prisma.subscription.upsert({
+      where: { organizationId: orgId },
+      update: {
+        planId: plan.id,
+        mpPreferenceId: mp.id,
+        status: "PAST_DUE",
+      },
+      create: {
+        organizationId: orgId,
+        planId: plan.id,
+        mpPreferenceId: mp.id,
+        status: "PAST_DUE",
+      },
+    });
+    return NextResponse.json({
+      initPoint: mp.init_point || mp.sandbox_init_point,
+      preferenceId: mp.id,
+    });
+  }
 
   const mp = await createPlatformPreapproval({
     reason: `Book Symbius — ${plan.name}`,
-    payerEmail: auth.ctx.email || "cliente@empresa.com",
+    payerEmail: email,
     amountCents: plan.priceCents,
-    backUrl: `${base}/app/conta?subscription=ok`,
+    backUrl,
     externalReference: orgId,
   });
 

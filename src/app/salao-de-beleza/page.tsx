@@ -11,6 +11,7 @@ export default function SalaoDeBelezaPage() {
   return (
     <NicheLanding
       content={{
+        tipo: "salao-de-beleza",
         theme: "salon",
         hero: {
           src: "/lp/salon-hero.jpg",

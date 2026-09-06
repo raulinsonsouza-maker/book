@@ -11,6 +11,7 @@ export default function EsmalteriaPage() {
   return (
     <NicheLanding
       content={{
+        tipo: "esmalteria",
         theme: "nails",
         hero: {
           src: "/lp/nails-hero.jpg",

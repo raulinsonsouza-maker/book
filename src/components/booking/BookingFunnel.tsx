@@ -1193,7 +1193,12 @@ export function BookingFunnel({
               accent={accent}
               title={heroTitle || displayName}
               subtitle={welcomeText}
+              ctaLabel="Novo Agendamento"
               onCta={startBooking}
+              secondaryCtaLabel="Minhas Reservas"
+              onSecondaryCta={() => {
+                window.location.href = `/p/${orgSlug}/reservas`;
+              }}
             />
             {funnelConfig?.blocks &&
               funnelConfig.blocks.some((b) => b.type !== "image") && (

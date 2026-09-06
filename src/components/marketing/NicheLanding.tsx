@@ -7,6 +7,8 @@ export type NicheStep = { title: string; body: string };
 
 export type NicheLandingContent = {
   theme: string;
+  /** Slug do nicho — CTAs de signup passam `?tipo=` para personalizar o onboarding. */
+  tipo?: string;
   logoLight?: boolean;
   hero: { src: string; alt: string; objectPosition?: string };
   photo: { src: string; alt: string };
@@ -24,6 +26,7 @@ export type NicheLandingContent = {
 export function NicheLanding({ content }: { content: NicheLandingContent }) {
   const {
     theme,
+    tipo,
     logoLight = false,
     hero,
     photo,
@@ -37,6 +40,9 @@ export function NicheLanding({ content }: { content: NicheLandingContent }) {
     proof,
     close,
   } = content;
+  const signupHref = tipo
+    ? `/onboarding?tipo=${encodeURIComponent(tipo)}`
+    : "/onboarding";
 
   return (
     <div className={`niche-lp niche-lp--${theme} min-h-screen`}>
@@ -58,7 +64,7 @@ export function NicheLanding({ content }: { content: NicheLandingContent }) {
             <Link href="/login" className="niche-lp-nav-link">
               Entrar
             </Link>
-            <Link href="/signup" className="niche-lp-cta niche-lp-cta--sm">
+            <Link href={signupHref} className="niche-lp-cta niche-lp-cta--sm">
               Começar agora
             </Link>
           </div>
@@ -81,7 +87,7 @@ export function NicheLanding({ content }: { content: NicheLandingContent }) {
             <h1 className="niche-lp-headline niche-lp-rise">{headline}</h1>
             <p className="niche-lp-lead niche-lp-rise niche-lp-rise-1">{lead}</p>
             <div className="niche-lp-rise niche-lp-rise-2 mt-8 flex flex-wrap gap-3">
-              <Link href="/signup" className="niche-lp-cta">
+              <Link href={signupHref} className="niche-lp-cta">
                 {ctaPrimary}
               </Link>
               <a href="#dia-a-dia" className="niche-lp-ghost">
@@ -158,7 +164,7 @@ export function NicheLanding({ content }: { content: NicheLandingContent }) {
               <p className="niche-lp-body niche-lp-body--on-panel mt-5 max-w-xl">
                 {proof.body}
               </p>
-              <Link href="/signup" className="niche-lp-cta mt-8 inline-flex">
+              <Link href={signupHref} className="niche-lp-cta mt-8 inline-flex">
                 {proof.cta}
               </Link>
             </div>
@@ -169,7 +175,7 @@ export function NicheLanding({ content }: { content: NicheLandingContent }) {
           <div className="mx-auto max-w-2xl px-5 text-center md:px-6">
             <h2 className="niche-lp-h2">{close.title}</h2>
             <p className="niche-lp-body mx-auto mt-5">{close.body}</p>
-            <Link href="/signup" className="niche-lp-cta mt-8 inline-flex">
+            <Link href={signupHref} className="niche-lp-cta mt-8 inline-flex">
               {close.cta}
             </Link>
             <p className="niche-lp-footnote mt-6 text-sm">

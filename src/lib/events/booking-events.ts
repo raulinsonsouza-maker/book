@@ -1,3 +1,5 @@
+import { formatInTimeZone } from "date-fns-tz";
+import { ptBR } from "date-fns/locale";
 import { prisma } from "@/lib/prisma";
 import {
   sendBookingCancelledClient,
@@ -19,6 +21,9 @@ import {
 import { appUrl } from "@/lib/email/templates/layout";
 import { bookingPublicPath } from "@/lib/booking-page-slug";
 import { deleteCalendarEvent, syncBookingToGoogle } from "@/lib/google/calendar";
+import { sendWhatsAppBookingReminder } from "@/lib/whatsapp/client";
+import { getPlatformWhatsAppConfig } from "@/lib/whatsapp/config";
+import { toE164 } from "@/lib/whatsapp/phone";
 
 export { SlotUnavailableError } from "@/lib/availability";
 
@@ -275,17 +280,53 @@ async function handleBookingReminder(bookingId: string) {
   if (!org.notifyClientReminder || org.reminderHoursBefore <= 0) return;
 
   const token = await ensureManageToken(bookingId);
-  await sendBookingReminder({
-    to: booking.customerEmail,
-    customerName: booking.customerName,
-    serviceTitle: booking.service.title,
-    professionalName: org.name,
-    startAt: booking.startAt,
-    endAt: booking.endAt,
-    timezone: booking.timezone,
-    meetLink: booking.googleMeetLink,
-    manageUrl: token ? manageBookingUrl(token) : appUrl(bookingPublicPath(org.slug, booking.bookingPage.slug)),
-  });
+  const manageUrl = token
+    ? manageBookingUrl(token)
+    : appUrl(bookingPublicPath(org.slug, booking.bookingPage.slug));
+
+  const waCfg = await getPlatformWhatsAppConfig();
+  const e164 = toE164(booking.customerPhone);
+  let waSent = false;
+  if (waCfg.enabled && e164) {
+    const whenLabel = formatInTimeZone(
+      booking.startAt,
+      booking.timezone,
+      "dd/MM 'às' HH:mm",
+      { locale: ptBR },
+    );
+    const buttonPath = token
+      ? `m/${token}`
+      : `p/${org.slug}/reservas?b=${booking.id}`;
+    const result = await sendWhatsAppBookingReminder({
+      toE164: e164,
+      organizationId: org.id,
+      bookingId: booking.id,
+      customerId: booking.customerId,
+      customerName: booking.customerName,
+      orgName: org.name,
+      whenLabel,
+      serviceTitle: booking.service.title,
+      buttonPath,
+    });
+    waSent = result.ok;
+  }
+
+  if (booking.customerEmail) {
+    await sendBookingReminder({
+      to: booking.customerEmail,
+      customerName: booking.customerName,
+      serviceTitle: booking.service.title,
+      professionalName: org.name,
+      startAt: booking.startAt,
+      endAt: booking.endAt,
+      timezone: booking.timezone,
+      meetLink: booking.googleMeetLink,
+      manageUrl,
+    });
+  } else if (!waSent) {
+    return;
+  }
+
   await prisma.booking.update({
     where: { id: bookingId },
     data: { reminderSentAt: new Date() },

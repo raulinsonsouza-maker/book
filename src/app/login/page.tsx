@@ -45,7 +45,7 @@ function LoginForm() {
     if (session?.user?.mustChangePassword) {
       router.push("/primeiro-acesso");
     } else {
-      router.push(session?.user?.isPlatformAdmin ? "/gerencial" : "/app");
+      router.push(session?.user?.isPlatformAdmin ? "/admin" : "/app");
     }
     router.refresh();
   }

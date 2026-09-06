@@ -95,7 +95,16 @@ export async function checkOrgBillingAccess(
   const status = org.subscriptionStatus;
   const sub = org.subscription;
 
-  if (status === "ACTIVE") return { allowed: true };
+  if (status === "ACTIVE") {
+    if (sub?.currentPeriodEnd && sub.currentPeriodEnd.getTime() < Date.now()) {
+      return {
+        allowed: false,
+        reason: "Seu período expirou. Renove a assinatura para continuar.",
+        status: "ACTIVE",
+      };
+    }
+    return { allowed: true };
+  }
 
   if (status === "TRIALING" && sub?.trialEndsAt) {
     if (sub.trialEndsAt.getTime() > Date.now()) return { allowed: true };

@@ -9,6 +9,8 @@ type Props = {
   subtitle: string;
   ctaLabel?: string;
   onCta: () => void;
+  secondaryCtaLabel?: string;
+  onSecondaryCta?: () => void;
   preview?: boolean;
   editable?: boolean;
   onTitleChange?: (value: string) => void;
@@ -23,6 +25,8 @@ export function BookingWelcomeHero({
   subtitle,
   ctaLabel = "Agendar",
   onCta,
+  secondaryCtaLabel,
+  onSecondaryCta,
   preview = false,
   editable = false,
   onTitleChange,
@@ -141,14 +145,25 @@ export function BookingWelcomeHero({
           ) : null}
         </div>
 
-        <button
-          type="button"
-          onClick={onCta}
-          className="booking-welcome-cta"
-          style={{ background: accent }}
-        >
-          {ctaLabel}
-        </button>
+        <div className="booking-welcome-cta-stack">
+          <button
+            type="button"
+            onClick={onCta}
+            className="booking-welcome-cta"
+            style={{ background: accent }}
+          >
+            {ctaLabel}
+          </button>
+          {secondaryCtaLabel && onSecondaryCta ? (
+            <button
+              type="button"
+              onClick={onSecondaryCta}
+              className="booking-welcome-cta booking-welcome-cta--secondary"
+            >
+              {secondaryCtaLabel}
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

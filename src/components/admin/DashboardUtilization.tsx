@@ -4,7 +4,7 @@ import { utilizationPercent } from "@/lib/dashboard-stats";
 type Item = {
   label: string;
   value: string;
-  sublabel?: string;
+  hint?: string;
   percent: number;
 };
 
@@ -14,27 +14,23 @@ type Props = {
 
 export function DashboardUtilization({ items }: Props) {
   return (
-    <div className="dashboard-panel rounded-2xl bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
-        <h2 className="text-base font-semibold tracking-tight">Resumo do mês</h2>
-        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-          Ativo
-        </span>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="dashboard-panel rounded-xl bg-white p-4 shadow-sm">
+      <h2 className="text-sm font-semibold tracking-tight">Neste mês</h2>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
         {items.map((item) => (
-          <div
-            key={item.label}
-            className="rounded-xl border border-border bg-muted-bg/30 p-4"
-          >
-            <p className="text-xs font-medium text-muted">{item.label}</p>
-            <p className="mt-1 text-lg font-bold tracking-tight">{item.value}</p>
-            {item.sublabel && (
-              <p className="mt-0.5 text-[11px] text-muted">{item.sublabel}</p>
+          <div key={item.label} className="min-w-0">
+            <p className="text-[11px] font-medium text-muted">{item.label}</p>
+            <p className="mt-0.5 truncate text-lg font-bold tracking-tight">
+              {item.value}
+            </p>
+            {item.hint && (
+              <p className="mt-0.5 truncate text-[11px] text-muted">
+                {item.hint}
+              </p>
             )}
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-border">
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-border">
               <div
-                className="h-full rounded-full bg-[#2563eb] transition-all"
+                className="h-full rounded-full bg-[#2563eb]"
                 style={{ width: `${item.percent}%` }}
               />
             </div>
@@ -54,34 +50,28 @@ export function buildUtilizationItems(stats: {
   integrationsConnected: number;
 }) {
   const bookingScale = Math.max(stats.monthBookings, 20);
-  const confirmScale = Math.max(stats.monthConfirmed, 10);
   const revenueScale = Math.max(stats.monthRevenueCents, 100_000);
-  const pageScale = Math.max(stats.activePages, 5);
   const serviceScale = Math.max(stats.totalServices, 10);
 
   return [
     {
-      label: "Agendamentos / mês",
+      label: "Agendamentos",
       value: String(stats.monthBookings),
-      sublabel: `${stats.monthConfirmed} confirmados`,
+      hint: `${stats.monthConfirmed} confirmados`,
       percent: utilizationPercent(stats.monthBookings, bookingScale),
     },
     {
-      label: "Receita confirmada",
+      label: "Receita",
       value: formatBRL(stats.monthRevenueCents),
-      sublabel: "Pagamentos recebidos",
       percent: utilizationPercent(stats.monthRevenueCents, revenueScale),
     },
     {
-      label: "Links ativos",
-      value: String(stats.activePages),
-      sublabel: "Páginas públicas de agendamento",
-      percent: utilizationPercent(stats.activePages, pageScale),
-    },
-    {
-      label: "Serviços cadastrados",
+      label: "Serviços",
       value: String(stats.totalServices),
-      sublabel: `${stats.integrationsConnected} integração(ões) ativa(s)`,
+      hint:
+        stats.integrationsConnected > 0
+          ? `${stats.integrationsConnected} integração(ões)`
+          : undefined,
       percent: utilizationPercent(stats.totalServices, serviceScale),
     },
   ];

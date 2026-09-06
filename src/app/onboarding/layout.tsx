@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { redirect } from "next/navigation";
 
 export default async function OnboardingLayout({
   children,
@@ -7,7 +7,9 @@ export default async function OnboardingLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
-  if (!session?.user) redirect("/login");
-  if (!session.user.organizationId) redirect("/signup/complete");
+  // Guest onboarding is public. Logged-in users without org go to complete.
+  if (session?.user && !session.user.organizationId && !session.user.isPlatformAdmin) {
+    redirect("/signup/complete");
+  }
   return children;
 }

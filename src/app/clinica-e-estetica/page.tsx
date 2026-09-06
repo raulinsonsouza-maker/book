@@ -11,6 +11,7 @@ export default function ClinicaEEsteticaPage() {
   return (
     <NicheLanding
       content={{
+        tipo: "clinica-e-estetica",
         theme: "clinic",
         hero: {
           src: "/lp/clinic-hero.jpg",

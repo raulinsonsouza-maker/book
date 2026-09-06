@@ -18,11 +18,11 @@ export function DashboardTrendChart({
   totalConfirmed,
 }: Props) {
   const width = 640;
-  const height = 220;
-  const padX = 36;
-  const padY = 24;
+  const height = 132;
+  const padX = 28;
+  const padY = 12;
   const chartW = width - padX * 2;
-  const chartH = height - padY * 2;
+  const chartH = height - padY * 2 - 14;
 
   function y(value: number) {
     return padY + chartH - (value / maxValue) * chartH;
@@ -34,7 +34,10 @@ export function DashboardTrendChart({
 
   function line(values: number[]) {
     return values
-      .map((v, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
+      .map(
+        (v, i) =>
+          `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`,
+      )
       .join(" ");
   }
 
@@ -42,40 +45,32 @@ export function DashboardTrendChart({
   const confirmedLine = line(months.map((m) => m.confirmed));
 
   return (
-    <div className="dashboard-panel rounded-2xl bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold tracking-tight">
-            Agendamentos vs. Confirmados
+    <div className="dashboard-panel rounded-xl bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <h2 className="text-sm font-semibold tracking-tight">
+            Agendamentos vs. confirmados
           </h2>
-          <p className="mt-0.5 text-sm text-muted">
-            Volume agendado x efetivamente confirmado
-          </p>
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#2563eb]" />
+            {totalScheduled}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            {totalConfirmed}
+          </span>
         </div>
-        <span className="rounded-lg border border-border bg-muted-bg px-3 py-1.5 text-xs font-medium text-muted">
-          Últimos 12 meses
-        </span>
+        <span className="text-[11px] font-medium text-muted">12 meses</span>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-4 text-xs">
-        <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
-          Agendamentos {totalScheduled}
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          Confirmados {totalConfirmed}
-        </span>
-      </div>
-
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-3 overflow-x-auto">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="min-w-[520px] w-full"
+          className="min-w-[420px] h-[132px] w-full"
           role="img"
           aria-label="Gráfico de agendamentos nos últimos 12 meses"
         >
-          {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+          {[0, 0.5, 1].map((t) => {
             const yy = padY + chartH * (1 - t);
             const val = Math.round(maxValue * t);
             return (
@@ -85,27 +80,37 @@ export function DashboardTrendChart({
                   y1={yy}
                   x2={width - padX}
                   y2={yy}
-                  stroke="#e5e7eb"
+                  stroke="#eef0f3"
                   strokeWidth="1"
                 />
-                <text x={4} y={yy + 4} fill="#9ca3af" fontSize="10">
+                <text x={2} y={yy + 3} fill="#9ca3af" fontSize="9">
                   {val}
                 </text>
               </g>
             );
           })}
 
-          <path d={scheduledLine} fill="none" stroke="#2563eb" strokeWidth="2.5" />
-          <path d={confirmedLine} fill="none" stroke="#10b981" strokeWidth="2.5" />
+          <path
+            d={scheduledLine}
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth="2"
+          />
+          <path
+            d={confirmedLine}
+            fill="none"
+            stroke="#10b981"
+            strokeWidth="2"
+          />
 
           {months.map((m, i) => (
             <text
               key={m.label}
               x={x(i)}
-              y={height - 4}
+              y={height - 2}
               textAnchor="middle"
               fill="#9ca3af"
-              fontSize="9"
+              fontSize="8"
             >
               {m.label}
             </text>
