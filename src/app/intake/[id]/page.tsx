@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { formatBRL } from "@/lib/utils";
 import { MARITAL_STATUS_LABELS } from "@/lib/intake/templates/company-opening-br";
 import { formatIntakeAddress } from "@/lib/intake/validation/company-opening-br";
 import type { CompanyOpeningBrData } from "@/lib/intake/types";
@@ -297,7 +296,7 @@ export default function IntakeDetailPage() {
       <div className="rounded-2xl border border-border bg-white px-6 py-12 text-center shadow-sm">
         <p className="text-sm font-semibold text-danger">Pedido não encontrado</p>
         <Link href="/intake" className="btn-secondary mt-4 inline-flex text-sm">
-          Voltar aos dossiês
+          Voltar aos pedidos
         </Link>
       </div>
     );
@@ -315,7 +314,7 @@ export default function IntakeDetailPage() {
         href="/intake"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition hover:text-foreground"
       >
-        <span aria-hidden>←</span> Dossiês
+        <span aria-hidden>←</span> Pedidos
       </Link>
 
       {/* Hero escuro — quebra o branco */}
@@ -335,7 +334,7 @@ export default function IntakeDetailPage() {
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-200/90">
-                  Dossiê de intake
+                  Pedido de abertura
                 </p>
                 <h1 className="mt-1 truncate text-2xl font-bold tracking-tight sm:text-[1.75rem]">
                   {detail.order.customerName}
@@ -347,43 +346,27 @@ export default function IntakeDetailPage() {
                   {format(new Date(when), "dd/MM/yyyy 'às' HH:mm", {
                     locale: ptBR,
                   })}
-                  {detail.order.payment?.method ? (
-                    <>
-                      <span className="mx-1.5 text-white/25">·</span>
-                      {detail.order.payment.method}
-                    </>
-                  ) : null}
                 </p>
               </div>
             </div>
 
-            <div className="flex shrink-0 flex-col gap-3 sm:items-end">
-              <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 backdrop-blur">
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-200/80">
-                  Valor
-                </p>
-                <p className="text-2xl font-bold tabular-nums tracking-tight text-emerald-100">
-                  {formatBRL(detail.order.product.priceCents)}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <a
-                  href={`/api/checkout/intake/${id}/zip`}
-                  className="inline-flex items-center justify-center rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-emerald-50"
+            <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+              <a
+                href={`/api/checkout/intake/${id}/zip`}
+                className="inline-flex items-center justify-center rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-emerald-50"
+              >
+                Baixar ZIP
+              </a>
+              {detail.status === "PAID" && (
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-lg border border-white/25 bg-white/5 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-60"
+                  disabled={resending}
+                  onClick={() => void resendAlert()}
                 >
-                  Baixar ZIP
-                </a>
-                {detail.status === "PAID" && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-lg border border-white/25 bg-white/5 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-60"
-                    disabled={resending}
-                    onClick={() => void resendAlert()}
-                  >
-                    {resending ? "Enviando…" : "Reenviar aviso"}
-                  </button>
-                )}
-              </div>
+                  {resending ? "Enviando…" : "Reenviar aviso"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -435,7 +418,7 @@ export default function IntakeDetailPage() {
                   disabled={updatingReview}
                   onClick={() => void setCompleted(false)}
                 >
-                  {updatingReview ? "Salvando…" : "Reabrir dossiê"}
+                  {updatingReview ? "Salvando…" : "Reabrir pedido"}
                 </button>
               ) : (
                 <button
@@ -542,7 +525,7 @@ export default function IntakeDetailPage() {
       {!data ? (
         <Panel title="Formulário" accent="slate">
           <p className="text-sm text-muted">
-            Ainda não há dados preenchidos neste dossiê.
+            Ainda não há dados preenchidos neste pedido.
           </p>
         </Panel>
       ) : (

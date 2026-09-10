@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { formatBRL } from "@/lib/utils";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
 
 type SubmissionRow = {
@@ -175,9 +174,9 @@ export default function IntakeListPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dossiês de intake</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Pedidos de abertura</h1>
         <p className="mt-1 text-sm text-muted">
-          Formulários, documentos e pedidos pagos para análise da equipe.
+          Formulários e documentos enviados pelos clientes para a equipe.
         </p>
       </div>
 
@@ -215,7 +214,7 @@ export default function IntakeListPage() {
         <KpiCard
           label="Total"
           value={String(counts.total)}
-          hint="Todos os dossiês"
+          hint="Todos os pedidos"
           tone="blue"
           active={status === ""}
           onClick={() => setStatus("")}
@@ -239,7 +238,7 @@ export default function IntakeListPage() {
             <input
               type="search"
               placeholder="Buscar nome, e-mail ou telefone"
-              className="input-field w-full pl-9"
+              className="input-field w-full !pl-10"
               value={qDraft}
               onChange={(e) => setQDraft(e.target.value)}
             />
@@ -294,11 +293,11 @@ export default function IntakeListPage() {
               <path d="M9 13h6M9 17h4" strokeLinecap="round" />
             </svg>
           </div>
-          <p className="mt-4 text-sm font-semibold">Nenhum dossiê encontrado</p>
+          <p className="mt-4 text-sm font-semibold">Nenhum pedido encontrado</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
             {q || status
               ? "Ajuste a busca ou o filtro de status para ver outros pedidos."
-              : "Quando um cliente enviar um formulário de intake, ele aparece aqui."}
+              : "Quando um cliente enviar o formulário de abertura, ele aparece aqui."}
           </p>
           {(q || status) && (
             <button
@@ -393,7 +392,7 @@ export default function IntakeListPage() {
                   Pedidos
                 </h2>
                 <p className="text-xs text-muted">
-                  {rows.length} dossiê{rows.length === 1 ? "" : "s"}
+                  {rows.length} pedido{rows.length === 1 ? "" : "s"}
                   {status || q ? " no filtro atual" : ""}
                 </p>
               </div>
@@ -454,9 +453,6 @@ export default function IntakeListPage() {
                           <p className="max-w-[220px] truncate font-medium">
                             {row.order.product.title}
                           </p>
-                          <p className="mt-0.5 text-xs tabular-nums text-muted">
-                            {formatBRL(row.order.product.priceCents)}
-                          </p>
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex flex-col items-start gap-1.5">
@@ -495,7 +491,7 @@ export default function IntakeListPage() {
                             href={`/intake/${row.id}`}
                             className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold transition hover:bg-muted-bg"
                           >
-                            Ver dossiê
+                            Ver pedido
                             <span aria-hidden>→</span>
                           </Link>
                         </td>

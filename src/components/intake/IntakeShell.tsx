@@ -20,7 +20,7 @@ export function IntakeShell({
   showAppLink = false,
   children,
 }: Props) {
-  const title = organizationName || "Intake";
+  const title = organizationName || "Aberturas";
   const account = userName || organizationName || "Conta";
 
   return (
@@ -35,7 +35,7 @@ export function IntakeShell({
             logoUrl={organizationLogoUrl}
           />
           <span className="hidden text-xs font-medium uppercase tracking-wide text-muted sm:inline">
-            Documentos · Intake
+            Abertura de empresas
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">

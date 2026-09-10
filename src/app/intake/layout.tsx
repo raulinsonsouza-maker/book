@@ -61,7 +61,7 @@ export default async function IntakeLayout({
     return (
       <div className="admin-shell flex min-h-screen flex-col">
         <header className="admin-topbar flex h-14 items-center justify-between border-b border-border px-4 md:px-8">
-          <span className="text-sm font-semibold">Book Symbius · Intake</span>
+          <span className="text-sm font-semibold">Book Symbius · Aberturas</span>
           <SignOutButton />
         </header>
         <main className="admin-main flex-1 p-4 md:p-6 lg:p-8">

@@ -347,7 +347,7 @@ function navForRole(
     },
     {
       href: "/intake",
-      label: "Intake",
+      label: "Aberturas",
       icon: NavIconCheckout,
       match: (p) => p.startsWith("/intake"),
     },
@@ -477,7 +477,7 @@ export function AppShell({
                   {role === "PROFESSIONAL"
                     ? "Profissional"
                     : role === "MEMBER"
-                      ? "Equipe · Intake"
+                      ? "Equipe · Aberturas"
                       : businessMode === "SALON"
                         ? "Equipe"
                         : "Individual"}

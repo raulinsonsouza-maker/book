@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 const allTabs = [
   { href: "/app/checkout/produtos", label: "Produtos" },
   { href: "/app/checkout/vendas", label: "Vendas" },
-  { href: "/intake", label: "Intake" },
+  { href: "/intake", label: "Aberturas" },
 ];
 
 export function CheckoutSubnav() {
