@@ -53,8 +53,17 @@ export function IntakeShell({
           <SignOutButton />
         </div>
       </header>
-      <main className="admin-main mx-auto w-full max-w-5xl flex-1 p-4 md:p-6 lg:p-8">
-        {children}
+      <main className="admin-main relative flex-1">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-70"
+          style={{
+            backgroundImage:
+              "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16,185,129,0.08), transparent), radial-gradient(ellipse 60% 40% at 100% 0%, rgba(14,165,233,0.06), transparent)",
+          }}
+        />
+        <div className="relative mx-auto w-full max-w-5xl p-4 md:p-6 lg:p-8">
+          {children}
+        </div>
       </main>
     </div>
   );
