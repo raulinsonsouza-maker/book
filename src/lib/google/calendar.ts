@@ -246,15 +246,27 @@ export async function getGoogleBusyIntervals(params: {
     const calendar = google.calendar({ version: "v3", auth });
     const calendarId = params.org.googleCalendarId || "primary";
 
-    const res = await calendar.freebusy.query({
+    const query = calendar.freebusy.query({
       requestBody: {
         timeMin: params.timeMin.toISOString(),
         timeMax: params.timeMax.toISOString(),
         items: [{ id: calendarId }],
       },
     });
+    // Sem timeout, freebusy lento/travado deixa o booking com "Continuar"/slots
+    // pendurados até o gateway devolver 502 (~90s).
+    const timed = await Promise.race([
+      query,
+      new Promise<"timeout">((resolve) =>
+        setTimeout(() => resolve("timeout"), 8_000),
+      ),
+    ]);
+    if (timed === "timeout") {
+      console.warn("[google] freebusy timeout");
+      return [];
+    }
 
-    const busy = res.data.calendars?.[calendarId]?.busy || [];
+    const busy = timed.data.calendars?.[calendarId]?.busy || [];
     return busy
       .filter((b) => b.start && b.end)
       .map((b) => ({

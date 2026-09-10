@@ -23,6 +23,7 @@ import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 import { encodeAsaasCardToken } from "@/lib/asaas/client";
 import { PixQrImage } from "@/components/payment/PixQrImage";
 import { IntakeWizard } from "@/components/intake/IntakeWizard";
+import { IntakePriceIncludes } from "@/components/intake/IntakePriceIncludes";
 
 type CustomField = {
   id: string;
@@ -1716,6 +1717,8 @@ export function BookingFunnel({
                 {formatBRL(service.priceCents)}
               </p>
             </div>
+
+            {service.isIntake && <IntakePriceIncludes />}
 
             {holdExpiresAt && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">

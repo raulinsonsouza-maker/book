@@ -1,5 +1,10 @@
 import type { CompanyOpeningBrData, IntakeFileFieldDef } from "@/lib/intake/types";
 
+const LEGACY_FILE_LABELS: Record<string, string> = {
+  company_lease_or_authorization:
+    "Contrato de locação ou autorização (envio antigo)",
+};
+
 export function requiredIntakeFileFields(
   data: CompanyOpeningBrData,
 ): IntakeFileFieldDef[] {
@@ -46,21 +51,12 @@ export function requiredIntakeFileFields(
     }
   });
 
-  if (data.headquarters.isRented) {
-    fields.push({
-      key: "company_lease_or_authorization",
-      label: "Contrato de locação ou autorização do proprietário",
-      hint: "Contrato vigente ou autorização para uso como sede",
-      required: true,
-    });
-  } else {
-    fields.push({
-      key: "company_iptu_or_property",
-      label: "IPTU ou documento do imóvel da sede",
-      hint: "Comprovante de propriedade ou IPTU do endereço informado",
-      required: true,
-    });
-  }
+  fields.push({
+    key: "company_iptu_or_property",
+    label: "IPTU do imóvel da sede",
+    hint: "Guia ou comprovante de IPTU do endereço informado",
+    required: true,
+  });
 
   return fields;
 }
@@ -76,5 +72,5 @@ export function missingRequiredFiles(
 
 export function fileFieldLabel(key: string, data: CompanyOpeningBrData): string {
   const match = requiredIntakeFileFields(data).find((f) => f.key === key);
-  return match?.label || key;
+  return match?.label || LEGACY_FILE_LABELS[key] || key;
 }

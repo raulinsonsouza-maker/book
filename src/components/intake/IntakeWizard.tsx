@@ -75,28 +75,37 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
         let res: Response | null = null;
         let lastStatus = 0;
         for (let attempt = 0; attempt < 3; attempt++) {
+          const controller = new AbortController();
+          const timer = window.setTimeout(() => controller.abort(), 18_000);
           try {
             res = await fetch(`/api/public/checkout/${checkoutSlug}/intake`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
+              signal: controller.signal,
             });
             lastStatus = res.status;
             // Gateway/restart transitório — tenta de novo
-            if ((res.status === 502 || res.status === 503) && attempt < 2) {
+            if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < 2) {
               await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
               continue;
             }
             break;
-          } catch {
+          } catch (err) {
+            const aborted =
+              err instanceof DOMException && err.name === "AbortError";
             if (attempt < 2) {
               await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
               continue;
             }
             showError(
-              "Falha de conexão — verifique sua internet e tente novamente",
+              aborted
+                ? "O servidor demorou para responder — tente novamente"
+                : "Falha de conexão — verifique sua internet e tente novamente",
             );
             return false;
+          } finally {
+            window.clearTimeout(timer);
           }
         }
 
@@ -111,7 +120,7 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
         } catch {
           if (!res.ok) {
             showError(
-              lastStatus === 502 || lastStatus === 503
+              lastStatus === 502 || lastStatus === 503 || lastStatus === 504
                 ? "Servidor indisponível — aguarde alguns segundos e tente novamente"
                 : "Erro ao salvar — tente novamente",
             );
@@ -654,19 +663,11 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
               />
             </Field>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={data.headquarters.isRented}
-              onChange={(e) =>
-                setData({
-                  ...data,
-                  headquarters: { ...data.headquarters, isRented: e.target.checked },
-                })
-              }
-            />
-            Imóvel alugado (será solicitado contrato ou autorização)
-          </label>
+          <p className="rounded-2xl border border-border bg-muted-bg/60 px-3.5 py-3 text-sm leading-relaxed text-muted">
+            Na próxima etapa será necessário{" "}
+            <span className="font-medium text-foreground">anexar o IPTU</span> do
+            imóvel da sede.
+          </p>
         </div>
       )}
 

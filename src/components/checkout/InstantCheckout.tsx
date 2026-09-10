@@ -9,6 +9,7 @@ import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 import { PaymentStep } from "@/components/payment/PaymentStep";
 import { SuccessStep } from "@/components/payment/SuccessStep";
 import { IntakeWizard } from "@/components/intake/IntakeWizard";
+import { IntakePriceIncludes } from "@/components/intake/IntakePriceIncludes";
 import { encodeAsaasCardToken } from "@/lib/asaas/client";
 
 function formatCardNumber(value: string) {
@@ -228,7 +229,10 @@ export function InstantCheckout({ slug }: { slug: string }) {
   }, [createOrder, creatingOrder, formReady, orderFingerprint, orderId, paid, isIntake]);
 
   useEffect(() => {
-    if (!formReady || isIntake) {
+    // Intake: o pedido fica no IntakeWizard. Limpar aqui apagava o orderId
+    // logo após "Ir para pagamento" e a UI de pagamento sumia / parecia travar.
+    if (isIntake) return;
+    if (!formReady) {
       if (orderId) {
         void fetch(`/api/public/checkout/${slug}/pay?method=abandon`, {
           method: "POST",
@@ -567,6 +571,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
           <p className="mt-4 text-3xl font-bold tracking-tight" style={{ color: accentColor }}>
             {formatBRL(priceCents)}
           </p>
+          {isIntake && <IntakePriceIncludes className="mt-4 text-left" />}
         </header>
 
         <main className="flex-1 space-y-4">
