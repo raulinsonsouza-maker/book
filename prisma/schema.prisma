@@ -170,6 +170,12 @@ model Organization {
   whatsappEnabled          Boolean @default(true)
   /** Nota interna (só gerencial). */
   internalNote             String?
+  /** Meta Pixel ID (só dígitos). */
+  metaPixelId              String?
+  /** Token da Conversions API (nunca expor ao client). */
+  metaCapiAccessToken      String?
+  /** Google Ads send_to completo, ex.: AW-123456789/AbCdEfGh. */
+  googleAdsSendTo          String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   memberships        Membership[]
@@ -369,6 +375,10 @@ model Booking {
   reminderSentAt  DateTime?
   feedbackSentAt  DateTime?
   pixReminderSentAt DateTime?
+  gclid           String?
+  fbclid          String?
+  fbc             String?
+  fbp             String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   bookingPage     BookingPage   @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
@@ -458,6 +468,10 @@ model CheckoutOrder {
   holdExpiresAt   DateTime?
   paidAt          DateTime?
   confirmedAt     DateTime?
+  gclid           String?
+  fbclid          String?
+  fbc             String?
+  fbp             String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   checkoutLink    CheckoutLink        @relation(fields: [checkoutLinkId], references: [id], onDelete: Cascade)

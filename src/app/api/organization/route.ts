@@ -13,6 +13,12 @@ import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
 import { DESCRIPTION_MAX, normalizeAccent } from "@/lib/branding";
 import { getOrgWhatsAppUsage } from "@/lib/whatsapp/quota";
 import { getPlatformWhatsAppConfig } from "@/lib/whatsapp/config";
+import {
+  maskSecret,
+  parseGoogleAdsSendTo,
+  parseMetaCapiToken,
+  parseMetaPixelId,
+} from "@/lib/tracking/parse";
 
 const schema = z.object({
   name: z.string().min(2).optional(),
@@ -37,6 +43,9 @@ const schema = z.object({
   notifyProReschedule: z.boolean().optional(),
   reminderHoursBefore: z.union([z.literal(0), z.literal(2), z.literal(12), z.literal(24)]).optional(),
   cardMaxInstallments: z.number().int().min(1).max(12).optional(),
+  metaPixelId: z.string().nullable().optional(),
+  metaCapiAccessToken: z.string().nullable().optional(),
+  googleAdsSendTo: z.string().nullable().optional(),
 });
 
 type OrgRow = {
@@ -70,9 +79,15 @@ type OrgRow = {
   notifyProReschedule: boolean;
   reminderHoursBefore: number;
   cardMaxInstallments: number;
+  metaPixelId?: string | null;
+  metaCapiAccessToken?: string | null;
+  googleAdsSendTo?: string | null;
 };
 
 async function serializeOrg(org: OrgRow) {
+  const metaPixelId = org.metaPixelId ?? null;
+  const hasMetaCapiToken = Boolean(org.metaCapiAccessToken);
+  const googleAdsSendTo = org.googleAdsSendTo ?? null;
   return {
     id: org.id,
     name: org.name,
@@ -112,6 +127,12 @@ async function serializeOrg(org: OrgRow) {
     notifyProReschedule: org.notifyProReschedule,
     reminderHoursBefore: org.reminderHoursBefore,
     cardMaxInstallments: Math.min(12, Math.max(1, org.cardMaxInstallments || 12)),
+    metaPixelId,
+    metaCapiTokenMasked: maskSecret(org.metaCapiAccessToken),
+    hasMetaCapiToken,
+    metaConnected: Boolean(metaPixelId),
+    googleAdsSendTo,
+    googleAdsConnected: Boolean(googleAdsSendTo),
   };
 }
 
@@ -317,6 +338,60 @@ export async function PATCH(req: Request) {
         12,
         Math.max(1, body.cardMaxInstallments),
       );
+    }
+
+    if ("metaPixelId" in raw) {
+      const rawPixel =
+        typeof body.metaPixelId === "string" ? body.metaPixelId : null;
+      if (rawPixel === null || rawPixel.trim() === "") {
+        data.metaPixelId = null;
+      } else {
+        const parsed = parseMetaPixelId(rawPixel);
+        if (!parsed) {
+          return NextResponse.json(
+            { error: "ID do Pixel Meta inválido" },
+            { status: 400 },
+          );
+        }
+        data.metaPixelId = parsed;
+      }
+    }
+    if ("metaCapiAccessToken" in raw) {
+      const rawToken =
+        typeof body.metaCapiAccessToken === "string"
+          ? body.metaCapiAccessToken
+          : null;
+      if (rawToken === null || rawToken.trim() === "") {
+        data.metaCapiAccessToken = null;
+      } else {
+        const parsed = parseMetaCapiToken(rawToken);
+        if (!parsed) {
+          return NextResponse.json(
+            { error: "Token da API de conversões Meta inválido" },
+            { status: 400 },
+          );
+        }
+        data.metaCapiAccessToken = parsed;
+      }
+    }
+    if ("googleAdsSendTo" in raw) {
+      const rawSend =
+        typeof body.googleAdsSendTo === "string" ? body.googleAdsSendTo : null;
+      if (rawSend === null || rawSend.trim() === "") {
+        data.googleAdsSendTo = null;
+      } else {
+        const parsed = parseGoogleAdsSendTo(rawSend);
+        if (!parsed) {
+          return NextResponse.json(
+            {
+              error:
+                "Código Google inválido. Use o formato AW-123456789/AbCdEfGh",
+            },
+            { status: 400 },
+          );
+        }
+        data.googleAdsSendTo = parsed;
+      }
     }
 
     const org = await prisma.organization.update({

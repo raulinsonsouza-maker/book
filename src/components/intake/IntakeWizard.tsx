@@ -18,6 +18,7 @@ import {
 } from "@/lib/utils";
 import { IntakeFileField } from "@/components/intake/IntakeFileField";
 import { mergeIntakeData } from "@/lib/intake/merge-data";
+import { clickIdsForPayload } from "@/lib/tracking/click-ids";
 
 const WIZARD_STEPS = companyOpeningBrTemplate.steps.filter((s) => s.id !== "payment");
 
@@ -70,6 +71,7 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
           stepId: currentStep.id,
           data,
           submit: opts?.submit,
+          clickIds: clickIdsForPayload(),
         };
 
         let res: Response | null = null;

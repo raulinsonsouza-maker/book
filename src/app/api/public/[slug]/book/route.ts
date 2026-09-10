@@ -9,6 +9,8 @@ import { newManageToken } from "@/lib/booking-notify";
 import { requiresOnlinePayment } from "@/lib/payments/resolve-provider";
 import { emitBookingEvent } from "@/lib/events/booking-events";
 import { releaseCustomerPendingBookings } from "@/lib/booking-release-pending";
+import { sanitizeClickIds } from "@/lib/tracking/click-ids";
+import { fireBookingScheduleConversion } from "@/lib/tracking/server";
 
 const HOLD_MINUTES = 15;
 
@@ -60,6 +62,7 @@ export async function POST(
       logoUrl: page.logoUrl,
     });
     const body = parseBookBody(funnelConfig, raw);
+    const clickIds = sanitizeClickIds(raw.clickIds || raw);
     const startAt = new Date(body.startAt);
     const endAt = addMinutes(startAt, service.durationMinutes);
     const needsPayment = requiresOnlinePayment(page.organization);
@@ -121,6 +124,10 @@ export async function POST(
           holdExpiresAt,
           confirmedAt: needsPayment ? null : new Date(),
           manageToken: newManageToken(),
+          gclid: clickIds.gclid || null,
+          fbclid: clickIds.fbclid || null,
+          fbc: clickIds.fbc || null,
+          fbp: clickIds.fbp || null,
         },
         include: { service: true, bookingPage: true },
       });
@@ -148,6 +155,7 @@ export async function POST(
         bookingId: booking.id,
         dedupeKey: booking.id,
       });
+      fireBookingScheduleConversion(booking.id);
     }
 
     return NextResponse.json({

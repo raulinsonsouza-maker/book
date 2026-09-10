@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { emitBookingEvent, SlotUnavailableError } from "@/lib/events/booking-events";
+import { fireBookingPaidConversion } from "@/lib/tracking/server";
 
 export { SlotUnavailableError };
 
@@ -102,8 +103,11 @@ export async function markPaymentPaidAndConfirm(bookingId: string, paymentId: st
       bookingId,
       dedupeKey: bookingId,
     });
+    fireBookingPaidConversion(bookingId);
     return payment.booking;
   }
 
-  return confirmBooking(bookingId);
+  const confirmed = await confirmBooking(bookingId);
+  fireBookingPaidConversion(bookingId);
+  return confirmed;
 }

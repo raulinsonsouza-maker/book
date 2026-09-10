@@ -6,6 +6,7 @@ import { AsaasIcon } from "@/components/icons/AsaasIcon";
 import { GoogleCalendarIcon } from "@/components/icons/GoogleCalendarIcon";
 import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
 import { IntegrationCard } from "@/components/integrations/IntegrationCard";
+import { AdsTrackingForms } from "@/components/integrations/AdsTrackingForms";
 import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 
@@ -18,6 +19,12 @@ type Org = {
   asaasConnected: boolean;
   asaasAccountEmail: string | null;
   paymentProvider: PaymentProvider;
+  metaPixelId: string | null;
+  metaCapiTokenMasked: string | null;
+  hasMetaCapiToken: boolean;
+  metaConnected: boolean;
+  googleAdsSendTo: string | null;
+  googleAdsConnected: boolean;
 };
 
 type GoogleStatus = {
@@ -200,7 +207,8 @@ export default function IntegrationsPage() {
       )}
 
       <p className="text-sm text-muted">
-        Conecte serviços externos para sincronizar agenda e receber pagamentos.
+        Conecte serviços externos para sincronizar agenda, receber pagamentos e
+        medir campanhas.
       </p>
 
       {showProviderPicker && org && (
@@ -472,6 +480,15 @@ export default function IntegrationsPage() {
           />
         )}
       </div>
+
+      <AdsTrackingForms
+        org={org}
+        onSaved={(data) => setOrg((prev) => (prev ? { ...prev, ...data } : prev))}
+        onMessage={(m, tone = "ok") => {
+          setMsgTone(tone);
+          setMsg(m);
+        }}
+      />
     </div>
   );
 }

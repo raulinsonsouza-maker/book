@@ -4,6 +4,7 @@ import { addMinutes } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { parseCheckoutOrderBody } from "@/lib/checkout-validation";
 import { parseProductFormConfig } from "@/lib/product-form-config";
+import { sanitizeClickIds } from "@/lib/tracking/click-ids";
 
 const HOLD_MINUTES = 15;
 
@@ -26,6 +27,7 @@ export async function POST(
     const formConfig = parseProductFormConfig(link.product.formConfig);
     const raw = await req.json();
     const body = parseCheckoutOrderBody(formConfig, raw);
+    const clickIds = sanitizeClickIds(raw.clickIds || raw);
     const holdExpiresAt = addMinutes(new Date(), HOLD_MINUTES);
 
     const customAnswers: Record<string, string> = {};
@@ -48,6 +50,10 @@ export async function POST(
           ? JSON.stringify(customAnswers)
           : null,
         holdExpiresAt,
+        gclid: clickIds.gclid || null,
+        fbclid: clickIds.fbclid || null,
+        fbc: clickIds.fbc || null,
+        fbp: clickIds.fbp || null,
       },
     });
 

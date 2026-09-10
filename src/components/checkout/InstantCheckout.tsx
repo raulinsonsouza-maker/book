@@ -11,6 +11,12 @@ import { SuccessStep } from "@/components/payment/SuccessStep";
 import { IntakeWizard } from "@/components/intake/IntakeWizard";
 import { IntakePriceIncludes } from "@/components/intake/IntakePriceIncludes";
 import { encodeAsaasCardToken } from "@/lib/asaas/client";
+import { PublicTracking } from "@/components/tracking/PublicTracking";
+import {
+  clickIdsForPayload,
+  trackPurchase,
+  type PublicTrackingConfig,
+} from "@/lib/tracking/client";
 
 function formatCardNumber(value: string) {
   const d = value.replace(/\D/g, "").slice(0, 16);
@@ -66,6 +72,14 @@ export function InstantCheckout({ slug }: { slug: string }) {
   const [mercadoPagoPublicKey, setMercadoPagoPublicKey] = useState<string | null>(null);
 
   const [paid, setPaid] = useState(false);
+  const [tracking, setTracking] = useState<PublicTrackingConfig>({
+    metaPixelId: null,
+    googleAdsSendTo: null,
+  });
+  const [conversionPaymentId, setConversionPaymentId] = useState<string | null>(
+    null,
+  );
+  const conversionFiredRef = useRef(false);
   const [details, setDetails] = useState({
     customerName: "",
     customerEmail: "",
@@ -145,6 +159,10 @@ export function InstantCheckout({ slug }: { slug: string }) {
         setCardMaxInstallments(
           Math.min(12, Math.max(1, data.cardMaxInstallments || 12)),
         );
+        setTracking({
+          metaPixelId: data.tracking?.metaPixelId || null,
+          googleAdsSendTo: data.tracking?.googleAdsSendTo || null,
+        });
         setProductKind(data.product.productKind === "INTAKE" ? "INTAKE" : "SIMPLE");
         setLoading(false);
       })
@@ -153,6 +171,33 @@ export function InstantCheckout({ slug }: { slug: string }) {
         setLoading(false);
       });
   }, [slug]);
+
+  useEffect(() => {
+    if (!paid || conversionFiredRef.current) return;
+    if (!tracking.metaPixelId && !tracking.googleAdsSendTo) return;
+    conversionFiredRef.current = true;
+    const eventId = orderId || conversionPaymentId || `checkout_${Date.now()}`;
+    void trackPurchase({
+      eventId,
+      valueCents: priceCents,
+      metaPixelId: tracking.metaPixelId,
+      googleAdsSendTo: tracking.googleAdsSendTo,
+      user: {
+        email: details.customerEmail || intakeCustomerEmail,
+        phone: details.customerPhone,
+      },
+    });
+  }, [
+    paid,
+    tracking.metaPixelId,
+    tracking.googleAdsSendTo,
+    conversionPaymentId,
+    orderId,
+    priceCents,
+    details.customerEmail,
+    details.customerPhone,
+    intakeCustomerEmail,
+  ]);
 
   const createOrder = useCallback(async () => {
     if (creatingOrder || paid) return;
@@ -170,6 +215,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
     const payload: Record<string, unknown> = {
       customerName: details.customerName.trim(),
       customAnswers: Object.keys(customAnswers).length ? customAnswers : undefined,
+      clickIds: clickIdsForPayload(),
     };
     for (const field of formFields) {
       if (field.preset === "customerEmail") payload.customerEmail = details.customerEmail.trim();
@@ -342,6 +388,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
         );
         const data = await res.json();
         if (data.status === "PAID" || data.paymentStatus === "PAID") {
+          if (data.paymentId) setConversionPaymentId(data.paymentId);
           setPaid(true);
           setAwaitingCardConfirm(false);
         }
@@ -373,6 +420,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
       );
       const data = await res.json();
       if (data.status === "PAID" || data.paymentStatus === "PAID") {
+        if (data.paymentId) setConversionPaymentId(data.paymentId);
         setPaid(true);
         setAwaitingCardConfirm(false);
         return;
@@ -540,6 +588,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
 
   return (
     <div className="dot-grid min-h-screen" style={{ "--accent": accentColor } as React.CSSProperties}>
+      <PublicTracking config={tracking} />
       <div className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-8">
         <header className="mb-8 text-center">
           {displayLogoUrl ? (

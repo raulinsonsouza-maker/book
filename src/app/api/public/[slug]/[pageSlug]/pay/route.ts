@@ -16,6 +16,7 @@ import { isDemoPaymentId } from "@/lib/payments/demo";
 import { resolvePaymentProvider } from "@/lib/payments/resolve-provider";
 import { isValidCpf } from "@/lib/utils";
 import { emitBookingEvent } from "@/lib/events/booking-events";
+import { fireBookingPaidConversion } from "@/lib/tracking/server";
 
 async function loadBooking(
   bookingId: string,
@@ -241,6 +242,7 @@ export async function POST(
       });
 
       if (paid) {
+        fireBookingPaidConversion(booking.id);
         return NextResponse.json({ ok: true, status: "CONFIRMED", demo: result.demo, provider });
       }
 
@@ -286,6 +288,7 @@ export async function POST(
         where: { bookingId: booking!.id },
         data: { status: "PAID", paidAt: new Date() },
       });
+      fireBookingPaidConversion(booking!.id);
       return NextResponse.json({ ok: true, status: "CONFIRMED" });
     }
 

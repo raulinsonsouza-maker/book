@@ -32,6 +32,8 @@ export async function GET(
           mercadoPagoPublicKey: true,
           cardMaxInstallments: true,
           asaasApiKey: true,
+          metaPixelId: true,
+          googleAdsSendTo: true,
         },
       },
     },
@@ -111,6 +113,10 @@ export async function GET(
         Math.max(1, page.organization.cardMaxInstallments || 12),
       ),
       demoPayments: provider === "DEMO",
+      tracking: {
+        metaPixelId: page.organization.metaPixelId || null,
+        googleAdsSendTo: page.organization.googleAdsSendTo || null,
+      },
     });
   }
 

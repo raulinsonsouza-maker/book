@@ -71,5 +71,9 @@ export async function GET(
       12,
       Math.max(1, org.cardMaxInstallments || 12),
     ),
+    tracking: {
+      metaPixelId: org.metaPixelId || null,
+      googleAdsSendTo: org.googleAdsSendTo || null,
+    },
   });
 }

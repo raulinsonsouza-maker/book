@@ -17,6 +17,7 @@ import {
   ensureIntakeOrderHold,
 } from "@/lib/intake/access";
 import type { CompanyOpeningBrData } from "@/lib/intake/types";
+import { sanitizeClickIds } from "@/lib/tracking/click-ids";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,14 @@ const bodySchema = z.object({
   stepId: z.string().optional(),
   data: z.unknown(),
   submit: z.boolean().optional(),
+  clickIds: z
+    .object({
+      gclid: z.string().optional(),
+      fbclid: z.string().optional(),
+      fbc: z.string().optional(),
+      fbp: z.string().optional(),
+    })
+    .optional(),
 });
 
 export async function GET(
@@ -137,6 +146,7 @@ export async function POST(
       );
 
       const holdExpiresAt = addMinutes(new Date(), HOLD_MINUTES);
+      const clickIds = sanitizeClickIds(body.clickIds);
       const order = await prisma.checkoutOrder.create({
         data: {
           checkoutLinkId: link.id,
@@ -147,6 +157,10 @@ export async function POST(
           customerPhone: contact.customerPhone || "",
           customerCpf: contact.customerCpf || null,
           holdExpiresAt,
+          gclid: clickIds.gclid || null,
+          fbclid: clickIds.fbclid || null,
+          fbc: clickIds.fbc || null,
+          fbp: clickIds.fbp || null,
           intakeSubmission: {
             create: {
               organizationId: link.product.organizationId,

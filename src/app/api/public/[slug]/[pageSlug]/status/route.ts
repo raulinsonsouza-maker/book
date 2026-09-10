@@ -39,6 +39,8 @@ export async function GET(
   return NextResponse.json({
     status: booking.status,
     paymentStatus: booking.payment?.status ?? null,
+    paymentId: booking.payment?.id ?? null,
+    amountCents: booking.payment?.amountCents ?? booking.service.priceCents,
     serviceTitle: booking.service.title,
     startAt: booking.startAt,
     endAt: booking.endAt,

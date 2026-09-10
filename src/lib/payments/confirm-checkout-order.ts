@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendCheckoutConfirmation, sendIntakeAlertToTeam } from "@/lib/email";
 import { parseIntakeData } from "@/lib/intake/validation/company-opening-br";
+import { fireCheckoutPaidConversion } from "@/lib/tracking/server";
 
 export async function confirmCheckoutOrder(orderId: string) {
   const existing = await prisma.checkoutOrder.findUnique({
@@ -18,6 +19,7 @@ export async function confirmCheckoutOrder(orderId: string) {
   }
 
   if (existing.status === "PAID") {
+    fireCheckoutPaidConversion(orderId);
     return existing;
   }
 
@@ -82,6 +84,7 @@ export async function confirmCheckoutOrder(orderId: string) {
     });
   }
 
+  fireCheckoutPaidConversion(order.id);
   return order;
 }
 
@@ -103,6 +106,7 @@ export async function markCheckoutPaymentPaidAndConfirm(orderId: string, payment
         data: { status: "PAID", paidAt: new Date() },
       });
     }
+    fireCheckoutPaidConversion(orderId);
     return payment.checkoutOrder;
   }
 

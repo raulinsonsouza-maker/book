@@ -24,6 +24,13 @@ import { encodeAsaasCardToken } from "@/lib/asaas/client";
 import { PixQrImage } from "@/components/payment/PixQrImage";
 import { IntakeWizard } from "@/components/intake/IntakeWizard";
 import { IntakePriceIncludes } from "@/components/intake/IntakePriceIncludes";
+import { PublicTracking } from "@/components/tracking/PublicTracking";
+import {
+  clickIdsForPayload,
+  trackPurchase,
+  trackSchedule,
+  type PublicTrackingConfig,
+} from "@/lib/tracking/client";
 
 type CustomField = {
   id: string;
@@ -167,12 +174,81 @@ export function BookingFunnel({
   const [installments, setInstallments] = useState(1);
   const [cardMaxInstallments, setCardMaxInstallments] = useState(12);
   const [paying, setPaying] = useState(false);
+  const [tracking, setTracking] = useState<PublicTrackingConfig>({
+    metaPixelId: null,
+    googleAdsSendTo: null,
+  });
+  const [conversionPaymentId, setConversionPaymentId] = useState<string | null>(
+    null,
+  );
+  const [conversionAmountCents, setConversionAmountCents] = useState<
+    number | null
+  >(null);
+  const [hadOnlinePayment, setHadOnlinePayment] = useState(false);
   const submittingRef = useRef(false);
   const resumeStartedRef = useRef(false);
+  const conversionFiredRef = useRef(false);
   const [checkingPix, setCheckingPix] = useState(false);
   const [pixCheckHint, setPixCheckHint] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [showMonthCalendar, setShowMonthCalendar] = useState(false);
+
+  function applyConversionFromStatus(data: {
+    paymentId?: string | null;
+    amountCents?: number | null;
+  }) {
+    if (data.paymentId) setConversionPaymentId(data.paymentId);
+    if (typeof data.amountCents === "number") {
+      setConversionAmountCents(data.amountCents);
+    }
+    setHadOnlinePayment(true);
+  }
+
+  useEffect(() => {
+    if (step !== "done" || conversionFiredRef.current) return;
+    if (!tracking.metaPixelId && !tracking.googleAdsSendTo) return;
+    conversionFiredRef.current = true;
+    const user = {
+      email: details.customerEmail,
+      phone: details.customerPhone,
+    };
+    void (async () => {
+      if (hadOnlinePayment) {
+        const eventId =
+          (service?.isIntake ? checkoutOrderId : bookingId) ||
+          checkoutOrderId ||
+          bookingId ||
+          `purchase_${Date.now()}`;
+        const valueCents =
+          conversionAmountCents ?? service?.priceCents ?? 0;
+        await trackPurchase({
+          eventId,
+          valueCents,
+          metaPixelId: tracking.metaPixelId,
+          googleAdsSendTo: tracking.googleAdsSendTo,
+          user,
+        });
+      } else if (bookingId && tracking.metaPixelId) {
+        await trackSchedule({
+          eventId: bookingId,
+          metaPixelId: tracking.metaPixelId,
+          user,
+        });
+      }
+    })();
+  }, [
+    step,
+    tracking.metaPixelId,
+    tracking.googleAdsSendTo,
+    hadOnlinePayment,
+    conversionPaymentId,
+    conversionAmountCents,
+    checkoutOrderId,
+    bookingId,
+    service?.priceCents,
+    details.customerEmail,
+    details.customerPhone,
+  ]);
 
   const accent =
     funnelConfig?.theme.accentColor ||
@@ -213,6 +289,10 @@ export function BookingFunnel({
         setCardMaxInstallments(
           Math.min(12, Math.max(1, data.cardMaxInstallments || 12)),
         );
+        setTracking({
+          metaPixelId: data.tracking?.metaPixelId || null,
+          googleAdsSendTo: data.tracking?.googleAdsSendTo || null,
+        });
         setTimezone(data.page.timezone || DEFAULT_TIMEZONE);
         setBusinessName(data.brand?.businessName || data.page?.businessName || "");
         const mode = data.businessMode === "SALON" ? "SALON" : "SOLO";
@@ -282,6 +362,7 @@ export function BookingFunnel({
         });
 
         if (b.status === "CONFIRMED") {
+          conversionFiredRef.current = true;
           setStep("done");
           return;
         }
@@ -297,6 +378,8 @@ export function BookingFunnel({
         }
 
         setHoldExpiresAt(b.holdExpiresAt);
+        setHadOnlinePayment(true);
+        setConversionAmountCents(b.priceCents);
         setStep("payment");
       })
       .catch((e) => {
@@ -597,6 +680,7 @@ export function BookingFunnel({
           data.status === "PAID" ||
           data.paymentStatus === "PAID"
         ) {
+          applyConversionFromStatus(data);
           setStep("done");
           setAwaitingCardConfirm(false);
           return;
@@ -681,6 +765,7 @@ export function BookingFunnel({
         data.status === "PAID" ||
         data.paymentStatus === "PAID"
       ) {
+        applyConversionFromStatus(data);
         setStep("done");
         setAwaitingCardConfirm(false);
         return;
@@ -764,6 +849,7 @@ export function BookingFunnel({
       timezone,
       customerName: details.customerName,
       customAnswers: Object.keys(customAnswers).length ? customAnswers : undefined,
+      clickIds: clickIdsForPayload(),
       ...(businessMode === "SALON"
         ? anyone
           ? { anyone: true }
@@ -800,10 +886,15 @@ export function BookingFunnel({
     setPixQr(null);
     setPixQrBase64(null);
     setAwaitingCardConfirm(false);
+    if (typeof data.amountCents === "number") {
+      setConversionAmountCents(data.amountCents);
+    }
     if (data.skipPayment || data.status === "CONFIRMED") {
+      setHadOnlinePayment(false);
       setStep("done");
       return;
     }
+    setHadOnlinePayment(true);
     setStep("payment");
     } finally {
       submittingRef.current = false;
@@ -828,8 +919,10 @@ export function BookingFunnel({
       },
     );
     setPaying(false);
-    if (res.ok) setStep("done");
-    else {
+    if (res.ok) {
+      setHadOnlinePayment(true);
+      setStep("done");
+    } else {
       const data = await res.json();
       if (!service?.isIntake && (res.status === 409 || data.code === "SLOT_UNAVAILABLE")) {
         handleSlotUnavailable(data.error);
@@ -960,8 +1053,10 @@ export function BookingFunnel({
       setError(data.error || "Pagamento recusado");
       return;
     }
-    if (data.status === "CONFIRMED" || data.status === "PAID") setStep("done");
-    else {
+    if (data.status === "CONFIRMED" || data.status === "PAID") {
+      setHadOnlinePayment(true);
+      setStep("done");
+    } else {
       setAwaitingCardConfirm(true);
       setError("");
       setPixCheckHint(
@@ -1087,6 +1182,7 @@ export function BookingFunnel({
       className={`booking-shell${step === "welcome" ? " booking-shell--welcome" : ""}`}
       style={{ "--accent": accent } as React.CSSProperties}
     >
+      <PublicTracking config={tracking} />
       {step !== "welcome" && (
       <header className="sticky top-0 z-30 border-b border-black/5 bg-white/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
@@ -1294,6 +1390,8 @@ export function BookingFunnel({
                 accentColor={accent}
                 onReadyForPayment={async (orderId) => {
                   setCheckoutOrderId(orderId);
+                  setHadOnlinePayment(true);
+                  setConversionAmountCents(service.priceCents);
                   setHoldExpiresAt(new Date(Date.now() + 15 * 60_000).toISOString());
                   try {
                     const res = await fetch(

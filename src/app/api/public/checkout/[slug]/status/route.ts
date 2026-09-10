@@ -44,7 +44,8 @@ export async function GET(
   return NextResponse.json({
     status: order.status,
     paymentStatus: order.payment?.status ?? null,
+    paymentId: order.payment?.id ?? null,
     productTitle: order.product.title,
-    amountCents: order.product.priceCents,
+    amountCents: order.payment?.amountCents ?? order.product.priceCents,
   });
 }

@@ -16,6 +16,8 @@ const orgSelect = {
   mercadoPagoPublicKey: true,
   cardMaxInstallments: true,
   asaasApiKey: true,
+  metaPixelId: true,
+  googleAdsSendTo: true,
 } as const;
 
 const serviceInclude = {
