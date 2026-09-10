@@ -79,6 +79,26 @@ export function boardStageOf(row: IntakeStageRow): IntakeBoardStage | null {
 
 export type ReviewStatusPatch = "NEW" | "IN_REVIEW" | "COMPLETED";
 
+/** reviewStatus alvo ao soltar o card numa coluna operacional. */
+export function reviewStatusForTarget(
+  target: IntakeBoardStage,
+): ReviewStatusPatch | null {
+  if (target === "liberado") return "NEW";
+  if (target === "andamento") return "IN_REVIEW";
+  if (target === "concluido") return "COMPLETED";
+  return null;
+}
+
+/** Pode arrastar da coluna origem para a coluna destino? */
+export function canDropOnStage(
+  from: IntakeBoardStage,
+  to: IntakeBoardStage,
+): boolean {
+  if (from === to) return false;
+  if (from === "aguardando" || to === "aguardando") return false;
+  return reviewStatusForTarget(to) !== null;
+}
+
 /** Próximo reviewStatus ao avançar no quadro (null = não move). */
 export function forwardReviewStatus(
   stage: IntakeBoardStage,

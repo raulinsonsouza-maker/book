@@ -10,8 +10,10 @@ import {
   backLabel,
   backReviewStatus,
   boardStageOf,
+  canDropOnStage,
   forwardLabel,
   forwardReviewStatus,
+  reviewStatusForTarget,
   stageMeta,
   type IntakeBoardStage,
   type ReviewStatusPatch,
@@ -38,6 +40,11 @@ type SubmissionRow = {
 };
 
 type ViewMode = "kanban" | "lista";
+
+type DragPayload = {
+  id: string;
+  from: IntakeBoardStage;
+};
 
 const LIST_FILTERS: { value: "" | IntakeBoardStage; label: string }[] = [
   { value: "", label: "Todos" },
@@ -112,21 +119,48 @@ function KanbanCard({
   row,
   stage,
   movingId,
+  isDragging,
   onMove,
+  onDragStart,
+  onDragEnd,
 }: {
   row: SubmissionRow;
   stage: IntakeBoardStage;
   movingId: string | null;
+  isDragging: boolean;
   onMove: (id: string, next: ReviewStatusPatch) => void;
+  onDragStart: (payload: DragPayload) => void;
+  onDragEnd: () => void;
 }) {
   const fwd = forwardReviewStatus(stage);
   const back = backReviewStatus(stage);
   const fwdText = forwardLabel(stage);
   const backText = backLabel(stage);
   const busy = movingId === row.id;
+  const draggable = stage !== "aguardando" && !busy;
 
   return (
-    <article className="rounded-xl border border-border bg-white p-3 shadow-sm transition hover:border-foreground/15 hover:shadow-md">
+    <article
+      draggable={draggable}
+      onDragStart={(e) => {
+        if (!draggable) {
+          e.preventDefault();
+          return;
+        }
+        const payload: DragPayload = { id: row.id, from: stage };
+        e.dataTransfer.setData("application/json", JSON.stringify(payload));
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart(payload);
+      }}
+      onDragEnd={onDragEnd}
+      className={`rounded-xl border border-border bg-white p-3 shadow-sm transition ${
+        draggable ? "cursor-grab active:cursor-grabbing" : ""
+      } ${
+        isDragging
+          ? "scale-[0.98] opacity-40 ring-2 ring-foreground/20"
+          : "hover:border-foreground/15 hover:shadow-md"
+      }`}
+    >
       <div className="flex items-start gap-2.5">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted-bg text-[11px] font-bold tracking-wide">
           {initials(row.order.customerName)}
@@ -138,6 +172,9 @@ function KanbanCard({
           <p className="mt-0.5 truncate text-xs text-muted">
             {row.order.product.title}
           </p>
+          {draggable && (
+            <p className="mt-1 text-[10px] text-muted/80">Arraste para mover</p>
+          )}
         </div>
       </div>
 
@@ -153,6 +190,8 @@ function KanbanCard({
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <Link
           href={`/intake/${row.id}`}
+          draggable={false}
+          onClick={(e) => e.stopPropagation()}
           className="inline-flex flex-1 items-center justify-center rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-semibold transition hover:bg-muted-bg"
         >
           Abrir
@@ -190,6 +229,8 @@ export default function IntakeListPage() {
   const [qDraft, setQDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [drag, setDrag] = useState<DragPayload | null>(null);
+  const [dropTarget, setDropTarget] = useState<IntakeBoardStage | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -279,6 +320,25 @@ export default function IntakeListPage() {
     }
   }
 
+  function handleDropOnStage(target: IntakeBoardStage) {
+    if (!drag) return;
+    if (!canDropOnStage(drag.from, target)) {
+      setDrag(null);
+      setDropTarget(null);
+      return;
+    }
+    const next = reviewStatusForTarget(target);
+    if (!next) {
+      setDrag(null);
+      setDropTarget(null);
+      return;
+    }
+    const id = drag.id;
+    setDrag(null);
+    setDropTarget(null);
+    void moveStage(id, next);
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -287,7 +347,7 @@ export default function IntakeListPage() {
             Pedidos de abertura
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Acompanhe o processo por etapa — do pagamento à conclusão.
+            Arraste os cards entre as etapas — ou use os botões no card.
           </p>
         </div>
         <ViewToggle mode={view} onChange={setView} />
@@ -357,10 +417,38 @@ export default function IntakeListPage() {
             {BOARD_STAGES.map((stage) => {
               const meta = stageMeta[stage];
               const items = byStage[stage];
+              const acceptsDrop =
+                drag !== null && canDropOnStage(drag.from, stage);
+              const isOver = dropTarget === stage && acceptsDrop;
+
               return (
                 <section
                   key={stage}
-                  className={`flex w-[240px] shrink-0 flex-col rounded-2xl border lg:w-auto lg:min-w-0 lg:flex-1 ${meta.column}`}
+                  onDragOver={(e) => {
+                    if (!drag || !canDropOnStage(drag.from, stage)) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dropTarget !== stage) setDropTarget(stage);
+                  }}
+                  onDragLeave={(e) => {
+                    if (
+                      e.currentTarget.contains(e.relatedTarget as Node | null)
+                    ) {
+                      return;
+                    }
+                    if (dropTarget === stage) setDropTarget(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleDropOnStage(stage);
+                  }}
+                  className={`flex w-[240px] shrink-0 flex-col rounded-2xl border transition lg:w-auto lg:min-w-0 lg:flex-1 ${meta.column} ${
+                    isOver
+                      ? "ring-2 ring-foreground/25 ring-offset-2 ring-offset-transparent"
+                      : drag && !acceptsDrop && stage === "aguardando"
+                        ? "opacity-60"
+                        : ""
+                  }`}
                 >
                   <header className="border-b border-black/5 px-3.5 py-3">
                     <div className="flex items-center justify-between gap-2">
@@ -377,13 +465,23 @@ export default function IntakeListPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-[11px] leading-snug text-muted">
-                      {meta.hint}
+                      {stage === "aguardando"
+                        ? meta.hint
+                        : drag && acceptsDrop
+                          ? "Solte aqui para mover"
+                          : meta.hint}
                     </p>
                   </header>
-                  <div className="flex max-h-[min(70vh,640px)] flex-col gap-2.5 overflow-y-auto p-2.5">
+                  <div className="flex min-h-[120px] max-h-[min(70vh,640px)] flex-col gap-2.5 overflow-y-auto p-2.5">
                     {items.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-border/80 bg-white/50 px-3 py-8 text-center text-xs text-muted">
-                        Nenhum pedido
+                      <p
+                        className={`rounded-xl border border-dashed px-3 py-8 text-center text-xs ${
+                          isOver
+                            ? "border-foreground/30 bg-white text-foreground"
+                            : "border-border/80 bg-white/50 text-muted"
+                        }`}
+                      >
+                        {isOver ? "Soltar aqui" : "Nenhum pedido"}
                       </p>
                     ) : (
                       items.map((row) => (
@@ -392,7 +490,13 @@ export default function IntakeListPage() {
                           row={row}
                           stage={stage}
                           movingId={movingId}
+                          isDragging={drag?.id === row.id}
                           onMove={moveStage}
+                          onDragStart={setDrag}
+                          onDragEnd={() => {
+                            setDrag(null);
+                            setDropTarget(null);
+                          }}
                         />
                       ))
                     )}
