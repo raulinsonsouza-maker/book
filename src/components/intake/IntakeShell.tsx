@@ -61,7 +61,7 @@ export function IntakeShell({
               "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16,185,129,0.08), transparent), radial-gradient(ellipse 60% 40% at 100% 0%, rgba(14,165,233,0.06), transparent)",
           }}
         />
-        <div className="relative mx-auto w-full max-w-5xl p-4 md:p-6 lg:p-8">
+        <div className="relative mx-auto w-full max-w-[1400px] p-4 md:p-6 lg:p-8">
           {children}
         </div>
       </main>

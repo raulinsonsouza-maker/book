@@ -8,6 +8,11 @@ import { ptBR } from "date-fns/locale";
 import { MARITAL_STATUS_LABELS } from "@/lib/intake/templates/company-opening-br";
 import { formatIntakeAddress } from "@/lib/intake/validation/company-opening-br";
 import type { CompanyOpeningBrData } from "@/lib/intake/types";
+import {
+  boardStageOf,
+  stageMeta,
+  type ReviewStatusPatch,
+} from "@/lib/intake/board-stages";
 
 type Detail = {
   id: string;
@@ -32,18 +37,6 @@ type Detail = {
     product: { title: string; priceCents: number };
     payment: { status: string; method: string } | null;
   };
-};
-
-const paymentLabel: Record<string, string> = {
-  PAID: "Liberado",
-  SUBMITTED: "Aguardando pagamento",
-  DRAFT: "Rascunho",
-};
-
-const paymentTone: Record<string, string> = {
-  PAID: "border-emerald-300/70 bg-emerald-500/15 text-emerald-50",
-  SUBMITTED: "border-amber-300/70 bg-amber-400/20 text-amber-50",
-  DRAFT: "border-white/20 bg-white/10 text-white/80",
 };
 
 type Accent = "sky" | "amber" | "emerald" | "slate" | "teal" | "indigo";
@@ -256,8 +249,7 @@ export default function IntakeDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  async function setCompleted(done: boolean) {
-    const reviewStatus = done ? "COMPLETED" : "NEW";
+  async function setReviewStatus(reviewStatus: ReviewStatusPatch) {
     setUpdatingReview(true);
     await fetch(`/api/checkout/intake/${id}`, {
       method: "PATCH",
@@ -305,8 +297,9 @@ export default function IntakeDetailPage() {
   const data = detail.data;
   const when = detail.order.paidAt || detail.order.createdAt;
   const whenLabel = detail.order.paidAt ? "Pago" : "Criado";
-  const isCompleted = detail.reviewStatus === "COMPLETED";
-  const isNew = !isCompleted;
+  const stage = boardStageOf(detail);
+  const stageInfo = stage ? stageMeta[stage] : null;
+  const canManageReview = detail.status === "PAID";
 
   return (
     <div className="space-y-4">
@@ -373,63 +366,74 @@ export default function IntakeDetailPage() {
           <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                Status
+                Etapa do processo
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span
-                  className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                    isNew
-                      ? "border-sky-300/50 bg-sky-400/20 text-sky-50"
-                      : "border-white/15 bg-white/5 text-white/45"
-                  }`}
-                >
-                  Novo
-                </span>
-                <span
-                  className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                    paymentTone[detail.status] ||
-                    "border-white/20 bg-white/10 text-white/80"
-                  }`}
-                >
-                  {paymentLabel[detail.status] || detail.status}
-                </span>
-                <span
-                  className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                    isCompleted
-                      ? "border-emerald-300/60 bg-emerald-400/25 text-emerald-50"
-                      : "border-white/15 bg-white/5 text-white/45"
-                  }`}
-                >
-                  Concluído
-                </span>
+                {stageInfo ? (
+                  <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {stageInfo.label}
+                  </span>
+                ) : (
+                  <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/60">
+                    Rascunho
+                  </span>
+                )}
               </div>
               <p className="mt-2 max-w-lg text-xs text-slate-400">
-                {isCompleted
-                  ? "Abertura finalizada pela equipe com as informações e documentos."
-                  : "Concluído é marcado pela equipe quando o processo de abertura estiver pronto."}
+                {stageInfo?.hint ||
+                  "Pedido ainda não enviado pelo cliente."}
               </p>
             </div>
 
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
-              {isCompleted ? (
+              {canManageReview && detail.reviewStatus === "NEW" && (
+                <>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-lg bg-sky-400 px-4 py-2.5 text-sm font-bold text-sky-950 shadow-sm transition hover:bg-sky-300 disabled:opacity-60"
+                    disabled={updatingReview}
+                    onClick={() => void setReviewStatus("IN_REVIEW")}
+                  >
+                    {updatingReview ? "Salvando…" : "Marcar em andamento"}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-lg bg-emerald-400 px-4 py-2.5 text-sm font-bold text-emerald-950 shadow-sm transition hover:bg-emerald-300 disabled:opacity-60"
+                    disabled={updatingReview}
+                    onClick={() => void setReviewStatus("COMPLETED")}
+                  >
+                    {updatingReview ? "Salvando…" : "Marcar como concluída"}
+                  </button>
+                </>
+              )}
+              {canManageReview && detail.reviewStatus === "IN_REVIEW" && (
+                <>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-lg bg-emerald-400 px-4 py-2.5 text-sm font-bold text-emerald-950 shadow-sm transition hover:bg-emerald-300 disabled:opacity-60"
+                    disabled={updatingReview}
+                    onClick={() => void setReviewStatus("COMPLETED")}
+                  >
+                    {updatingReview ? "Salvando…" : "Marcar como concluída"}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-lg border border-white/25 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-60"
+                    disabled={updatingReview}
+                    onClick={() => void setReviewStatus("NEW")}
+                  >
+                    {updatingReview ? "Salvando…" : "Voltar para liberado"}
+                  </button>
+                </>
+              )}
+              {canManageReview && detail.reviewStatus === "COMPLETED" && (
                 <button
                   type="button"
                   className="inline-flex items-center justify-center rounded-lg border border-white/25 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-60"
                   disabled={updatingReview}
-                  onClick={() => void setCompleted(false)}
+                  onClick={() => void setReviewStatus("IN_REVIEW")}
                 >
-                  {updatingReview ? "Salvando…" : "Reabrir pedido"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center rounded-lg bg-emerald-400 px-4 py-2.5 text-sm font-bold text-emerald-950 shadow-sm transition hover:bg-emerald-300 disabled:opacity-60"
-                  disabled={updatingReview}
-                  onClick={() => void setCompleted(true)}
-                >
-                  {updatingReview
-                    ? "Salvando…"
-                    : "Marcar abertura como concluída"}
+                  {updatingReview ? "Salvando…" : "Reabrir (em andamento)"}
                 </button>
               )}
               {msg && (
