@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { GoogleAdsIcon } from "@/components/icons/GoogleAdsIcon";
 import { MetaIcon } from "@/components/icons/MetaIcon";
+import { IntegrationCard } from "@/components/integrations/IntegrationCard";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 type TrackingOrg = {
   metaPixelId: string | null;
@@ -19,7 +21,66 @@ type Props = {
   onMessage: (msg: string, tone?: "ok" | "err") => void;
 };
 
+function ConnectModal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const titleId = useId();
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center">
+      <button
+        type="button"
+        aria-label="Fechar"
+        className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-white p-5 shadow-xl"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 id={titleId} className="text-base font-semibold tracking-tight">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-2 py-1 text-sm text-muted hover:bg-muted-bg"
+          >
+            Fechar
+          </button>
+        </div>
+        <div className="mt-4 space-y-3">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export function AdsTrackingForms({ org, onSaved, onMessage }: Props) {
+  const { confirm } = useConfirm();
+  const [metaOpen, setMetaOpen] = useState(false);
+  const [googleOpen, setGoogleOpen] = useState(false);
   const [metaPixelId, setMetaPixelId] = useState("");
   const [metaToken, setMetaToken] = useState("");
   const [googleSendTo, setGoogleSendTo] = useState("");
@@ -27,11 +88,15 @@ export function AdsTrackingForms({ org, onSaved, onMessage }: Props) {
   const [savingGoogle, setSavingGoogle] = useState(false);
 
   useEffect(() => {
-    if (!org) return;
+    if (!metaOpen || !org) return;
     setMetaPixelId(org.metaPixelId || "");
     setMetaToken("");
+  }, [metaOpen, org?.metaPixelId]);
+
+  useEffect(() => {
+    if (!googleOpen || !org) return;
     setGoogleSendTo(org.googleAdsSendTo || "");
-  }, [org?.metaPixelId, org?.googleAdsSendTo, org?.hasMetaCapiToken]);
+  }, [googleOpen, org?.googleAdsSendTo]);
 
   async function saveMeta() {
     setSavingMeta(true);
@@ -56,10 +121,9 @@ export function AdsTrackingForms({ org, onSaved, onMessage }: Props) {
     }
     setMetaToken("");
     onSaved(data);
+    setMetaOpen(false);
     onMessage(
-      data.metaConnected
-        ? "Meta Ads salvo. Eventos serão enviados na página pública."
-        : "Meta Ads removido.",
+      data.metaConnected ? "Meta Ads conectado." : "Meta Ads removido.",
     );
   }
 
@@ -79,14 +143,23 @@ export function AdsTrackingForms({ org, onSaved, onMessage }: Props) {
       return;
     }
     onSaved(data);
+    setGoogleOpen(false);
     onMessage(
       data.googleAdsConnected
-        ? "Google Ads salvo. Conversões serão enviadas na página pública."
+        ? "Google Ads conectado."
         : "Google Ads removido.",
     );
   }
 
   async function clearMeta() {
+    const ok = await confirm({
+      title: "Desconectar Meta Ads?",
+      description: "O pixel deixa de disparar eventos na página pública.",
+      confirmLabel: "Desconectar",
+      cancelLabel: "Manter conectado",
+      tone: "danger",
+    });
+    if (!ok) return;
     setSavingMeta(true);
     const res = await fetch("/api/organization", {
       method: "PATCH",
@@ -102,13 +175,19 @@ export function AdsTrackingForms({ org, onSaved, onMessage }: Props) {
       onMessage(data.error || "Não foi possível remover o Meta", "err");
       return;
     }
-    setMetaPixelId("");
-    setMetaToken("");
     onSaved(data);
-    onMessage("Meta Ads removido.");
+    onMessage("Meta Ads desconectado.");
   }
 
   async function clearGoogle() {
+    const ok = await confirm({
+      title: "Desconectar Google Ads?",
+      description: "As conversões deixam de ser enviadas na página pública.",
+      confirmLabel: "Desconectar",
+      cancelLabel: "Manter conectado",
+      tone: "danger",
+    });
+    if (!ok) return;
     setSavingGoogle(true);
     const res = await fetch("/api/organization", {
       method: "PATCH",
@@ -121,170 +200,169 @@ export function AdsTrackingForms({ org, onSaved, onMessage }: Props) {
       onMessage(data.error || "Não foi possível remover o Google Ads", "err");
       return;
     }
-    setGoogleSendTo("");
     onSaved(data);
-    onMessage("Google Ads removido.");
+    onMessage("Google Ads desconectado.");
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-base font-semibold tracking-tight">
-          Rastreamento de anúncios
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          Cole os códigos das suas campanhas. Medimos agendamentos e vendas
-          automaticamente na página pública (com valor quando houver pagamento).
-        </p>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="integration-card flex flex-col p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-white">
-              <MetaIcon size={28} />
-            </div>
-            <span
-              className={`tag shrink-0 ${
-                org?.metaConnected
-                  ? "!bg-emerald-50 !text-emerald-700"
-                  : "!bg-muted-bg !text-muted"
-              }`}
-            >
-              {org?.metaConnected ? "Conectado" : "Não conectado"}
-            </span>
-          </div>
-          <h3 className="mt-4 text-base font-semibold tracking-tight">Meta Ads</h3>
-          <p className="mt-2 text-sm text-muted">
-            Pixel + API de conversões (CAPI) para fechar o ciclo no Gerenciador
-            de Eventos.
-          </p>
-
-          <label className="mt-4 block text-xs font-medium text-muted">
-            ID do Pixel
-          </label>
-          <input
-            className="input mt-1"
-            placeholder="123456789012345"
-            value={metaPixelId}
-            onChange={(e) => setMetaPixelId(e.target.value)}
-            autoComplete="off"
-          />
-          <p className="mt-1 text-xs text-muted">
-            Events Manager → Fontes de dados → seu Pixel. Pode colar o snippet
-            inteiro.
-          </p>
-
-          <label className="mt-3 block text-xs font-medium text-muted">
-            Token da API de conversões
-          </label>
-          <input
-            className="input mt-1"
-            type="password"
-            placeholder={
-              org?.hasMetaCapiToken
-                ? org.metaCapiTokenMasked || "Token salvo — cole outro para trocar"
-                : "Cole o token de acesso"
-            }
-            value={metaToken}
-            onChange={(e) => setMetaToken(e.target.value)}
-            autoComplete="off"
-          />
-          <p className="mt-1 text-xs text-muted">
-            Events Manager → Configurações → API de conversões → Gerar token.
-            Opcional, mas melhora a atribuição.
-          </p>
-
-          <div className="mt-4 flex flex-col gap-2">
-            <button
-              type="button"
-              disabled={savingMeta}
-              onClick={saveMeta}
-              className="btn-primary w-full"
-            >
-              {savingMeta ? "Salvando…" : "Salvar Meta"}
-            </button>
-            {org?.metaConnected && (
+    <>
+      <IntegrationCard
+        icon={<MetaIcon size={28} />}
+        title="Meta Ads"
+        status={org?.metaConnected ? "Conectado" : "Não conectado"}
+        statusVariant={org?.metaConnected ? "connected" : "disconnected"}
+        description="Mede agendamentos e vendas nas campanhas do Meta."
+        action={
+          org?.metaConnected ? (
+            <div className="space-y-2">
+              {org.metaPixelId && (
+                <p className="truncate text-xs text-muted">
+                  Pixel: {org.metaPixelId}
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={savingMeta}
+                onClick={() => setMetaOpen(true)}
+                className="btn-secondary w-full"
+              >
+                Configurar
+              </button>
               <button
                 type="button"
                 disabled={savingMeta}
                 onClick={clearMeta}
                 className="btn-secondary w-full text-danger"
               >
-                Remover
+                Desconectar
               </button>
-            )}
-          </div>
-          <p className="mt-3 text-xs text-muted">
-            O pixel processa dados dos visitantes da sua página pública (LGPD:
-            responsabilidade do anunciante).
-          </p>
-        </div>
-
-        <div className="integration-card flex flex-col p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-white">
-              <GoogleAdsIcon size={28} />
             </div>
-            <span
-              className={`tag shrink-0 ${
-                org?.googleAdsConnected
-                  ? "!bg-emerald-50 !text-emerald-700"
-                  : "!bg-muted-bg !text-muted"
-              }`}
-            >
-              {org?.googleAdsConnected ? "Conectado" : "Não conectado"}
-            </span>
-          </div>
-          <h3 className="mt-4 text-base font-semibold tracking-tight">
-            Google Ads
-          </h3>
-          <p className="mt-2 text-sm text-muted">
-            Conversão com valor no pagamento confirmado (Enhanced Conversions
-            automático).
-          </p>
-
-          <label className="mt-4 block text-xs font-medium text-muted">
-            Código de conversão
-          </label>
-          <input
-            className="input mt-1"
-            placeholder="AW-123456789/AbCdEfGhIjKlMn"
-            value={googleSendTo}
-            onChange={(e) => setGoogleSendTo(e.target.value)}
-            autoComplete="off"
-          />
-          <p className="mt-1 text-xs text-muted">
-            Google Ads → Metas → Conversões → sua conversão → Tag → copie o ID
-            no formato AW-…/….
-          </p>
-
-          <div className="mt-4 flex flex-col gap-2">
+          ) : (
             <button
               type="button"
-              disabled={savingGoogle}
-              onClick={saveGoogle}
+              onClick={() => setMetaOpen(true)}
               className="btn-primary w-full"
             >
-              {savingGoogle ? "Salvando…" : "Salvar Google"}
+              Conectar
             </button>
-            {org?.googleAdsConnected && (
+          )
+        }
+      />
+
+      <IntegrationCard
+        icon={<GoogleAdsIcon size={28} />}
+        title="Google Ads"
+        status={org?.googleAdsConnected ? "Conectado" : "Não conectado"}
+        statusVariant={org?.googleAdsConnected ? "connected" : "disconnected"}
+        description="Envia conversões com valor nas campanhas do Google."
+        action={
+          org?.googleAdsConnected ? (
+            <div className="space-y-2">
+              {org.googleAdsSendTo && (
+                <p className="truncate text-xs text-muted">
+                  {org.googleAdsSendTo}
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={savingGoogle}
+                onClick={() => setGoogleOpen(true)}
+                className="btn-secondary w-full"
+              >
+                Configurar
+              </button>
               <button
                 type="button"
                 disabled={savingGoogle}
                 onClick={clearGoogle}
                 className="btn-secondary w-full text-danger"
               >
-                Remover
+                Desconectar
               </button>
-            )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setGoogleOpen(true)}
+              className="btn-primary w-full"
+            >
+              Conectar
+            </button>
+          )
+        }
+      />
+
+      {metaOpen && (
+        <ConnectModal title="Conectar Meta Ads" onClose={() => setMetaOpen(false)}>
+          <div>
+            <label className="block text-xs font-medium text-muted">
+              ID do Pixel
+            </label>
+            <input
+              className="input mt-1"
+              placeholder="123456789012345"
+              value={metaPixelId}
+              onChange={(e) => setMetaPixelId(e.target.value)}
+              autoComplete="off"
+              autoFocus
+            />
           </div>
-          <p className="mt-3 text-xs text-muted">
-            Usamos e-mail/telefone do cliente (hash) para Enhanced Conversions,
-            sem configuração extra.
-          </p>
-        </div>
-      </div>
-    </div>
+          <div>
+            <label className="block text-xs font-medium text-muted">
+              Token da API de conversões (opcional)
+            </label>
+            <input
+              className="input mt-1"
+              type="password"
+              placeholder={
+                org?.hasMetaCapiToken
+                  ? "Token salvo — cole outro para trocar"
+                  : "Cole o token"
+              }
+              value={metaToken}
+              onChange={(e) => setMetaToken(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <button
+            type="button"
+            disabled={savingMeta || !metaPixelId.trim()}
+            onClick={saveMeta}
+            className="btn-primary w-full"
+          >
+            {savingMeta ? "Salvando…" : "Salvar"}
+          </button>
+        </ConnectModal>
+      )}
+
+      {googleOpen && (
+        <ConnectModal
+          title="Conectar Google Ads"
+          onClose={() => setGoogleOpen(false)}
+        >
+          <div>
+            <label className="block text-xs font-medium text-muted">
+              Código de conversão
+            </label>
+            <input
+              className="input mt-1"
+              placeholder="AW-123456789/AbCdEfGh"
+              value={googleSendTo}
+              onChange={(e) => setGoogleSendTo(e.target.value)}
+              autoComplete="off"
+              autoFocus
+            />
+          </div>
+          <button
+            type="button"
+            disabled={savingGoogle || !googleSendTo.trim()}
+            onClick={saveGoogle}
+            className="btn-primary w-full"
+          >
+            {savingGoogle ? "Salvando…" : "Salvar"}
+          </button>
+        </ConnectModal>
+      )}
+    </>
   );
 }

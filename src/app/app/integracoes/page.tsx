@@ -479,16 +479,16 @@ export default function IntegrationsPage() {
             }
           />
         )}
-      </div>
 
-      <AdsTrackingForms
-        org={org}
-        onSaved={(data) => setOrg((prev) => (prev ? { ...prev, ...data } : prev))}
-        onMessage={(m, tone = "ok") => {
-          setMsgTone(tone);
-          setMsg(m);
-        }}
-      />
+        <AdsTrackingForms
+          org={org}
+          onSaved={(data) => setOrg((prev) => (prev ? { ...prev, ...data } : prev))}
+          onMessage={(m, tone = "ok") => {
+            setMsgTone(tone);
+            setMsg(m);
+          }}
+        />
+      </div>
     </div>
   );
 }
