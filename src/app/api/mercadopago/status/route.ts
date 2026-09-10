@@ -23,7 +23,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    oauthConfigured: mercadoPagoOAuthConfigured(),
+    oauthConfigured: await mercadoPagoOAuthConfigured(),
     connected: isMercadoPagoReady(org),
     userId: org.mercadoPagoUserId,
     connectedAt: org.mercadoPagoConnectedAt,

@@ -57,8 +57,8 @@ RUN npm install --omit=dev prisma@6.19.3 @prisma/client@6.19.3 \
   && chown -R nextjs:nodejs /app/prisma /app/node_modules || true
 
 EXPOSE 3000
-HEALTHCHECK --interval=20s --timeout=5s --start-period=60s --retries=5 \
-  CMD curl -fsS http://127.0.0.1:3000/ >/dev/null || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=8 \
+  CMD curl -fsS -o /dev/null --max-time 4 http://127.0.0.1:3000/api/health || exit 1
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "server.js"]

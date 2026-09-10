@@ -3780,6 +3780,83 @@ button {
   text-transform: uppercase;
 }
 
+.onboard-pay-hero {
+  padding-bottom: 0.15rem;
+}
+
+.onboard-pay-kicker {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-steel, #64748b);
+}
+
+.onboard-pay-summary {
+  border-radius: 1.15rem;
+  border: 1.5px solid rgba(12, 18, 34, 0.1);
+  background:
+    linear-gradient(165deg, #f4fef7 0%, #ffffff 42%, #ffffff 100%);
+  padding: 1.15rem 1.1rem 1.2rem;
+  box-shadow: 0 18px 40px -28px rgba(12, 18, 34, 0.35);
+}
+
+.onboard-pay-summary-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.onboard-pay-total {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.onboard-pay-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.onboard-pay-trust-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(12, 18, 34, 0.08);
+  background: #fff;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--lp-ink, #0c1222);
+}
+
+.onboard-pay-trust-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #10b981;
+}
+
+.onboard-pay-box {
+  border-radius: 1.15rem;
+  border: 1px solid rgba(12, 18, 34, 0.1);
+  background: #fff;
+  padding: 1.1rem 1rem 1.2rem;
+}
+
+@media (max-width: 520px) {
+  .onboard-pay-summary-top {
+    flex-direction: column;
+  }
+
+  .onboard-pay-total {
+    text-align: left;
+  }
+}
+
 @media (max-width: 900px) {
   .onboard-split {
     grid-template-columns: 1fr;

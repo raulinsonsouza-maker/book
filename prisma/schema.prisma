@@ -590,6 +590,25 @@ model PlatformConfig {
   updatedAt           DateTime @updatedAt
 }
 
+/** Credenciais Mercado Pago da plataforma (cobrança SaaS + app OAuth dos salões). */
+model PlatformMercadoPagoConfig {
+  id                    String    @id @default("singleton")
+  /** Liga cobrança de assinatura no onboarding. */
+  billingEnabled        Boolean   @default(false)
+  /** Client ID do app MP (Developers). Também usado no OAuth dos salões. */
+  clientId              String?
+  clientSecretEncrypted String?
+  accessTokenEncrypted  String?
+  publicKey             String?
+  refreshTokenEncrypted String?
+  tokenExpiry           DateTime?
+  userId                String?
+  nickname              String?
+  connectedAt           DateTime?
+  lastError             String?
+  updatedAt             DateTime  @updatedAt
+}
+
 /** Credenciais e templates do canal WhatsApp único da plataforma. */
 model PlatformWhatsAppConfig {
   id                    String    @id @default("singleton")

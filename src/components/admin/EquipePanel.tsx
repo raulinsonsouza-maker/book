@@ -148,7 +148,7 @@ export function EquipePanel() {
     <div className="space-y-6">
       <AdminPageIntro>
         Convide pessoas da sua equipe para acessar o painel. Membros da equipe
-        veem apenas os dossiês de <strong>Intake</strong> (ex.: abertura de
+        veem apenas os dossiês em <strong>/intake</strong> (ex.: abertura de
         empresa) — ideal para escritórios e contadores parceiros.
       </AdminPageIntro>
 

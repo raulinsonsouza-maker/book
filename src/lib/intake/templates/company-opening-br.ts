@@ -13,6 +13,8 @@ export function defaultPartner(): CompanyOpeningBrData["partners"][0] {
     marriageRegime: "",
     profession: "",
     address: "",
+    addressNumber: "",
+    addressComplement: "",
     zipCode: "",
     email: "",
     phone: "",
@@ -35,6 +37,8 @@ export function defaultCompanyOpeningData(): CompanyOpeningBrData {
     activities: "",
     headquarters: {
       address: "",
+      addressNumber: "",
+      addressComplement: "",
       zipCode: "",
       isRented: false,
     },

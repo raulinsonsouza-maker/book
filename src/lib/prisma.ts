@@ -21,7 +21,10 @@ async function configureSqlite() {
   try {
     // journal_mode returns a row — use queryRaw, not executeRaw
     await prisma.$queryRawUnsafe("PRAGMA journal_mode=WAL");
-    await prisma.$queryRawUnsafe("PRAGMA busy_timeout=30000");
+    // Evita travar o event loop / healthcheck por 30s em lock de SQLite.
+    await prisma.$queryRawUnsafe("PRAGMA busy_timeout=5000");
+    await prisma.$queryRawUnsafe("PRAGMA synchronous=NORMAL");
+    await prisma.$queryRawUnsafe("PRAGMA foreign_keys=ON");
   } catch (e) {
     console.error("[prisma] sqlite pragma", e);
   }

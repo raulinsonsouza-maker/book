@@ -96,7 +96,7 @@ export default async function AppHomePage() {
   const ctx = await getAuthContext();
 
   if (ctx && isTeamMemberRole(ctx.role)) {
-    redirect("/app/intake");
+    redirect("/intake");
   }
 
   const isPro = Boolean(

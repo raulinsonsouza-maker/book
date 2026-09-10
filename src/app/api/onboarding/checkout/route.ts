@@ -11,6 +11,7 @@ import {
   isPlatformPlanSlug,
 } from "@/lib/billing/plans-catalog";
 import { platformMpPublicKey } from "@/lib/billing/mercadopago-platform";
+import { ensurePlatformCheckoutPlans } from "@/lib/billing/ensure-plans";
 import { provisionOrganization } from "@/lib/onboarding";
 import { applyOnboardingSetup } from "@/lib/onboarding/apply-setup";
 import { inviteOnboardingProfessionals } from "@/lib/onboarding/invite-professionals";
@@ -158,9 +159,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const plan = await prisma.plan.findFirst({
+    let plan = await prisma.plan.findFirst({
       where: { slug: body.planSlug, isActive: true },
     });
+    if (!plan) {
+      await ensurePlatformCheckoutPlans();
+      plan = await prisma.plan.findFirst({
+        where: { slug: body.planSlug, isActive: true },
+      });
+    }
     if (!plan) {
       return NextResponse.json({ error: "Plano não encontrado" }, { status: 400 });
     }
@@ -200,8 +207,8 @@ export async function POST(req: Request) {
       ),
     );
 
-    const billingEnabled = isPlatformBillingEnabled();
-    const mpReady = platformMercadoPagoConfigured();
+    const billingEnabled = await isPlatformBillingEnabled();
+    const mpReady = await platformMercadoPagoConfigured();
 
     // Billing desligado: libera acesso sem cobrar (só para dev local).
     if (!billingEnabled) {
@@ -249,7 +256,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Pagamento obrigatório, mas o Mercado Pago da plataforma não está configurado. Defina PLATFORM_MERCADOPAGO_ACCESS_TOKEN e PLATFORM_MERCADOPAGO_PUBLIC_KEY no .env.",
+            "Pagamento obrigatório, mas o Mercado Pago da plataforma não está configurado. Conecte em Admin → Configuração.",
         },
         { status: 503 },
       );
@@ -280,7 +287,7 @@ export async function POST(req: Request) {
       bookingPageSlug: setup.bookingPageSlug,
       billingSkipped: false,
       redirectTo: "/onboarding/pagamento",
-      publicKey: platformMpPublicKey(),
+      publicKey: await platformMpPublicKey(),
       plan: {
         name: plan.name,
         slug: plan.slug,

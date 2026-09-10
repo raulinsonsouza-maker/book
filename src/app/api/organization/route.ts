@@ -72,7 +72,7 @@ type OrgRow = {
   cardMaxInstallments: number;
 };
 
-function serializeOrg(org: OrgRow) {
+async function serializeOrg(org: OrgRow) {
   return {
     id: org.id,
     name: org.name,
@@ -93,7 +93,7 @@ function serializeOrg(org: OrgRow) {
     mercadoPagoConnected: isMercadoPagoReady(org),
     mercadoPagoViaOAuth: Boolean(org.mercadoPagoRefreshToken),
     mercadoPagoUserId: org.mercadoPagoUserId ?? null,
-    mercadoPagoOAuthConfigured: mercadoPagoOAuthConfigured(),
+    mercadoPagoOAuthConfigured: await mercadoPagoOAuthConfigured(),
     mercadoPagoWebhookUrl: webhookUrl("/api/webhooks/mercadopago"),
     mercadoPagoRedirectUri:
       process.env.MERCADOPAGO_REDIRECT_URI ||
@@ -127,7 +127,7 @@ export async function GET() {
     getPlatformWhatsAppConfig(),
   ]);
   return NextResponse.json({
-    ...serializeOrg(org),
+    ...(await serializeOrg(org)),
     whatsappEnabled: org.whatsappEnabled,
     whatsappPlatformReady: Boolean(
       waCfg.enabled && waCfg.accessToken && waCfg.phoneNumberId,
@@ -323,7 +323,7 @@ export async function PATCH(req: Request) {
       where: { id: ctx.organizationId },
       data,
     });
-    return NextResponse.json(serializeOrg(org));
+    return NextResponse.json(await serializeOrg(org));
   } catch {
     return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
   }

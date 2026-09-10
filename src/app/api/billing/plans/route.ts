@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PLATFORM_PLAN_FALLBACKS } from "@/lib/billing/plans-catalog";
+import { ensurePlatformCheckoutPlans } from "@/lib/billing/ensure-plans";
 
 export async function GET() {
-  const plans = await prisma.plan.findMany({
+  let plans = await prisma.plan.findMany({
     where: {
       isActive: true,
       slug: { in: ["essencial-mensal", "essencial-semestral"] },
@@ -17,6 +18,17 @@ export async function GET() {
       whatsappQuotaMonthly: true,
     },
   });
+
+  if (!plans.length) {
+    const ensured = await ensurePlatformCheckoutPlans();
+    plans = ensured.map((p) => ({
+      slug: p.slug,
+      name: p.name,
+      priceCents: p.priceCents,
+      interval: p.interval,
+      whatsappQuotaMonthly: p.whatsappQuotaMonthly,
+    }));
+  }
 
   if (!plans.length) {
     return NextResponse.json({ plans: PLATFORM_PLAN_FALLBACKS });

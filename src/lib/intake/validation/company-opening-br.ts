@@ -21,7 +21,9 @@ const partnerSchema = z.object({
   ]),
   marriageRegime: z.string().optional(),
   profession: z.string().min(2, "Informe a profissão"),
-  address: z.string().min(5, "Informe o endereço"),
+  address: z.string().min(3, "Informe o endereço"),
+  addressNumber: z.string().min(1, "Informe o número"),
+  addressComplement: z.string().optional().default(""),
   zipCode: z
     .string()
     .transform((s) => s.replace(/\D/g, ""))
@@ -65,7 +67,9 @@ export const companyOpeningBrSchema = z
     }),
     activities: z.string().min(10, "Descreva as atividades da empresa"),
     headquarters: z.object({
-      address: z.string().min(5, "Informe o endereço da sede"),
+      address: z.string().min(3, "Informe o endereço da sede"),
+      addressNumber: z.string().min(1, "Informe o número da sede"),
+      addressComplement: z.string().optional().default(""),
       zipCode: z
         .string()
         .transform((s) => s.replace(/\D/g, ""))
@@ -163,4 +167,16 @@ export function primaryContactFromData(data: CompanyOpeningBrData) {
     customerPhone: p?.phone || "",
     customerCpf: p?.cpf || "",
   };
+}
+
+export function formatIntakeAddress(parts: {
+  address?: string | null;
+  addressNumber?: string | null;
+  addressComplement?: string | null;
+}) {
+  const street = parts.address?.trim() || "";
+  const number = parts.addressNumber?.trim() || "";
+  const complement = parts.addressComplement?.trim() || "";
+  const line = [street, number].filter(Boolean).join(", ");
+  return complement ? `${line}${line ? " — " : ""}${complement}` : line;
 }

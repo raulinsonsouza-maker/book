@@ -60,7 +60,10 @@ async function activateFromPreapproval(preapprovalId: string) {
 }
 
 async function activateFromPayment(paymentId: string) {
-  const token = process.env.PLATFORM_MERCADOPAGO_ACCESS_TOKEN?.trim();
+  const { getPlatformMpAccessToken } = await import(
+    "@/lib/billing/platform-mercadopago-config"
+  );
+  const token = await getPlatformMpAccessToken();
   if (!token) return false;
 
   const res = await fetch(

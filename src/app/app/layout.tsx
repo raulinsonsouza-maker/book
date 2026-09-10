@@ -8,6 +8,7 @@ import {
   checkOrgBillingAccess,
   getPlatformConfig,
 } from "@/lib/billing/platform";
+import { isTeamMemberRole } from "@/lib/rbac";
 
 export default async function AppLayout({
   children,
@@ -15,7 +16,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect("/login?next=/app");
 
   if (session.user.mustChangePassword) {
     redirect("/primeiro-acesso");
@@ -26,6 +27,11 @@ export default async function AppLayout({
   }
 
   if (!session.user.organizationId) redirect("/signup/complete");
+
+  // Equipe de documentos não usa o painel operacional
+  if (isTeamMemberRole(session.user.role)) {
+    redirect("/intake");
+  }
 
   const org = await prisma.organization.findUnique({
     where: { id: session.user.organizationId },

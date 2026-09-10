@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/login", base));
   }
 
-  if (!mercadoPagoOAuthConfigured()) {
+  if (!(await mercadoPagoOAuthConfigured())) {
     return NextResponse.redirect(oauthDonePath(base, "missing_env", popup));
   }
 
@@ -34,5 +34,5 @@ export async function GET(req: Request) {
     }),
   ).toString("base64url");
 
-  return NextResponse.redirect(getMercadoPagoAuthUrl(state));
+  return NextResponse.redirect(await getMercadoPagoAuthUrl(state));
 }

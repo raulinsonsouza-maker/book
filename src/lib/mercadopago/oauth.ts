@@ -1,6 +1,7 @@
 import { addSeconds } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
+import { getMpAppCredentials } from "@/lib/billing/platform-mercadopago-config";
 
 export type MercadoPagoOAuthTokens = {
   accessToken: string;
@@ -20,11 +21,8 @@ type OAuthTokenResponse = {
   message?: string;
 };
 
-export function mercadoPagoOAuthConfigured() {
-  return Boolean(
-    process.env.MERCADOPAGO_CLIENT_ID?.trim() &&
-      process.env.MERCADOPAGO_CLIENT_SECRET?.trim(),
-  );
+export async function mercadoPagoOAuthConfigured() {
+  return Boolean(await getMpAppCredentials());
 }
 
 export function getMercadoPagoRedirectUri() {
@@ -34,13 +32,14 @@ export function getMercadoPagoRedirectUri() {
   return `${base.replace(/\/$/, "")}/api/mercadopago/callback`;
 }
 
-export function getMercadoPagoAuthUrl(state: string) {
-  const clientId = process.env.MERCADOPAGO_CLIENT_ID!;
+export async function getMercadoPagoAuthUrl(state: string) {
+  const app = await getMpAppCredentials();
+  if (!app) throw new Error("Mercado Pago OAuth não configurado");
   const redirectUri = encodeURIComponent(getMercadoPagoRedirectUri());
   const scope = encodeURIComponent("offline_access read write");
   return (
     `https://auth.mercadopago.com/authorization` +
-    `?client_id=${encodeURIComponent(clientId)}` +
+    `?client_id=${encodeURIComponent(app.clientId)}` +
     `&response_type=code` +
     `&platform_id=mp` +
     `&state=${encodeURIComponent(state)}` +
@@ -50,12 +49,15 @@ export function getMercadoPagoAuthUrl(state: string) {
 }
 
 async function postOAuthToken(body: Record<string, string>) {
+  const app = await getMpAppCredentials();
+  if (!app) throw new Error("Mercado Pago OAuth não configurado");
+
   const res = await fetch("https://api.mercadopago.com/oauth/token", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({
-      client_id: process.env.MERCADOPAGO_CLIENT_ID,
-      client_secret: process.env.MERCADOPAGO_CLIENT_SECRET,
+      client_id: app.clientId,
+      client_secret: app.clientSecret,
       ...body,
     }),
   });
@@ -169,7 +171,7 @@ export async function ensureMercadoPagoAccessToken(organizationId: string) {
     return org.mercadoPagoAccessToken;
   }
 
-  if (!mercadoPagoOAuthConfigured()) {
+  if (!(await mercadoPagoOAuthConfigured())) {
     return org.mercadoPagoAccessToken;
   }
 

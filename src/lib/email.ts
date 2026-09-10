@@ -28,12 +28,22 @@ async function send(params: {
     console.log(`[email:demo] ${params.tag} →`, params.to, params.subject);
     return { ok: true as const, demo: true };
   }
-  await resend.emails.send({
+  const sendPromise = resend.emails.send({
     from: emailFrom(),
     to: params.to,
     subject: params.subject,
     html: params.html,
   });
+  const result = await Promise.race([
+    sendPromise,
+    new Promise<"timeout">((resolve) =>
+      setTimeout(() => resolve("timeout"), 8_000),
+    ),
+  ]);
+  if (result === "timeout") {
+    console.warn(`[email] timeout ${params.tag} → ${params.to}`);
+    return { ok: false as const, demo: false, timedOut: true };
+  }
   return { ok: true as const, demo: false };
 }
 

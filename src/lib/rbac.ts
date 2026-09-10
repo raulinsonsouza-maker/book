@@ -114,7 +114,7 @@ export async function requireAuthContext() {
 
 export async function requireFullAdminContext() {
   const ctx = await requireAuthContext();
-  if (!isFullAdminRole(ctx.role)) redirect("/app/intake");
+  if (!isFullAdminRole(ctx.role)) redirect("/intake");
   return ctx;
 }
 

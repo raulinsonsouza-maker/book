@@ -14,7 +14,10 @@ export async function POST() {
   const auth = await apiRequireAdmin();
   if ("error" in auth) return auth.error;
 
-  if (!isPlatformBillingEnabled() || !platformMercadoPagoConfigured()) {
+  if (
+    !(await isPlatformBillingEnabled()) ||
+    !(await platformMercadoPagoConfigured())
+  ) {
     return NextResponse.json(
       { error: "Assinatura da plataforma não está disponível" },
       { status: 503 },

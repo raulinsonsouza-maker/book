@@ -7,6 +7,7 @@ import { Suspense, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { postLoginPath } from "@/lib/auth-routes";
 
 function LoginForm() {
   const router = useRouter();
@@ -18,6 +19,7 @@ function LoginForm() {
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const justCreated = searchParams.get("created") === "1";
   const justReset = searchParams.get("reset") === "1";
+  const nextHint = searchParams.get("next");
 
   useEffect(() => {
     fetch("/api/auth/google-enabled")
@@ -42,13 +44,28 @@ function LoginForm() {
     }
     const sessionRes = await fetch("/api/auth/session");
     const session = await sessionRes.json();
-    if (session?.user?.mustChangePassword) {
-      router.push("/primeiro-acesso");
+    const dest = postLoginPath(session?.user);
+    // Só honra ?next= se for da mesma “área” do papel (evita MEMBER em /app)
+    if (
+      nextHint?.startsWith("/") &&
+      !nextHint.startsWith("//") &&
+      ((dest.startsWith("/intake") && nextHint.startsWith("/intake")) ||
+        (dest.startsWith("/admin") && nextHint.startsWith("/admin")) ||
+        (dest.startsWith("/app") && nextHint.startsWith("/app")))
+    ) {
+      router.push(nextHint);
     } else {
-      router.push(session?.user?.isPlatformAdmin ? "/admin" : "/app");
+      router.push(dest);
     }
     router.refresh();
   }
+
+  const subtitle =
+    nextHint?.startsWith("/intake")
+      ? "Acesse a área de documentos (Intake)"
+      : nextHint?.startsWith("/admin")
+        ? "Acesse o painel da plataforma"
+        : "Acesse o painel da sua empresa";
 
   return (
     <div className="surface w-full max-w-md p-8">
@@ -60,7 +77,7 @@ function LoginForm() {
       </div>
       <p className="eyebrow">Acesso</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Entrar</h1>
-      <p className="mt-1 text-sm text-muted">Acesse o painel da sua empresa</p>
+      <p className="mt-1 text-sm text-muted">{subtitle}</p>
 
       {justCreated && (
         <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

@@ -5,6 +5,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { postLoginPath } from "@/lib/auth-routes";
 
 export default function PrimeiroAcessoPage() {
   const router = useRouter();
@@ -20,9 +21,7 @@ export default function PrimeiroAcessoPage() {
       return;
     }
     if (status === "authenticated" && !session?.user?.mustChangePassword) {
-      router.replace(
-        session.user.isPlatformAdmin ? "/admin" : "/app",
-      );
+      router.replace(postLoginPath(session.user));
     }
   }, [status, session, router]);
 
@@ -55,9 +54,7 @@ export default function PrimeiroAcessoPage() {
       /* JWT será atualizado no próximo getSession */
     }
     setLoading(false);
-    router.replace(
-      session?.user?.isPlatformAdmin ? "/admin" : "/app",
-    );
+    router.replace(postLoginPath(session?.user));
     router.refresh();
   }
 

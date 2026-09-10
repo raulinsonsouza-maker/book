@@ -42,7 +42,7 @@ export async function GET(
   if (!submission.viewedAt) {
     await prisma.intakeSubmission.update({
       where: { id: submission.id },
-      data: { viewedAt: new Date(), reviewStatus: "IN_REVIEW" },
+      data: { viewedAt: new Date() },
     });
   }
 

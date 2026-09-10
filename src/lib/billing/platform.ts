@@ -1,15 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import type { SubscriptionStatus } from "@prisma/client";
+import {
+  isPlatformBillingEnabled as isPlatformBillingEnabledFromConfig,
+  platformMercadoPagoConfigured as platformMercadoPagoConfiguredFromConfig,
+} from "@/lib/billing/platform-mercadopago-config";
 
-export function isPlatformBillingEnabled() {
-  return process.env.PLATFORM_BILLING_ENABLED === "true";
+export async function isPlatformBillingEnabled() {
+  return isPlatformBillingEnabledFromConfig();
 }
 
-export function platformMercadoPagoConfigured() {
-  return Boolean(
-    process.env.PLATFORM_MERCADOPAGO_ACCESS_TOKEN?.trim() &&
-      process.env.PLATFORM_MERCADOPAGO_PUBLIC_KEY?.trim(),
-  );
+export async function platformMercadoPagoConfigured() {
+  return platformMercadoPagoConfiguredFromConfig();
 }
 
 export async function getPlatformConfig() {
@@ -82,7 +83,7 @@ export type BillingAccess =
 export async function checkOrgBillingAccess(
   organizationId: string,
 ): Promise<BillingAccess> {
-  if (!isPlatformBillingEnabled()) {
+  if (!(await isPlatformBillingEnabled())) {
     return { allowed: true };
   }
 
@@ -143,9 +144,17 @@ export async function checkOrgBillingAccess(
 }
 
 export function estimateMrrCents(
-  subs: { status: string; plan: { priceCents: number } | null }[],
+  subs: {
+    status: string;
+    plan: { priceCents: number; interval?: string | null } | null;
+  }[],
 ) {
   return subs
     .filter((s) => s.status === "ACTIVE" && s.plan)
-    .reduce((sum, s) => sum + (s.plan?.priceCents ?? 0), 0);
+    .reduce((sum, s) => {
+      const cents = s.plan!.priceCents;
+      const monthly =
+        s.plan!.interval === "SEMESTER" ? Math.round(cents / 6) : cents;
+      return sum + monthly;
+    }, 0);
 }

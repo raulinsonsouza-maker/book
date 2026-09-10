@@ -9,8 +9,15 @@ import {
 import { validateIntakeStep } from "@/lib/intake/validation/company-opening-br";
 import { requiredIntakeFileFields } from "@/lib/intake/required-files";
 import type { CompanyOpeningBrData, IntakeAttachmentInfo } from "@/lib/intake/types";
-import { formatCep, formatCpf, formatMoneyBRFromDigits, formatPhone } from "@/lib/utils";
+import {
+  formatCep,
+  formatCpf,
+  formatMoneyBRFromDigits,
+  formatPhone,
+  formatRgOrCnh,
+} from "@/lib/utils";
 import { IntakeFileField } from "@/components/intake/IntakeFileField";
+import { mergeIntakeData } from "@/lib/intake/merge-data";
 
 const WIZARD_STEPS = companyOpeningBrTemplate.steps.filter((s) => s.id !== "payment");
 
@@ -30,35 +37,81 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const documentsDraftStarted = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
 
   const currentStep = WIZARD_STEPS[stepIndex]!;
   const progress = ((stepIndex + 1) / WIZARD_STEPS.length) * 100;
 
   const fileFields = useMemo(() => requiredIntakeFileFields(data), [data]);
 
+  function showError(message: string) {
+    setError(message);
+  }
+
+  useEffect(() => {
+    if (!error) return;
+    // Erro ficava no topo do formulário longo — o clique em Continuar
+    // parecia “não fazer nada” porque a mensagem estava fora da tela.
+    errorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [error]);
+
+  function scrollWizardTop() {
+    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   const saveDraft = useCallback(
     async (opts?: { submit?: boolean }) => {
       setSaving(true);
       setError("");
       try {
-        const res = await fetch(`/api/public/checkout/${checkoutSlug}/intake`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId: orderId || undefined,
-            stepId: currentStep.id,
-            data,
-            submit: opts?.submit,
-          }),
-        });
+        const payload = {
+          orderId: orderId || undefined,
+          stepId: currentStep.id,
+          data,
+          submit: opts?.submit,
+        };
+
+        let res: Response | null = null;
+        let lastStatus = 0;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            res = await fetch(`/api/public/checkout/${checkoutSlug}/intake`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            lastStatus = res.status;
+            // Gateway/restart transitório — tenta de novo
+            if ((res.status === 502 || res.status === 503) && attempt < 2) {
+              await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+              continue;
+            }
+            break;
+          } catch {
+            if (attempt < 2) {
+              await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+              continue;
+            }
+            showError(
+              "Falha de conexão — verifique sua internet e tente novamente",
+            );
+            return false;
+          }
+        }
+
+        if (!res) {
+          showError("Servidor indisponível — tente novamente em alguns segundos");
+          return false;
+        }
 
         let json: { error?: string; orderId?: string } = {};
         try {
           json = await res.json();
         } catch {
           if (!res.ok) {
-            setError(
-              res.status === 502 || res.status === 503
+            showError(
+              lastStatus === 502 || lastStatus === 503
                 ? "Servidor indisponível — aguarde alguns segundos e tente novamente"
                 : "Erro ao salvar — tente novamente",
             );
@@ -67,7 +120,7 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
         }
 
         if (!res.ok) {
-          setError(json.error || "Erro ao salvar");
+          showError(json.error || "Erro ao salvar");
           return false;
         }
         setOrderId(json.orderId ?? orderId);
@@ -76,12 +129,13 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
         }
         return true;
       } catch {
-        setError("Falha de conexão — verifique sua internet e tente novamente");
+        showError("Falha de conexão — verifique sua internet e tente novamente");
         return false;
       } finally {
         setSaving(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showError only scrolls
     [checkoutSlug, currentStep.id, data, onReadyForPayment, orderId],
   );
 
@@ -90,7 +144,14 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
     fetch(`/api/public/checkout/${checkoutSlug}/intake?orderId=${orderId}`)
       .then((r) => r.json())
       .then((json) => {
-        if (json.data) setData({ ...companyOpeningBrTemplate.defaultData(), ...json.data });
+        if (json.data) {
+          setData(
+            mergeIntakeData(
+              companyOpeningBrTemplate.defaultData(),
+              json.data as Partial<CompanyOpeningBrData>,
+            ),
+          );
+        }
         if (json.attachments) {
           const map: Record<string, IntakeAttachmentInfo> = {};
           for (const a of json.attachments as IntakeAttachmentInfo[]) {
@@ -144,7 +205,7 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
   async function next() {
     const check = validateIntakeStep(currentStep.id, data);
     if (!check.ok) {
-      setError(check.message);
+      showError(check.message);
       return;
     }
     setError("");
@@ -152,13 +213,16 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
     if (!ok) return;
     if (stepIndex < WIZARD_STEPS.length - 1) {
       setStepIndex((i) => i + 1);
+      scrollWizardTop();
     }
   }
 
   async function submitAndPay() {
     const missing = fileFields.filter((f) => f.required && !attachments[f.key]);
     if (missing.length > 0) {
-      setError(`Envie todos os documentos obrigatórios (${missing.length} pendente${missing.length > 1 ? "s" : ""})`);
+      showError(
+        `Envie todos os documentos obrigatórios (${missing.length} pendente${missing.length > 1 ? "s" : ""})`,
+      );
       return;
     }
     setError("");
@@ -168,10 +232,11 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
   function back() {
     setError("");
     setStepIndex((i) => Math.max(0, i - 1));
+    scrollWizardTop();
   }
 
   return (
-    <div className="space-y-6">
+    <div ref={rootRef} className="space-y-6">
       <div>
         <div className="mb-2 flex items-center justify-between text-xs text-muted">
           <span>
@@ -189,12 +254,6 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
           <p className="mt-2 text-sm text-muted">{currentStep.description}</p>
         )}
       </div>
-
-      {error && (
-        <p className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      )}
 
       {currentStep.id === "partners" && (
         <div className="space-y-6">
@@ -234,9 +293,14 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
                 <Field label="RG ou CNH" required>
                   <input
                     className="input-field"
-                    placeholder="Número do documento"
+                    inputMode="numeric"
+                    placeholder="00.000.000-0 ou CNH"
                     value={partner.rgOrCnh}
-                    onChange={(e) => updatePartner(index, { rgOrCnh: e.target.value })}
+                    onChange={(e) =>
+                      updatePartner(index, {
+                        rgOrCnh: formatRgOrCnh(e.target.value),
+                      })
+                    }
                   />
                 </Field>
                 <Field label="Data de nascimento" required>
@@ -301,11 +365,32 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
                     }
                   />
                 </Field>
-                <Field label="Endereço completo" required className="sm:col-span-2">
+                <Field label="Endereço" required className="sm:col-span-2">
                   <input
                     className="input-field"
+                    placeholder="Rua, avenida…"
                     value={partner.address}
                     onChange={(e) => updatePartner(index, { address: e.target.value })}
+                  />
+                </Field>
+                <Field label="Número" required>
+                  <input
+                    className="input-field"
+                    placeholder="Nº"
+                    value={partner.addressNumber ?? ""}
+                    onChange={(e) =>
+                      updatePartner(index, { addressNumber: e.target.value })
+                    }
+                  />
+                </Field>
+                <Field label="Complemento">
+                  <input
+                    className="input-field"
+                    placeholder="Apto, sala…"
+                    value={partner.addressComplement ?? ""}
+                    onChange={(e) =>
+                      updatePartner(index, { addressComplement: e.target.value })
+                    }
                   />
                 </Field>
                 <Field label="E-mail" required>
@@ -522,9 +607,10 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
               }
             />
           </Field>
-          <Field label="Endereço completo da sede" required>
+          <Field label="Endereço da sede" required>
             <input
               className="input-field"
+              placeholder="Rua, avenida…"
               value={data.headquarters.address}
               onChange={(e) =>
                 setData({
@@ -534,6 +620,40 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
               }
             />
           </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Número" required>
+              <input
+                className="input-field"
+                placeholder="Nº"
+                value={data.headquarters.addressNumber ?? ""}
+                onChange={(e) =>
+                  setData({
+                    ...data,
+                    headquarters: {
+                      ...data.headquarters,
+                      addressNumber: e.target.value,
+                    },
+                  })
+                }
+              />
+            </Field>
+            <Field label="Complemento">
+              <input
+                className="input-field"
+                placeholder="Sala, andar…"
+                value={data.headquarters.addressComplement ?? ""}
+                onChange={(e) =>
+                  setData({
+                    ...data,
+                    headquarters: {
+                      ...data.headquarters,
+                      addressComplement: e.target.value,
+                    },
+                  })
+                }
+              />
+            </Field>
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -586,6 +706,15 @@ export function IntakeWizard({ checkoutSlug, accentColor = "#0a0a0a", onReadyFor
       )}
 
       <div className="flex flex-wrap gap-3 pt-2">
+        {error && (
+          <p
+            ref={errorRef}
+            role="alert"
+            className="w-full rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger"
+          >
+            {error}
+          </p>
+        )}
         {stepIndex > 0 && (
           <button type="button" className="btn-secondary" onClick={back} disabled={saving}>
             Voltar

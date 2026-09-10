@@ -45,7 +45,7 @@ export async function GET(req: Request) {
       status: "ACTIVE",
       paid: true,
       plan: sub.plan,
-      publicKey: platformMpPublicKey(),
+      publicKey: await platformMpPublicKey(),
     });
   }
 
@@ -91,9 +91,9 @@ export async function GET(req: Request) {
           interval: sub.plan.interval,
         }
       : null,
-    publicKey: platformMpPublicKey(),
-    billingEnabled: isPlatformBillingEnabled(),
-    mpConfigured: platformMercadoPagoConfigured(),
+    publicKey: await platformMpPublicKey(),
+    billingEnabled: await isPlatformBillingEnabled(),
+    mpConfigured: await platformMercadoPagoConfigured(),
   });
 }
 
@@ -101,7 +101,10 @@ export async function POST(req: Request) {
   const auth = await apiRequireAdmin();
   if ("error" in auth) return auth.error;
 
-  if (!isPlatformBillingEnabled() || !platformMercadoPagoConfigured()) {
+  if (
+    !(await isPlatformBillingEnabled()) ||
+    !(await platformMercadoPagoConfigured())
+  ) {
     return NextResponse.json(
       { error: "Billing da plataforma não configurado" },
       { status: 503 },

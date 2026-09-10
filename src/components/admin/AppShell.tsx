@@ -25,7 +25,6 @@ const PRO_BLOCKED_PREFIXES = [
   "/app/pages",
   "/app/servicos",
   "/app/checkout",
-  "/app/intake",
   "/app/integracoes",
   "/app/integrations",
   "/app/profissionais",
@@ -35,8 +34,6 @@ const PRO_BLOCKED_PREFIXES = [
   "/app/salao",
   "/app/equipe",
 ];
-
-const MEMBER_ALLOWED_PREFIXES = ["/app/intake"];
 
 type NavItem = {
   href: string;
@@ -142,7 +139,6 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith("/app/agendador"), title: "Páginas" },
   { match: (p) => p.startsWith("/app/pages"), title: "Páginas" },
   { match: (p) => p.startsWith("/app/checkout/vendas"), title: "Vendas" },
-  { match: (p) => p.startsWith("/app/intake"), title: "Intake" },
   { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Produtos" },
   { match: (p) => p.startsWith("/app/checkout"), title: "Checkout" },
   {
@@ -229,19 +225,8 @@ function navForRole(
   const salon = businessMode === "SALON";
 
   if (isMember) {
-    return [
-      {
-        title: "Agenda",
-        items: [
-          {
-            href: "/app/intake",
-            label: "Intake",
-            icon: NavIconCheckout,
-            match: (p) => p.startsWith("/app/intake"),
-          },
-        ],
-      },
-    ];
+    // MEMBER não deveria estar no AppShell — layout redireciona para /intake
+    return [];
   }
 
   if (isPro) {
@@ -361,6 +346,12 @@ function navForRole(
       match: (p) => p.startsWith("/app/checkout"),
     },
     {
+      href: "/intake",
+      label: "Intake",
+      icon: NavIconCheckout,
+      match: (p) => p.startsWith("/intake"),
+    },
+    {
       href: "/app/financeiro",
       label: "Financeiro",
       icon: NavIconFinance,
@@ -409,12 +400,7 @@ export function AppShell({
       return;
     }
     if (role === "MEMBER") {
-      const allowed = MEMBER_ALLOWED_PREFIXES.some((p) =>
-        pathname.startsWith(p),
-      );
-      if (!allowed) {
-        router.replace("/app/intake");
-      }
+      router.replace("/intake");
     }
   }, [role, pathname, router]);
 

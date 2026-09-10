@@ -45,7 +45,7 @@ export function intakeAlertEmail(params: IntakeAlertParams) {
       bodyHtml,
       cta: {
         label: "Ver dossiê completo",
-        href: appUrl(`/app/intake/${params.submissionId}`),
+        href: appUrl(`/intake/${params.submissionId}`),
       },
     }),
   };

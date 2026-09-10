@@ -1,9 +1,19 @@
-import { platformMercadoPagoConfigured } from "@/lib/billing/platform";
+import {
+  getPlatformMpAccessToken,
+  getPlatformMpPublicKey,
+  platformMercadoPagoConfigured,
+} from "@/lib/billing/platform-mercadopago-config";
 
 const MP_API = "https://api.mercadopago.com";
 
+async function requirePlatformToken() {
+  const token = await getPlatformMpAccessToken();
+  if (!token) throw new Error("Credenciais Mercado Pago da plataforma ausentes");
+  return token;
+}
+
 export async function pingPlatformMercadoPago() {
-  const token = process.env.PLATFORM_MERCADOPAGO_ACCESS_TOKEN?.trim();
+  const token = await getPlatformMpAccessToken();
   if (!token) return { ok: false, error: "Token não configurado" };
 
   try {
@@ -29,8 +39,7 @@ export async function createPlatformPreapproval(params: {
   externalReference: string;
   frequencyMonths?: number;
 }) {
-  const token = process.env.PLATFORM_MERCADOPAGO_ACCESS_TOKEN?.trim();
-  if (!token) throw new Error("PLATFORM_MERCADOPAGO_ACCESS_TOKEN ausente");
+  const token = await requirePlatformToken();
 
   const res = await fetch(`${MP_API}/preapproval`, {
     method: "POST",
@@ -76,8 +85,7 @@ export async function createPlatformPreference(params: {
   externalReference: string;
   maxInstallments?: number;
 }) {
-  const token = process.env.PLATFORM_MERCADOPAGO_ACCESS_TOKEN?.trim();
-  if (!token) throw new Error("PLATFORM_MERCADOPAGO_ACCESS_TOKEN ausente");
+  const token = await requirePlatformToken();
 
   const base = (
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -135,11 +143,11 @@ export async function createPlatformPreference(params: {
   };
 }
 
-export function platformMpPublicKey() {
-  return process.env.PLATFORM_MERCADOPAGO_PUBLIC_KEY?.trim() || null;
+export async function platformMpPublicKey() {
+  return getPlatformMpPublicKey();
 }
 
-export function platformBillingReady() {
+export async function platformBillingReady() {
   return platformMercadoPagoConfigured();
 }
 
@@ -180,8 +188,7 @@ export async function createPlatformPixPayment(params: {
   organizationId: string;
   idempotencyKey: string;
 }) {
-  const token = process.env.PLATFORM_MERCADOPAGO_ACCESS_TOKEN?.trim();
-  if (!token) throw new Error("PLATFORM_MERCADOPAGO_ACCESS_TOKEN ausente");
+  const token = await requirePlatformToken();
 
   const { first_name, last_name } = splitName(params.payerName);
   const notification_url = platformNotificationUrl();
@@ -235,8 +242,7 @@ export async function createPlatformCardPayment(params: {
   idempotencyKey: string;
   installments?: number;
 }) {
-  const token = process.env.PLATFORM_MERCADOPAGO_ACCESS_TOKEN?.trim();
-  if (!token) throw new Error("PLATFORM_MERCADOPAGO_ACCESS_TOKEN ausente");
+  const token = await requirePlatformToken();
 
   const cpf = params.cpf.replace(/\D/g, "");
   if (cpf.length !== 11) throw new Error("CPF inválido");
@@ -285,8 +291,7 @@ export async function createPlatformCardPayment(params: {
 }
 
 export async function getPlatformPayment(paymentId: string) {
-  const token = process.env.PLATFORM_MERCADOPAGO_ACCESS_TOKEN?.trim();
-  if (!token) throw new Error("PLATFORM_MERCADOPAGO_ACCESS_TOKEN ausente");
+  const token = await requirePlatformToken();
 
   const res = await fetch(
     `https://api.mercadopago.com/v1/payments/${paymentId}`,
@@ -300,4 +305,3 @@ export async function getPlatformPayment(paymentId: string) {
     transaction_amount?: number;
   };
 }
-

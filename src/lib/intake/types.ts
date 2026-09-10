@@ -15,6 +15,8 @@ export type IntakePartner = {
   marriageRegime?: string;
   profession: string;
   address: string;
+  addressNumber: string;
+  addressComplement: string;
   zipCode: string;
   email: string;
   phone: string;
@@ -36,6 +38,8 @@ export type CompanyOpeningBrData = {
   activities: string;
   headquarters: {
     address: string;
+    addressNumber: string;
+    addressComplement: string;
     zipCode: string;
     isRented: boolean;
   };

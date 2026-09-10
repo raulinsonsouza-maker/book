@@ -74,6 +74,22 @@ export function formatCep(value: string) {
   return `${d.slice(0, 5)}-${d.slice(5)}`;
 }
 
+/** RG (até 9 dígitos: 00.000.000-0) ou CNH (11 dígitos). Aceita letras se o usuário digitar. */
+export function formatRgOrCnh(value: string) {
+  const cleaned = value.replace(/[^\dA-Za-z]/g, "").toUpperCase();
+  const hasLetters = /[A-Z]/.test(cleaned);
+  if (hasLetters) return cleaned.slice(0, 14);
+
+  const d = cleaned.replace(/\D/g, "");
+  if (d.length <= 9) {
+    if (d.length <= 2) return d;
+    if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`;
+    if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}-${d.slice(8)}`;
+  }
+  return d.slice(0, 11);
+}
+
 /** Valor monetário BR (sem símbolo R$) a partir de dígitos — ex.: 10.000,00 */
 export function formatMoneyBRFromDigits(raw: string) {
   const digits = raw.replace(/\D/g, "").slice(0, 15);

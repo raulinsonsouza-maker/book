@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
+import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
 import { PaymentStep } from "@/components/payment/PaymentStep";
-import { formatCpf, isValidCpf } from "@/lib/utils";
+import { PLATFORM_PLAN_FALLBACKS } from "@/lib/billing/plans-catalog";
+import { formatBRL, formatCpf, isValidCpf } from "@/lib/utils";
 
 type PlanInfo = {
   name: string;
@@ -13,6 +15,14 @@ type PlanInfo = {
   priceCents: number;
   interval: string;
 };
+
+const PLAN_FEATURES = [
+  "Link de agendamento com a sua marca",
+  "Pix e cartão na hora da reserva",
+  "Agenda e equipe no mesmo painel",
+  "Lembretes por e-mail e WhatsApp",
+  "600 mensagens WhatsApp por mês",
+];
 
 function formatCardNumber(v: string) {
   return v
@@ -61,6 +71,11 @@ export default function OnboardingPagamentoPage() {
     cvv: "",
   });
 
+  const catalog = useMemo(
+    () => PLATFORM_PLAN_FALLBACKS.find((p) => p.slug === plan?.slug),
+    [plan?.slug],
+  );
+
   const goApp = useCallback(async () => {
     await update();
     window.location.assign("/app");
@@ -92,7 +107,7 @@ export default function OnboardingPagamentoPage() {
   }, [status, router, loadSession]);
 
   useEffect(() => {
-    if (!paymentId || !pixQr && !awaitingCard) return;
+    if (!paymentId || (!pixQr && !awaitingCard)) return;
     let cancelled = false;
     async function poll() {
       const res = await fetch(
@@ -214,8 +229,7 @@ export default function OnboardingPagamentoPage() {
           method: "card",
           cardToken: tokenized.id,
           cpf: digits,
-          installments:
-            plan?.interval === "SEMESTER" ? installments : 1,
+          installments: plan?.interval === "SEMESTER" ? installments : 1,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -249,85 +263,168 @@ export default function OnboardingPagamentoPage() {
   }
 
   const maxInstallments = plan?.interval === "SEMESTER" ? 6 : 1;
+  const isSemester = plan?.interval === "SEMESTER";
+  const monthlyEq =
+    catalog?.monthlyEquivalentCents ??
+    (isSemester && plan ? Math.round(plan.priceCents / 6) : plan?.priceCents);
 
   return (
-    <OnboardingShell step="pronto" sidebarTitle="Pronto!" showBack={false}>
-      <div className="onboard-panel space-y-4">
-        <div>
+    <OnboardingShell
+      step="pronto"
+      sidebarTitle="Último passo"
+      showBack={false}
+    >
+      <div className="onboard-panel onboard-pay space-y-5">
+        <header className="onboard-pay-hero">
+          <p className="onboard-pay-kicker">Checkout seguro</p>
           <h1 className="onboard-title text-2xl sm:text-[1.85rem]">
-            Pague e libere o acesso
+            Libere sua agenda agora
           </h1>
           <p className="onboard-lead mt-2">
-            Checkout transparente Mercado Pago — Pix ou cartão. Assim que
-            confirmar, você entra no painel.
+            Pague com Pix ou cartão. Assim que confirmar, você entra no painel
+            com tudo pronto para receber clientes.
           </p>
+        </header>
+
+        {plan && (
+          <section className="onboard-pay-summary" aria-label="Resumo do plano">
+            <div className="onboard-pay-summary-top">
+              <div className="min-w-0">
+                {catalog?.badge && (
+                  <span className="onboard-plan-badge">{catalog.badge}</span>
+                )}
+                <h2 className="text-base font-bold tracking-tight sm:text-lg">
+                  {plan.name}
+                </h2>
+                <p className="mt-1 text-sm text-[var(--lp-steel)]">
+                  {isSemester
+                    ? `${formatBRL(monthlyEq || 0)}/mês · cobrado ${formatBRL(plan.priceCents)} no semestre`
+                    : "Cobrança mensal · cancele quando quiser"}
+                </p>
+              </div>
+              <div className="onboard-pay-total">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--lp-steel)]">
+                  Total
+                </p>
+                <p className="text-2xl font-bold tracking-tight tabular-nums">
+                  {formatBRL(plan.priceCents)}
+                </p>
+                {isSemester && catalog?.compareAtCents && (
+                  <p className="text-xs text-[var(--lp-steel)]">
+                    <span className="line-through">
+                      {formatBRL(catalog.compareAtCents)}
+                    </span>
+                    {catalog.savingsCents ? (
+                      <>
+                        {" "}
+                        · economiza {formatBRL(catalog.savingsCents)}
+                      </>
+                    ) : null}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <ul className="onboard-plan-features mt-4">
+              {PLAN_FEATURES.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+
+            {isSemester && (
+              <p className="mt-3 text-xs font-medium text-[var(--lp-accent-ink,#3f6212)]">
+                No cartão: em até 6x sem complicação
+              </p>
+            )}
+          </section>
+        )}
+
+        <div className="onboard-pay-trust">
+          <div className="onboard-pay-trust-item">
+            <MercadoPagoIcon size={22} />
+            <span>Mercado Pago</span>
+          </div>
+          <div className="onboard-pay-trust-item">
+            <span className="onboard-pay-trust-dot" />
+            Ativação imediata
+          </div>
+          <div className="onboard-pay-trust-item">
+            <span className="onboard-pay-trust-dot" />
+            Dados protegidos
+          </div>
         </div>
 
         {error && (
           <p
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger"
+            className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-danger"
           >
             {error}
           </p>
         )}
 
         {plan && (
-          <PaymentStep
-            priceCents={plan.priceCents}
-            productTitle={plan.name}
-            paymentProviderLabel="Mercado Pago"
-            demoPayments={false}
-            payMethod={payMethod}
-            onPayMethodChange={(m) => {
-              setPayMethod(m);
-              setError("");
-              setAwaitingCard(false);
-              if (m === "card") {
-                setPixQr(null);
-                setPixQrBase64(null);
-              }
-            }}
-            pixLoading={pixLoading}
-            pixQr={pixQr}
-            pixQrBase64={pixQrBase64}
-            copied={copied}
-            onCopyPix={() => {
-              if (!pixQr) return;
-              void navigator.clipboard.writeText(pixQr);
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 2000);
-            }}
-            onDemoConfirm={() => undefined}
-            onCheckPix={paymentId ? () => void checkPaid() : undefined}
-            checkingPix={checking}
-            paying={paying}
-            card={card}
-            onCardChange={setCard}
-            onPayCard={(ev) => void onPayCard(ev)}
-            formatCardNumber={formatCardNumber}
-            showInstallments={maxInstallments > 1}
-            cardMaxInstallments={maxInstallments}
-            installments={installments}
-            onInstallmentsChange={setInstallments}
-            awaitingCardConfirm={awaitingCard}
-            holdVariant="payment"
-          />
+          <section className="onboard-pay-box">
+            <div className="mb-4">
+              <h3 className="text-sm font-bold tracking-tight">
+                Forma de pagamento
+              </h3>
+              <p className="mt-0.5 text-xs text-muted">
+                Pix costuma confirmar em segundos. Cartão também libera na hora
+                se aprovado.
+              </p>
+            </div>
+            <PaymentStep
+              hideHeader
+              priceCents={plan.priceCents}
+              productTitle={plan.name}
+              paymentProviderLabel="Mercado Pago"
+              demoPayments={false}
+              payMethod={payMethod}
+              onPayMethodChange={(m) => {
+                setPayMethod(m);
+                setError("");
+                setAwaitingCard(false);
+                if (m === "card") {
+                  setPixQr(null);
+                  setPixQrBase64(null);
+                }
+              }}
+              pixLoading={pixLoading}
+              pixQr={pixQr}
+              pixQrBase64={pixQrBase64}
+              copied={copied}
+              onCopyPix={() => {
+                if (!pixQr) return;
+                void navigator.clipboard.writeText(pixQr);
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 2000);
+              }}
+              onDemoConfirm={() => undefined}
+              onCheckPix={paymentId ? () => void checkPaid() : undefined}
+              checkingPix={checking}
+              paying={paying}
+              card={card}
+              onCardChange={setCard}
+              onPayCard={(ev) => void onPayCard(ev)}
+              formatCardNumber={formatCardNumber}
+              showInstallments={maxInstallments > 1}
+              cardMaxInstallments={maxInstallments}
+              installments={installments}
+              onInstallmentsChange={setInstallments}
+              awaitingCardConfirm={awaitingCard}
+              holdVariant="payment"
+              cpf={cpf}
+              onCpfChange={setCpf}
+              formatCpf={formatCpf}
+            />
+          </section>
         )}
 
-        {payMethod === "card" && !awaitingCard && (
-          <label className="block text-sm">
-            <span className="mb-1.5 block font-medium">CPF do titular</span>
-            <input
-              className="input-field"
-              inputMode="numeric"
-              placeholder="000.000.000-00"
-              value={cpf}
-              onChange={(e) => setCpf(formatCpf(e.target.value))}
-              required
-            />
-          </label>
-        )}
+        <p className="text-center text-[11px] leading-relaxed text-muted">
+          Ao pagar, você concorda com o acesso imediato ao Book Symbius no plano
+          escolhido. Dúvidas? Fale com o suporte.
+        </p>
       </div>
     </OnboardingShell>
   );

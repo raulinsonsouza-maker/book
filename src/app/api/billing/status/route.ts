@@ -16,8 +16,8 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    billingEnabled: isPlatformBillingEnabled(),
-    mpConfigured: platformMercadoPagoConfigured(),
+    billingEnabled: await isPlatformBillingEnabled(),
+    mpConfigured: await platformMercadoPagoConfigured(),
     status: sub?.status ?? null,
     trialEndsAt: sub?.trialEndsAt ?? null,
     currentPeriodEnd: sub?.currentPeriodEnd ?? null,

@@ -14,7 +14,7 @@ services:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
-      DATABASE_URL: ${DATABASE_URL:-file:/data/book.db?busy_timeout=30000}
+      DATABASE_URL: ${DATABASE_URL:-file:/data/book.db}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://book.symbius.com.br}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://book.symbius.com.br}
@@ -27,6 +27,7 @@ services:
       MERCADOPAGO_CLIENT_ID: ${MERCADOPAGO_CLIENT_ID:-}
       MERCADOPAGO_CLIENT_SECRET: ${MERCADOPAGO_CLIENT_SECRET:-}
       MERCADOPAGO_REDIRECT_URI: ${MERCADOPAGO_REDIRECT_URI:-https://book.symbius.com.br/api/mercadopago/callback}
+      PLATFORM_MERCADOPAGO_REDIRECT_URI: ${PLATFORM_MERCADOPAGO_REDIRECT_URI:-https://book.symbius.com.br/api/admin/mercadopago/callback}
       PLATFORM_MERCADOPAGO_ACCESS_TOKEN: ${PLATFORM_MERCADOPAGO_ACCESS_TOKEN:-}
       PLATFORM_MERCADOPAGO_PUBLIC_KEY: ${PLATFORM_MERCADOPAGO_PUBLIC_KEY:-}
       PLATFORM_BILLING_ENABLED: ${PLATFORM_BILLING_ENABLED:-false}
@@ -43,11 +44,21 @@ services:
     networks:
       - traefik_proxy
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/"]
-      interval: 20s
+      test:
+        [
+          "CMD",
+          "curl",
+          "-fsS",
+          "-o",
+          "/dev/null",
+          "--max-time",
+          "4",
+          "http://127.0.0.1:3000/api/health",
+        ]
+      interval: 15s
       timeout: 5s
-      retries: 5
-      start_period: 60s
+      retries: 8
+      start_period: 90s
     deploy:
       replicas: 1
       placement:

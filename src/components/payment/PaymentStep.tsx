@@ -41,6 +41,11 @@ type PaymentStepProps = {
   cardMaxInstallments?: number;
   showInstallments?: boolean;
   awaitingCardConfirm?: boolean;
+  /** Oculta o título/preço (quando a página já tem resumo do pedido). */
+  hideHeader?: boolean;
+  cpf?: string;
+  onCpfChange?: (v: string) => void;
+  formatCpf?: (v: string) => string;
 };
 
 export function PaymentStep({
@@ -72,18 +77,24 @@ export function PaymentStep({
   cardMaxInstallments = 12,
   showInstallments = false,
   awaitingCardConfirm = false,
+  hideHeader = false,
+  cpf,
+  onCpfChange,
+  formatCpf,
 }: PaymentStepProps) {
   return (
     <div className="space-y-4 animate-in">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Pagamento</h2>
-          <p className="mt-1 text-sm text-muted">
-            {productTitle} · via {paymentProviderLabel}
-          </p>
+      {!hideHeader && (
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Pagamento</h2>
+            <p className="mt-1 text-sm text-muted">
+              {productTitle} · via {paymentProviderLabel}
+            </p>
+          </div>
+          <p className="text-2xl font-bold tracking-tight">{formatBRL(priceCents)}</p>
         </div>
-        <p className="text-2xl font-bold tracking-tight">{formatBRL(priceCents)}</p>
-      </div>
+      )}
 
       {holdExpiresAt && holdVariant === "slot" && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
@@ -115,13 +126,13 @@ export function PaymentStep({
             key={m}
             type="button"
             onClick={() => onPayMethodChange(m)}
-            className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition ${
+            className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
               payMethod === m
-                ? "border-foreground bg-foreground text-white"
+                ? "border-foreground bg-foreground text-white shadow-sm"
                 : "border-border bg-white hover:bg-muted-bg"
             }`}
           >
-            {m === "pix" ? "Pix" : "Cartão"}
+            {m === "pix" ? "Pix · instantâneo" : "Cartão de crédito"}
           </button>
         ))}
       </div>
@@ -135,12 +146,19 @@ export function PaymentStep({
             </div>
           )}
           {pixQr && (
-            <div className="space-y-3 rounded-lg border border-border p-4">
-              <p className="text-center text-sm font-medium">Escaneie o QR ou copie o código</p>
+            <div className="space-y-3 rounded-2xl border border-border bg-[#fafbfc] p-4 sm:p-5">
+              <div className="text-center">
+                <p className="text-sm font-semibold tracking-tight">
+                  Escaneie o QR Code no app do banco
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  Ou copie o código Pix abaixo — confirmação automática
+                </p>
+              </div>
               <PixQrImage payload={pixQr} base64={pixQrBase64} />
               <textarea
                 readOnly
-                className="h-20 w-full rounded-lg border border-border bg-muted-bg p-2 font-mono text-[11px]"
+                className="h-20 w-full rounded-xl border border-border bg-white p-2.5 font-mono text-[11px]"
                 value={pixQr}
               />
               <button type="button" className="btn-secondary w-full" onClick={onCopyPix}>
@@ -235,6 +253,20 @@ export function PaymentStep({
               disabled={awaitingCardConfirm}
             />
           </label>
+          {onCpfChange && formatCpf && (
+            <label className="block text-sm">
+              <span className="mb-1.5 block font-medium">CPF do titular</span>
+              <input
+                required
+                className="input-field"
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+                value={cpf || ""}
+                disabled={awaitingCardConfirm}
+                onChange={(e) => onCpfChange(formatCpf(e.target.value))}
+              />
+            </label>
+          )}
           <label className="block text-sm">
             <span className="mb-1.5 block font-medium">Número</span>
             <input

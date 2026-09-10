@@ -10,12 +10,12 @@ export async function GET() {
   const auth = await apiRequirePlatformAdmin();
   if ("error" in auth) return auth.error;
 
-  const configured = platformMercadoPagoConfigured();
+  const configured = await platformMercadoPagoConfigured();
   const ping = configured ? await pingPlatformMercadoPago() : null;
 
   return NextResponse.json({
     configured,
-    billingEnabled: isPlatformBillingEnabled(),
+    billingEnabled: await isPlatformBillingEnabled(),
     ping,
   });
 }
