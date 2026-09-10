@@ -66,15 +66,16 @@ export const stageMeta: Record<
   },
 };
 
-/** Etapa do quadro (ignora rascunhos). */
+/** Etapa do quadro (ignora rascunhos). Pagamento manda; review só vale se já pago. */
 export function boardStageOf(row: IntakeStageRow): IntakeBoardStage | null {
-  if (row.reviewStatus === "COMPLETED") return "concluido";
-  if (row.status === "PAID") {
-    if (row.reviewStatus === "IN_REVIEW") return "andamento";
-    return "liberado";
+  // Sem pagamento confirmado no intake → sempre aguardando (nunca “concluído/andamento” fantasma)
+  if (row.status !== "PAID") {
+    if (row.status === "SUBMITTED") return "aguardando";
+    return null;
   }
-  if (row.status === "SUBMITTED") return "aguardando";
-  return null;
+  if (row.reviewStatus === "COMPLETED") return "concluido";
+  if (row.reviewStatus === "IN_REVIEW") return "andamento";
+  return "liberado";
 }
 
 export type ReviewStatusPatch = "NEW" | "IN_REVIEW" | "COMPLETED";

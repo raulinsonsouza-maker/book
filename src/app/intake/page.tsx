@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -230,6 +230,7 @@ export default function IntakeListPage() {
   const [loading, setLoading] = useState(true);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragPayload | null>(null);
+  const dragRef = useRef<DragPayload | null>(null);
   const [dropTarget, setDropTarget] = useState<IntakeBoardStage | null>(null);
 
   const load = useCallback(() => {
@@ -302,6 +303,9 @@ export default function IntakeListPage() {
   }, [boardRows, filter]);
 
   async function moveStage(id: string, reviewStatus: ReviewStatusPatch) {
+    const current = allRows.find((r) => r.id === id);
+    if (!current || current.status !== "PAID") return;
+
     setMovingId(id);
     setAllRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, reviewStatus } : r)),
@@ -320,23 +324,41 @@ export default function IntakeListPage() {
     }
   }
 
-  function handleDropOnStage(target: IntakeBoardStage) {
-    if (!drag) return;
-    if (!canDropOnStage(drag.from, target)) {
-      setDrag(null);
-      setDropTarget(null);
-      return;
+  function readDragPayload(e: React.DragEvent): DragPayload | null {
+    const fromState = dragRef.current;
+    if (fromState) return fromState;
+    try {
+      const raw = e.dataTransfer.getData("application/json");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as DragPayload;
+      if (!parsed?.id || !parsed?.from) return null;
+      return parsed;
+    } catch {
+      return null;
     }
-    const next = reviewStatusForTarget(target);
-    if (!next) {
-      setDrag(null);
-      setDropTarget(null);
-      return;
-    }
-    const id = drag.id;
+  }
+
+  function handleDropOnStage(target: IntakeBoardStage, e: React.DragEvent) {
+    const payload = readDragPayload(e);
+    dragRef.current = null;
     setDrag(null);
     setDropTarget(null);
-    void moveStage(id, next);
+    if (!payload) return;
+    if (!canDropOnStage(payload.from, target)) return;
+    const next = reviewStatusForTarget(target);
+    if (!next) return;
+    void moveStage(payload.id, next);
+  }
+
+  function beginDrag(payload: DragPayload) {
+    dragRef.current = payload;
+    setDrag(payload);
+  }
+
+  function endDrag() {
+    dragRef.current = null;
+    setDrag(null);
+    setDropTarget(null);
   }
 
   return (
@@ -440,7 +462,7 @@ export default function IntakeListPage() {
                   }}
                   onDrop={(e) => {
                     e.preventDefault();
-                    handleDropOnStage(stage);
+                    handleDropOnStage(stage, e);
                   }}
                   className={`flex w-[240px] shrink-0 flex-col rounded-2xl border transition lg:w-auto lg:min-w-0 lg:flex-1 ${meta.column} ${
                     isOver
@@ -492,11 +514,8 @@ export default function IntakeListPage() {
                           movingId={movingId}
                           isDragging={drag?.id === row.id}
                           onMove={moveStage}
-                          onDragStart={setDrag}
-                          onDragEnd={() => {
-                            setDrag(null);
-                            setDropTarget(null);
-                          }}
+                          onDragStart={beginDrag}
+                          onDragEnd={endDrag}
                         />
                       ))
                     )}

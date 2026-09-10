@@ -104,6 +104,12 @@ export async function PATCH(
 
   try {
     const body = patchSchema.parse(await req.json());
+    if (body.reviewStatus && existing.status !== "PAID") {
+      return NextResponse.json(
+        { error: "Só é possível mudar a etapa após o pagamento" },
+        { status: 400 },
+      );
+    }
     const updated = await prisma.intakeSubmission.update({
       where: { id: submissionId },
       data: {
