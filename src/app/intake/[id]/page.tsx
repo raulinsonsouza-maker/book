@@ -35,7 +35,7 @@ type Detail = {
 };
 
 const paymentLabel: Record<string, string> = {
-  PAID: "Pagamento realizado",
+  PAID: "Liberado",
   SUBMITTED: "Aguardando pagamento",
   DRAFT: "Rascunho",
 };

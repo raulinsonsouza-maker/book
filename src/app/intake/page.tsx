@@ -26,49 +26,58 @@ type SubmissionRow = {
   };
 };
 
-const STATUS_FILTERS = [
+type Workflow = "liberado" | "aguardando" | "concluido" | "rascunho";
+
+const FILTERS: { value: "" | Workflow; label: string }[] = [
+  { value: "liberado", label: "Liberados" },
+  { value: "aguardando", label: "Aguardando pagamento" },
+  { value: "concluido", label: "Concluídos" },
   { value: "", label: "Todos" },
-  { value: "PAID", label: "Pagos" },
-  { value: "SUBMITTED", label: "Aguardando" },
-  { value: "DRAFT", label: "Rascunho" },
-] as const;
+];
 
-const statusLabel: Record<string, string> = {
-  PAID: "Pagamento realizado",
-  SUBMITTED: "Aguardando pagamento",
-  DRAFT: "Rascunho",
+const workflowMeta: Record<
+  Workflow,
+  { label: string; tone: string; rank: number }
+> = {
+  liberado: {
+    label: "Liberado",
+    tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    rank: 0,
+  },
+  aguardando: {
+    label: "Aguardando pagamento",
+    tone: "border-amber-200 bg-amber-50 text-amber-900",
+    rank: 1,
+  },
+  rascunho: {
+    label: "Rascunho",
+    tone: "border-border bg-muted-bg text-muted",
+    rank: 2,
+  },
+  concluido: {
+    label: "Concluído",
+    tone: "border-slate-200 bg-slate-100 text-slate-700",
+    rank: 3,
+  },
 };
 
-const statusTone: Record<string, string> = {
-  PAID: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  SUBMITTED: "border-amber-200 bg-amber-50 text-amber-900",
-  DRAFT: "border-border bg-muted-bg text-muted",
-};
-
-const reviewLabel: Record<string, string> = {
-  NEW: "Novo",
-  IN_REVIEW: "Novo",
-  COMPLETED: "Concluído",
-};
-
-const reviewTone: Record<string, string> = {
-  NEW: "border-sky-200 bg-sky-50 text-sky-900",
-  IN_REVIEW: "border-sky-200 bg-sky-50 text-sky-900",
-  COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-800",
-};
+function workflowOf(row: SubmissionRow): Workflow {
+  if (row.reviewStatus === "COMPLETED") return "concluido";
+  if (row.status === "PAID") return "liberado";
+  if (row.status === "SUBMITTED") return "aguardando";
+  return "rascunho";
+}
 
 function KpiCard({
   label,
   value,
-  hint,
   tone,
   active,
   onClick,
 }: {
   label: string;
   value: string;
-  hint?: string;
-  tone: "money" | "warn" | "ink" | "blue";
+  tone: "money" | "warn" | "ink";
   active?: boolean;
   onClick?: () => void;
 }) {
@@ -84,14 +93,9 @@ function KpiCard({
       value: "text-amber-900",
     },
     ink: {
-      wrap: "border-border bg-gradient-to-br from-slate-50 to-white",
-      dot: "bg-foreground",
-      value: "text-foreground",
-    },
-    blue: {
-      wrap: "border-blue-200/70 bg-gradient-to-br from-blue-50/80 to-white",
-      dot: "bg-blue-600",
-      value: "text-blue-900",
+      wrap: "border-slate-200 bg-gradient-to-br from-slate-50 to-white",
+      dot: "bg-slate-600",
+      value: "text-slate-900",
     },
   }[tone];
 
@@ -101,7 +105,7 @@ function KpiCard({
       onClick={onClick}
       className={`rounded-2xl border p-4 text-left shadow-sm transition ${tones.wrap} ${
         active ? "ring-2 ring-foreground/15" : "hover:shadow-md"
-      } ${onClick ? "cursor-pointer" : ""}`}
+      }`}
     >
       <div className="flex items-center gap-2">
         <span className={`h-1.5 w-1.5 rounded-full ${tones.dot}`} />
@@ -114,7 +118,6 @@ function KpiCard({
       >
         {value}
       </p>
-      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
     </button>
   );
 }
@@ -126,10 +129,21 @@ function initials(name: string) {
   return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
 }
 
+function StatusBadge({ row }: { row: SubmissionRow }) {
+  const wf = workflowOf(row);
+  const meta = workflowMeta[wf];
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${meta.tone}`}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
 export default function IntakeListPage() {
-  const [rows, setRows] = useState<SubmissionRow[]>([]);
   const [allRows, setAllRows] = useState<SubmissionRow[]>([]);
-  const [status, setStatus] = useState("");
+  const [filter, setFilter] = useState<"" | Workflow>("liberado");
   const [q, setQ] = useState("");
   const [qDraft, setQDraft] = useState("");
   const [loading, setLoading] = useState(true);
@@ -137,23 +151,16 @@ export default function IntakeListPage() {
   const load = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (status) params.set("status", status);
     if (q) params.set("q", q);
     fetch(`/api/checkout/intake?${params}`)
       .then((r) => r.json())
-      .then((data) => setRows(Array.isArray(data) ? data : []))
+      .then((data) => setAllRows(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
-  }, [status, q]);
+  }, [q]);
 
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    fetch("/api/checkout/intake")
-      .then((r) => r.json())
-      .then((data) => setAllRows(Array.isArray(data) ? data : []));
-  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setQ(qDraft.trim()), 300);
@@ -161,67 +168,63 @@ export default function IntakeListPage() {
   }, [qDraft]);
 
   const counts = useMemo(() => {
-    const base = allRows.length ? allRows : rows;
     return {
-      total: base.length,
-      paid: base.filter((r) => r.status === "PAID").length,
-      waiting: base.filter((r) => r.status === "SUBMITTED").length,
-      draft: base.filter((r) => r.status === "DRAFT").length,
-      unread: base.filter((r) => r.status === "PAID" && !r.viewedAt).length,
+      liberado: allRows.filter((r) => workflowOf(r) === "liberado").length,
+      aguardando: allRows.filter((r) => workflowOf(r) === "aguardando").length,
+      concluido: allRows.filter((r) => workflowOf(r) === "concluido").length,
     };
-  }, [allRows, rows]);
+  }, [allRows]);
+
+  const rows = useMemo(() => {
+    const filtered = filter
+      ? allRows.filter((r) => workflowOf(r) === filter)
+      : allRows;
+    return [...filtered].sort((a, b) => {
+      const ra = workflowMeta[workflowOf(a)].rank;
+      const rb = workflowMeta[workflowOf(b)].rank;
+      if (ra !== rb) return ra - rb;
+      const da = new Date(a.order.paidAt || a.createdAt).getTime();
+      const db = new Date(b.order.paidAt || b.createdAt).getTime();
+      return db - da;
+    });
+  }, [allRows, filter]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Pedidos de abertura</h1>
         <p className="mt-1 text-sm text-muted">
-          Formulários e documentos enviados pelos clientes para a equipe.
+          Comece pelos liberados — já podem ser trabalhados.
         </p>
       </div>
 
       <CheckoutSubnav />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3">
         <KpiCard
-          label="Pagos"
-          value={String(counts.paid)}
-          hint={
-            counts.unread > 0
-              ? `${counts.unread} ainda não visualizado${counts.unread === 1 ? "" : "s"}`
-              : "Prontos para análise"
-          }
+          label="Liberados"
+          value={String(counts.liberado)}
           tone="money"
-          active={status === "PAID"}
-          onClick={() => setStatus(status === "PAID" ? "" : "PAID")}
+          active={filter === "liberado"}
+          onClick={() => setFilter("liberado")}
         />
         <KpiCard
-          label="Aguardando"
-          value={String(counts.waiting)}
-          hint="Enviados, sem pagamento"
+          label="Aguardando pagamento"
+          value={String(counts.aguardando)}
           tone="warn"
-          active={status === "SUBMITTED"}
-          onClick={() => setStatus(status === "SUBMITTED" ? "" : "SUBMITTED")}
+          active={filter === "aguardando"}
+          onClick={() => setFilter("aguardando")}
         />
         <KpiCard
-          label="Rascunhos"
-          value={String(counts.draft)}
-          hint="Preenchimento incompleto"
+          label="Concluídos"
+          value={String(counts.concluido)}
           tone="ink"
-          active={status === "DRAFT"}
-          onClick={() => setStatus(status === "DRAFT" ? "" : "DRAFT")}
-        />
-        <KpiCard
-          label="Total"
-          value={String(counts.total)}
-          hint="Todos os pedidos"
-          tone="blue"
-          active={status === ""}
-          onClick={() => setStatus("")}
+          active={filter === "concluido"}
+          onClick={() => setFilter("concluido")}
         />
       </div>
 
-      <div className="surface space-y-4 p-4 sm:p-5">
+      <div className="surface p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative min-w-0 flex-1 sm:max-w-sm">
             <svg
@@ -237,20 +240,20 @@ export default function IntakeListPage() {
             </svg>
             <input
               type="search"
-              placeholder="Buscar nome, e-mail ou telefone"
+              placeholder="Buscar cliente"
               className="input-field w-full !pl-10"
               value={qDraft}
               onChange={(e) => setQDraft(e.target.value)}
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {STATUS_FILTERS.map((f) => {
-              const active = status === f.value;
+            {FILTERS.map((f) => {
+              const active = filter === f.value;
               return (
                 <button
                   key={f.value || "all"}
                   type="button"
-                  onClick={() => setStatus(f.value)}
+                  onClick={() => setFilter(f.value)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                     active
                       ? "bg-foreground text-white"
@@ -275,130 +278,68 @@ export default function IntakeListPage() {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="surface px-6 py-14 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-muted-bg">
-            <svg
-              className="h-5 w-5 text-muted"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              aria-hidden
-            >
-              <path
-                d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"
-                strokeLinejoin="round"
-              />
-              <path d="M14 3v5h5" strokeLinejoin="round" />
-              <path d="M9 13h6M9 17h4" strokeLinecap="round" />
-            </svg>
-          </div>
-          <p className="mt-4 text-sm font-semibold">Nenhum pedido encontrado</p>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
-            {q || status
-              ? "Ajuste a busca ou o filtro de status para ver outros pedidos."
-              : "Quando um cliente enviar o formulário de abertura, ele aparece aqui."}
+        <div className="surface px-6 py-12 text-center">
+          <p className="text-sm font-semibold">Nenhum pedido aqui</p>
+          <p className="mt-1 text-sm text-muted">
+            {filter === "liberado"
+              ? "Quando o pagamento for confirmado, o pedido aparece como liberado."
+              : filter
+                ? "Tente outro filtro."
+                : "Ainda não há pedidos."}
           </p>
-          {(q || status) && (
+          {filter && (
             <button
               type="button"
               className="btn-secondary mt-4 text-sm"
-              onClick={() => {
-                setStatus("");
-                setQDraft("");
-                setQ("");
-              }}
+              onClick={() => setFilter("")}
             >
-              Limpar filtros
+              Ver todos
             </button>
           )}
         </div>
       ) : (
         <>
-          {/* Mobile cards */}
           <div className="space-y-3 md:hidden">
-            {rows.map((row) => {
-              const isNew = !row.viewedAt && row.status === "PAID";
-              return (
-                <Link
-                  key={row.id}
-                  href={`/intake/${row.id}`}
-                  className="surface block p-4 transition hover:border-foreground/20 hover:shadow-sm"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted-bg text-xs font-bold tracking-wide text-foreground">
-                      {initials(row.order.customerName)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold">
-                            {row.order.customerName}
-                          </p>
-                          <p className="truncate text-xs text-muted">
-                            {row.order.customerEmail}
-                          </p>
-                        </div>
-                        {isNew && (
-                          <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
-                            Novo
-                          </span>
+            {rows.map((row) => (
+              <Link
+                key={row.id}
+                href={`/intake/${row.id}`}
+                className="surface block p-4 transition hover:border-foreground/20 hover:shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted-bg text-xs font-bold tracking-wide">
+                    {initials(row.order.customerName)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">
+                      {row.order.customerName}
+                    </p>
+                    <p className="truncate text-xs text-muted">
+                      {row.order.product.title}
+                    </p>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <StatusBadge row={row} />
+                      <span className="text-xs text-muted">
+                        {row.attachmentCount} doc
+                        {row.attachmentCount === 1 ? "" : "s"}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {format(
+                          new Date(row.order.paidAt || row.createdAt),
+                          "dd/MM/yy",
+                          { locale: ptBR },
                         )}
-                      </div>
-                      <p className="mt-2 truncate text-sm">
-                        {row.order.product.title}
-                      </p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-                            statusTone[row.status] ||
-                            "border-border bg-muted-bg text-muted"
-                          }`}
-                        >
-                          {statusLabel[row.status] || row.status}
-                        </span>
-                        <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                            reviewTone[row.reviewStatus] ||
-                            "border-border bg-muted-bg text-muted"
-                          }`}
-                        >
-                          {reviewLabel[row.reviewStatus] || row.reviewStatus}
-                        </span>
-                        <span className="text-xs text-muted">
-                          {row.attachmentCount} doc
-                          {row.attachmentCount === 1 ? "" : "s"}
-                        </span>
-                        <span className="text-xs text-muted">
-                          {format(
-                            new Date(row.order.paidAt || row.createdAt),
-                            "dd/MM/yy",
-                            { locale: ptBR },
-                          )}
-                        </span>
-                      </div>
+                      </span>
                     </div>
                   </div>
-                </Link>
-              );
-            })}
+                </div>
+              </Link>
+            ))}
           </div>
 
-          {/* Desktop table */}
           <div className="surface hidden overflow-hidden md:block">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight">
-                  Pedidos
-                </h2>
-                <p className="text-xs text-muted">
-                  {rows.length} pedido{rows.length === 1 ? "" : "s"}
-                  {status || q ? " no filtro atual" : ""}
-                </p>
-              </div>
-            </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[700px] text-left text-sm">
                 <thead className="border-b border-border bg-muted-bg/70 text-muted">
                   <tr>
                     <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide">
@@ -420,84 +361,57 @@ export default function IntakeListPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {rows.map((row) => {
-                    const isNew = !row.viewedAt && row.status === "PAID";
-                    return (
-                      <tr
-                        key={row.id}
-                        className="transition hover:bg-muted-bg/40"
-                      >
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted-bg text-[11px] font-bold tracking-wide">
-                              {initials(row.order.customerName)}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="truncate font-medium">
-                                  {row.order.customerName}
-                                </p>
-                                {isNew && (
-                                  <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
-                                    Novo
-                                  </span>
-                                )}
-                              </div>
-                              <p className="truncate text-xs text-muted">
-                                {row.order.customerEmail}
-                              </p>
-                            </div>
+                  {rows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="transition hover:bg-muted-bg/40"
+                    >
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted-bg text-[11px] font-bold tracking-wide">
+                            {initials(row.order.customerName)}
                           </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p className="max-w-[220px] truncate font-medium">
-                            {row.order.product.title}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex flex-col items-start gap-1.5">
-                            <span
-                              className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-                                statusTone[row.status] ||
-                                "border-border bg-muted-bg text-muted"
-                              }`}
-                            >
-                              {statusLabel[row.status] || row.status}
-                            </span>
-                            <span
-                              className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                                reviewTone[row.reviewStatus] ||
-                                "border-border bg-muted-bg text-muted"
-                              }`}
-                            >
-                              {reviewLabel[row.reviewStatus] || row.reviewStatus}
-                            </span>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {row.order.customerName}
+                            </p>
+                            <p className="truncate text-xs text-muted">
+                              {row.order.customerEmail}
+                            </p>
                           </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="inline-flex min-w-[2rem] items-center justify-center rounded-md border border-border bg-white px-2 py-0.5 text-xs font-semibold tabular-nums">
-                            {row.attachmentCount}
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3.5 text-muted">
-                          {format(
-                            new Date(row.order.paidAt || row.createdAt),
-                            "dd MMM yyyy · HH:mm",
-                            { locale: ptBR },
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <Link
-                            href={`/intake/${row.id}`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold transition hover:bg-muted-bg"
-                          >
-                            Ver pedido
-                            <span aria-hidden>→</span>
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <p className="max-w-[220px] truncate">
+                          {row.order.product.title}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <StatusBadge row={row} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className="inline-flex min-w-[2rem] items-center justify-center rounded-md border border-border bg-white px-2 py-0.5 text-xs font-semibold tabular-nums">
+                          {row.attachmentCount}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-muted">
+                        {format(
+                          new Date(row.order.paidAt || row.createdAt),
+                          "dd MMM yyyy",
+                          { locale: ptBR },
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        <Link
+                          href={`/intake/${row.id}`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold transition hover:bg-muted-bg"
+                        >
+                          Abrir
+                          <span aria-hidden>→</span>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
