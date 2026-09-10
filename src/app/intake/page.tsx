@@ -88,11 +88,47 @@ function ViewToggle({
   onChange: (m: ViewMode) => void;
 }) {
   return (
-    <div className="inline-flex rounded-xl border border-border bg-white p-0.5 shadow-sm">
+    <div
+      role="group"
+      aria-label="Modo de visualização"
+      className="inline-flex rounded-full border border-border/80 bg-muted-bg/80 p-1"
+    >
       {(
         [
-          { id: "kanban" as const, label: "Kanban" },
-          { id: "lista" as const, label: "Lista" },
+          {
+            id: "kanban" as const,
+            label: "Kanban",
+            icon: (
+              <svg
+                className="h-3.5 w-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden
+              >
+                <rect x="3" y="4" width="5" height="16" rx="1.5" />
+                <rect x="10" y="4" width="5" height="10" rx="1.5" />
+                <rect x="17" y="4" width="5" height="13" rx="1.5" />
+              </svg>
+            ),
+          },
+          {
+            id: "lista" as const,
+            label: "Lista",
+            icon: (
+              <svg
+                className="h-3.5 w-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden
+              >
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" strokeLinecap="round" />
+              </svg>
+            ),
+          },
         ] as const
       ).map((opt) => {
         const active = mode === opt.id;
@@ -100,13 +136,15 @@ function ViewToggle({
           <button
             key={opt.id}
             type="button"
+            aria-pressed={active}
             onClick={() => onChange(opt.id)}
-            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
               active
-                ? "bg-foreground text-white"
+                ? "bg-white text-foreground shadow-sm ring-1 ring-border/60"
                 : "text-muted hover:text-foreground"
             }`}
           >
+            {opt.icon}
             {opt.label}
           </button>
         );
@@ -362,26 +400,21 @@ export default function IntakeListPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">
             Pedidos de abertura
           </h1>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-0.5 text-sm text-muted">
             Arraste os cards entre as etapas — ou use os botões no card.
           </p>
         </div>
-        <ViewToggle mode={view} onChange={setView} />
-      </div>
 
-      <CheckoutSubnav />
-
-      <div className="surface p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative min-w-0 flex-1 sm:max-w-sm">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+          <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
             <svg
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -393,36 +426,44 @@ export default function IntakeListPage() {
             </svg>
             <input
               type="search"
-              placeholder="Buscar cliente"
-              className="input-field w-full !pl-10"
+              placeholder="Buscar cliente…"
+              className="input-field h-9 w-full !rounded-full !py-1.5 !pl-8 !pr-3 text-sm"
               value={qDraft}
               onChange={(e) => setQDraft(e.target.value)}
             />
           </div>
-          {view === "lista" && (
-            <div className="flex flex-wrap gap-1.5">
-              {LIST_FILTERS.map((f) => {
-                const active = filter === f.value;
-                return (
-                  <button
-                    key={f.value || "all"}
-                    type="button"
-                    onClick={() => setFilter(f.value)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                      active
-                        ? "bg-foreground text-white"
-                        : "border border-border bg-white text-muted hover:bg-muted-bg hover:text-foreground"
-                    }`}
-                  >
-                    {f.label}
-                    {f.value ? ` (${counts[f.value]})` : ""}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <ViewToggle mode={view} onChange={setView} />
         </div>
       </div>
+
+      <CheckoutSubnav />
+
+      {view === "lista" && (
+        <div className="flex flex-wrap gap-1.5">
+          {LIST_FILTERS.map((f) => {
+            const active = filter === f.value;
+            return (
+              <button
+                key={f.value || "all"}
+                type="button"
+                onClick={() => setFilter(f.value)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  active
+                    ? "bg-foreground text-white"
+                    : "border border-border bg-white text-muted hover:bg-muted-bg hover:text-foreground"
+                }`}
+              >
+                {f.label}
+                {f.value ? (
+                  <span className="ml-1 tabular-nums opacity-70">
+                    {counts[f.value]}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {loading ? (
         <div className="surface space-y-3 px-5 py-6">
