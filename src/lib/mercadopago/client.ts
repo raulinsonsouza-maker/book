@@ -9,6 +9,7 @@ export type MercadoPagoPayer = {
 export type MercadoPagoPaymentResult = {
   id: string;
   status: string;
+  statusDetail?: string;
   qrCode?: string;
   qrCodeBase64?: string;
   demo?: boolean;
@@ -46,6 +47,7 @@ function mapMpResponse(data: MpPaymentResponse): MercadoPagoPaymentResult {
   return {
     id: String(data.id),
     status: data.status,
+    statusDetail: data.status_detail,
     qrCode: data.point_of_interaction?.transaction_data?.qr_code,
     qrCodeBase64: data.point_of_interaction?.transaction_data?.qr_code_base64,
   };
@@ -150,4 +152,40 @@ export async function getMercadoPagoPayment(accessToken: string, paymentId: stri
 
 export function isMercadoPagoPaidStatus(status: string) {
   return ["approved", "authorized"].includes(status.toLowerCase());
+}
+
+export function isMercadoPagoRejectedStatus(status: string) {
+  return status.toLowerCase() === "rejected";
+}
+
+/** Mensagem amigável a partir do status_detail do Mercado Pago. */
+export function mercadoPagoStatusMessage(statusDetail?: string | null) {
+  switch (statusDetail) {
+    case "cc_rejected_insufficient_amount":
+      return "Cartão sem limite ou saldo insuficiente. Tente outro cartão ou Pix.";
+    case "cc_rejected_bad_filled_security_code":
+      return "Código de segurança (CVV) inválido. Confira e tente de novo.";
+    case "cc_rejected_bad_filled_date":
+      return "Data de validade do cartão inválida.";
+    case "cc_rejected_bad_filled_card_number":
+      return "Número do cartão inválido.";
+    case "cc_rejected_bad_filled_other":
+      return "Dados do cartão incorretos. Confira e tente de novo.";
+    case "cc_rejected_call_for_authorize":
+      return "Pagamento não autorizado. Ligue para o banco ou use outro cartão.";
+    case "cc_rejected_card_disabled":
+      return "Cartão desabilitado para compras online. Use outro cartão ou Pix.";
+    case "cc_rejected_high_risk":
+      return "Pagamento recusado por segurança. Tente outro cartão ou Pix.";
+    case "cc_rejected_blacklist":
+      return "Cartão não autorizado para esta compra.";
+    case "cc_rejected_other_reason":
+      return "Cartão recusado pelo banco. Tente outro cartão ou Pix.";
+    case "cc_rejected_max_attempts":
+      return "Muitas tentativas com este cartão. Aguarde ou use outro meio.";
+    default:
+      return statusDetail
+        ? `Pagamento recusado (${statusDetail}). Tente outro cartão ou Pix.`
+        : "Pagamento com cartão recusado. Tente outro cartão ou Pix.";
+  }
 }

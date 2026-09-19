@@ -17,6 +17,10 @@ import { resolvePaymentProvider } from "@/lib/payments/resolve-provider";
 import { isValidCpf } from "@/lib/utils";
 import { emitBookingEvent } from "@/lib/events/booking-events";
 import { fireBookingPaidConversion } from "@/lib/tracking/server";
+import {
+  isMercadoPagoRejectedStatus,
+  mercadoPagoStatusMessage,
+} from "@/lib/mercadopago/client";
 
 async function loadBooking(bookingId: string, slug: string) {
   return prisma.booking.findFirst({
@@ -204,6 +208,17 @@ export async function POST(
       }
 
       const paid = isPaidResult(provider, result);
+      const rejected =
+        provider === "MERCADO_PAGO" &&
+        isMercadoPagoRejectedStatus(result.status);
+      const rejectMessage =
+        rejected && "statusDetail" in result
+          ? mercadoPagoStatusMessage(
+              (result as { statusDetail?: string }).statusDetail,
+            )
+          : rejected
+            ? mercadoPagoStatusMessage()
+            : null;
 
       if (paid) {
         try {
@@ -231,7 +246,7 @@ export async function POST(
         create: {
           bookingId: booking.id,
           method: "CARD",
-          status: paid ? "PAID" : "PENDING",
+          status: paid ? "PAID" : rejected ? "FAILED" : "PENDING",
           amountCents: booking.service.priceCents,
           provider: dbProvider(provider),
           caktoPaymentId: result.id,
@@ -241,7 +256,7 @@ export async function POST(
         },
         update: {
           method: "CARD",
-          status: paid ? "PAID" : "PENDING",
+          status: paid ? "PAID" : rejected ? "FAILED" : "PENDING",
           provider: dbProvider(provider),
           caktoPaymentId: result.id,
           idempotencyKey,
@@ -253,6 +268,13 @@ export async function POST(
       if (paid) {
         fireBookingPaidConversion(booking.id);
         return NextResponse.json({ ok: true, status: "CONFIRMED", demo: result.demo, provider });
+      }
+
+      if (rejected) {
+        return NextResponse.json(
+          { error: rejectMessage || "Pagamento com cartão recusado", status: "REJECTED" },
+          { status: 400 },
+        );
       }
 
       return NextResponse.json({
