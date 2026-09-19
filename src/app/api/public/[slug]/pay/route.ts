@@ -141,6 +141,20 @@ export async function POST(
         /\D/g,
         "",
       );
+
+      const org = booking.bookingPage.organization;
+      const provider = resolvePaymentProvider(org);
+      if (
+        provider !== "DEMO" &&
+        !body.cardToken.startsWith("demo_") &&
+        (!cpfDigits || !isValidCpf(cpfDigits))
+      ) {
+        return NextResponse.json(
+          { error: "CPF obrigatório para cartão" },
+          { status: 400 },
+        );
+      }
+
       if (cpfDigits && isValidCpf(cpfDigits) && booking.customerCpf !== cpfDigits) {
         booking = await prisma.booking.update({
           where: { id: booking.id },
@@ -153,20 +167,6 @@ export async function POST(
         });
       }
 
-      const org = booking.bookingPage.organization;
-      const provider = resolvePaymentProvider(org);
-      const cpf = booking.customerCpf;
-      if (
-        provider !== "DEMO" &&
-        !body.cardToken.startsWith("demo_") &&
-        (!cpf || !isValidCpf(cpf))
-      ) {
-        return NextResponse.json(
-          { error: "CPF obrigatório para cartão" },
-          { status: 400 },
-        );
-      }
-
       const idempotencyKey = uuidv4();
       const remoteIp =
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -177,8 +177,8 @@ export async function POST(
       try {
         result = await createCardForProvider({
           provider,
-          org,
-          customer: booking,
+          org: booking.bookingPage.organization,
+          customer: { ...booking, customerCpf: cpfDigits || booking.customerCpf },
           item: booking.service,
           idempotencyKey,
           fingerprint: body.fingerprint,

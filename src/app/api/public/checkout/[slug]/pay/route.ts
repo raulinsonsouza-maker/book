@@ -175,6 +175,20 @@ export async function POST(
         /\D/g,
         "",
       );
+
+      const org = order.product.organization;
+      const provider = resolvePaymentProvider(org);
+      if (
+        provider !== "DEMO" &&
+        !body.cardToken.startsWith("demo_") &&
+        (!cpfDigits || !isValidCpf(cpfDigits))
+      ) {
+        return NextResponse.json(
+          { error: "CPF obrigatório para cartão" },
+          { status: 400 },
+        );
+      }
+
       if (cpfDigits && isValidCpf(cpfDigits) && order.customerCpf !== cpfDigits) {
         order = await prisma.checkoutOrder.update({
           where: { id: order.id },
@@ -188,20 +202,6 @@ export async function POST(
         });
       }
 
-      const org = order.product.organization;
-      const provider = resolvePaymentProvider(org);
-      const cpf = order.customerCpf;
-      if (
-        provider !== "DEMO" &&
-        !body.cardToken.startsWith("demo_") &&
-        (!cpf || !isValidCpf(cpf))
-      ) {
-        return NextResponse.json(
-          { error: "CPF obrigatório para cartão" },
-          { status: 400 },
-        );
-      }
-
       const idempotencyKey = uuidv4();
       const remoteIp =
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -209,8 +209,8 @@ export async function POST(
         undefined;
       const result = await createCardForProvider({
         provider,
-        org,
-        customer: order,
+        org: order.product.organization,
+        customer: { ...order, customerCpf: cpfDigits || order.customerCpf },
         item: {
           title: order.product.title,
           priceCents: order.product.priceCents,
