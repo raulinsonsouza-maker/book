@@ -21,6 +21,7 @@ import { FunnelLandingBlocks } from "@/components/booking/FunnelLandingBlocks";
 import { BookingWelcomeHero } from "@/components/booking/BookingWelcomeHero";
 import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 import { encodeAsaasCardToken } from "@/lib/asaas/client";
+import { messageFromMercadoPagoSdkError } from "@/lib/payments/user-messages";
 import { PixQrImage } from "@/components/payment/PixQrImage";
 import { IntakeWizard } from "@/components/intake/IntakeWizard";
 import { IntakePriceIncludes } from "@/components/intake/IntakePriceIncludes";
@@ -990,7 +991,7 @@ export function BookingFunnel({
         cardToken = tokenized.id;
       } catch (err) {
         setPaying(false);
-        setError(err instanceof Error ? err.message : "Erro ao tokenizar cartão");
+        setError(messageFromMercadoPagoSdkError(err));
         return;
       }
     } else if (caktoSdkClientId && typeof window !== "undefined") {

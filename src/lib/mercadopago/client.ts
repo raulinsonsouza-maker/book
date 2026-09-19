@@ -1,4 +1,8 @@
 import { webhookUrl } from "@/lib/payments/resolve-provider";
+import {
+  messageFromMercadoPagoApiError,
+  PaymentUserError,
+} from "@/lib/payments/user-messages";
 
 export type MercadoPagoPayer = {
   email: string;
@@ -53,6 +57,22 @@ function mapMpResponse(data: MpPaymentResponse): MercadoPagoPaymentResult {
   };
 }
 
+function throwMpApiError(
+  data: MpPaymentResponse & {
+    message?: string;
+    cause?: Array<{
+      code?: string | number;
+      description?: string;
+      message?: string;
+    }>;
+  },
+  fallbackLabel: string,
+): never {
+  throw new PaymentUserError(
+    messageFromMercadoPagoApiError(data) || fallbackLabel,
+  );
+}
+
 export async function createMercadoPagoPixPayment(params: {
   accessToken: string;
   amountCents: number;
@@ -82,11 +102,16 @@ export async function createMercadoPagoPixPayment(params: {
     }),
   });
 
-  const data = (await res.json()) as MpPaymentResponse & { message?: string; cause?: unknown[] };
+  const data = (await res.json()) as MpPaymentResponse & {
+    message?: string;
+    cause?: Array<{
+      code?: string | number;
+      description?: string;
+      message?: string;
+    }>;
+  };
   if (!res.ok) {
-    throw new Error(
-      data.message || `Mercado Pago Pix error ${res.status}: ${JSON.stringify(data.cause || data)}`,
-    );
+    throwMpApiError(data, "Não foi possível gerar o Pix. Tente novamente.");
   }
   return mapMpResponse(data);
 }
@@ -104,7 +129,7 @@ export async function createMercadoPagoCardPayment(params: {
   const { first_name, last_name } = splitName(params.payer.name);
   const cpf = params.payer.cpf?.replace(/\D/g, "");
   if (!cpf) {
-    throw new Error("CPF obrigatório para pagamento com cartão");
+    throw new PaymentUserError("CPF obrigatório para pagamento com cartão");
   }
 
   const installments = Math.min(
@@ -131,21 +156,37 @@ export async function createMercadoPagoCardPayment(params: {
     }),
   });
 
-  const data = (await res.json()) as MpPaymentResponse & { message?: string; cause?: unknown[] };
+  const data = (await res.json()) as MpPaymentResponse & {
+    message?: string;
+    cause?: Array<{
+      code?: string | number;
+      description?: string;
+      message?: string;
+    }>;
+  };
   if (!res.ok) {
-    throw new Error(
-      data.message || `Mercado Pago card error ${res.status}: ${JSON.stringify(data.cause || data)}`,
+    throwMpApiError(
+      data,
+      "Não foi possível processar o cartão. Tente novamente.",
     );
   }
   return mapMpResponse(data);
 }
 
-export async function getMercadoPagoPayment(accessToken: string, paymentId: string) {
-  const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+export async function getMercadoPagoPayment(
+  accessToken: string,
+  paymentId: string,
+) {
+  const res = await fetch(
+    `https://api.mercadopago.com/v1/payments/${paymentId}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
   if (!res.ok) {
-    throw new Error(`Mercado Pago fetch payment failed: ${res.status}`);
+    throw new PaymentUserError(
+      "Não foi possível consultar o status do pagamento. Atualize a página.",
+    );
   }
   return (await res.json()) as MpPaymentResponse;
 }
@@ -154,38 +195,7 @@ export function isMercadoPagoPaidStatus(status: string) {
   return ["approved", "authorized"].includes(status.toLowerCase());
 }
 
-export function isMercadoPagoRejectedStatus(status: string) {
-  return status.toLowerCase() === "rejected";
-}
-
-/** Mensagem amigável a partir do status_detail do Mercado Pago. */
-export function mercadoPagoStatusMessage(statusDetail?: string | null) {
-  switch (statusDetail) {
-    case "cc_rejected_insufficient_amount":
-      return "Cartão sem limite ou saldo insuficiente. Tente outro cartão ou Pix.";
-    case "cc_rejected_bad_filled_security_code":
-      return "Código de segurança (CVV) inválido. Confira e tente de novo.";
-    case "cc_rejected_bad_filled_date":
-      return "Data de validade do cartão inválida.";
-    case "cc_rejected_bad_filled_card_number":
-      return "Número do cartão inválido.";
-    case "cc_rejected_bad_filled_other":
-      return "Dados do cartão incorretos. Confira e tente de novo.";
-    case "cc_rejected_call_for_authorize":
-      return "Pagamento não autorizado. Ligue para o banco ou use outro cartão.";
-    case "cc_rejected_card_disabled":
-      return "Cartão desabilitado para compras online. Use outro cartão ou Pix.";
-    case "cc_rejected_high_risk":
-      return "Pagamento recusado por segurança. Tente outro cartão ou Pix.";
-    case "cc_rejected_blacklist":
-      return "Cartão não autorizado para esta compra.";
-    case "cc_rejected_other_reason":
-      return "Cartão recusado pelo banco. Tente outro cartão ou Pix.";
-    case "cc_rejected_max_attempts":
-      return "Muitas tentativas com este cartão. Aguarde ou use outro meio.";
-    default:
-      return statusDetail
-        ? `Pagamento recusado (${statusDetail}). Tente outro cartão ou Pix.`
-        : "Pagamento com cartão recusado. Tente outro cartão ou Pix.";
-  }
-}
+export {
+  isMercadoPagoRejectedStatus,
+  mercadoPagoStatusMessage,
+} from "@/lib/payments/user-messages";

@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import {
   createPixForProvider,
   createCardForProvider,
-  isPaidResult,
   dbProvider,
   assertHoldValid,
   HoldExpiredError,
@@ -18,9 +17,10 @@ import { isValidCpf } from "@/lib/utils";
 import { emitBookingEvent } from "@/lib/events/booking-events";
 import { fireBookingPaidConversion } from "@/lib/tracking/server";
 import {
-  isMercadoPagoRejectedStatus,
-  mercadoPagoStatusMessage,
-} from "@/lib/mercadopago/client";
+  PaymentUserError,
+  resolveCardPaymentOutcome,
+  toPaymentUserMessage,
+} from "@/lib/payments/user-messages";
 
 async function loadBooking(
   bookingId: string,
@@ -210,23 +210,25 @@ export async function POST(
           dedupeKey: idempotencyKey,
         });
         return NextResponse.json(
-          { error: e instanceof Error ? e.message : "Pagamento recusado" },
+          { error: toPaymentUserMessage(e) },
           { status: 400 },
         );
       }
 
-      const paid = isPaidResult(provider, result);
-      const rejected =
-        provider === "MERCADO_PAGO" &&
-        isMercadoPagoRejectedStatus(result.status);
-      const rejectMessage =
-        rejected && "statusDetail" in result
-          ? mercadoPagoStatusMessage(
-              (result as { statusDetail?: string }).statusDetail,
-            )
-          : rejected
-            ? mercadoPagoStatusMessage()
-            : null;
+      const outcome = resolveCardPaymentOutcome(provider, {
+        status: result.status,
+        statusDetail:
+          "statusDetail" in result
+            ? (result as { statusDetail?: string }).statusDetail
+            : undefined,
+        refuseReason:
+          "refuseReason" in result
+            ? (result as { refuseReason?: string }).refuseReason
+            : undefined,
+        demo: result.demo,
+      });
+      const paid = outcome.kind === "paid";
+      const rejected = outcome.kind === "rejected";
 
       if (paid) {
         try {
@@ -280,7 +282,7 @@ export async function POST(
 
       if (rejected) {
         return NextResponse.json(
-          { error: rejectMessage || "Pagamento com cartão recusado", status: "REJECTED" },
+          { error: outcome.message, status: "REJECTED" },
           { status: 400 },
         );
       }
@@ -288,7 +290,7 @@ export async function POST(
       return NextResponse.json({
         ok: true,
         status: "PENDING",
-        message: "Aguardando confirmação do pagamento",
+        message: outcome.message,
         provider,
       });
     }
@@ -337,12 +339,21 @@ export async function POST(
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }
     if (e instanceof HoldExpiredError) {
-      return NextResponse.json({ error: e.message }, { status: 410 });
+      return NextResponse.json(
+        {
+          error:
+            "O tempo para pagar acabou. Atualize a página e tente novamente.",
+        },
+        { status: 410 },
+      );
+    }
+    if (e instanceof PaymentUserError) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
     }
     console.error(e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Erro no pagamento" },
-      { status: 500 },
+      { error: toPaymentUserMessage(e) },
+      { status: 400 },
     );
   }
 }

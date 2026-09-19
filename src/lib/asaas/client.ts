@@ -1,4 +1,8 @@
 import { webhookUrl } from "@/lib/payments/resolve-provider";
+import {
+  messageFromAsaasApiErrors,
+  PaymentUserError,
+} from "@/lib/payments/user-messages";
 
 export type AsaasPayer = {
   name: string;
@@ -18,6 +22,8 @@ export type AsaasCreditCard = {
 export type AsaasPaymentResult = {
   id: string;
   status: string;
+  statusDetail?: string;
+  refuseReason?: string;
   qrCode?: string;
   qrCodeBase64?: string;
   demo?: boolean;
@@ -59,10 +65,7 @@ async function asaasFetch<T>(
   });
   const data = (await res.json().catch(() => ({}))) as T & AsaasErrorBody;
   if (!res.ok) {
-    const msg =
-      data.errors?.map((e) => e.description).filter(Boolean).join("; ") ||
-      `Asaas error ${res.status}`;
-    throw new Error(msg);
+    throw new PaymentUserError(messageFromAsaasApiErrors(data.errors));
   }
   return data;
 }
@@ -92,7 +95,7 @@ export async function validateAsaasApiKey(apiKey: string) {
 async function findOrCreateCustomer(apiKey: string, payer: AsaasPayer) {
   const cpfCnpj = (payer.cpf || "").replace(/\D/g, "");
   if (!cpfCnpj) {
-    throw new Error("CPF obrigatório para pagamentos Asaas");
+    throw new PaymentUserError("CPF obrigatório para pagamentos Asaas");
   }
 
   const existing = await asaasFetch<{
@@ -189,10 +192,15 @@ export async function createAsaasCardPayment(params: {
       ? { installmentCount: installments, totalValue }
       : { value: totalValue };
 
-  const payment = await asaasFetch<{ id: string; status: string }>(
-    params.apiKey,
-    "/payments",
-    {
+  const payment = await asaasFetch<{
+    id: string;
+    status: string;
+    creditCard?: { creditCardBrand?: string };
+    transactionReceiptUrl?: string;
+    // Asaas pode devolver motivo em campos variados
+    failReason?: string;
+    refusalReason?: string;
+  }>(params.apiKey, "/payments", {
       method: "POST",
       body: JSON.stringify({
         customer: customerId,
@@ -219,12 +227,13 @@ export async function createAsaasCardPayment(params: {
           mobilePhone: phone,
         },
       }),
-    },
-  );
+    });
 
   return {
     id: payment.id,
     status: payment.status,
+    refuseReason: payment.failReason || payment.refusalReason || undefined,
+    statusDetail: payment.status,
   };
 }
 

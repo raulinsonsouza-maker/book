@@ -11,6 +11,7 @@ import { SuccessStep } from "@/components/payment/SuccessStep";
 import { IntakeWizard } from "@/components/intake/IntakeWizard";
 import { IntakePriceIncludes } from "@/components/intake/IntakePriceIncludes";
 import { encodeAsaasCardToken } from "@/lib/asaas/client";
+import { messageFromMercadoPagoSdkError } from "@/lib/payments/user-messages";
 import { PublicTracking } from "@/components/tracking/PublicTracking";
 import {
   clickIdsForPayload,
@@ -533,7 +534,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
         cardToken = tokenized.id;
       } catch (err) {
         setPaying(false);
-        setError(err instanceof Error ? err.message : "Erro ao tokenizar cartão");
+        setError(messageFromMercadoPagoSdkError(err));
         return;
       }
     } else if (caktoSdkClientId && typeof window !== "undefined") {
@@ -588,7 +589,8 @@ export function InstantCheckout({ slug }: { slug: string }) {
       setAwaitingCardConfirm(true);
       setError("");
       setPixCheckHint(
-        "Pagamento em análise. A tela atualiza sozinha — ou toque em verificar.",
+        data.message ||
+          "Pagamento em análise. A tela atualiza sozinha — ou toque em verificar.",
       );
     }
   }
