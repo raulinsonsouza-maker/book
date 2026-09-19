@@ -10,7 +10,13 @@ export type ProductFormConfig = {
 };
 
 export function defaultProductFormConfig(): ProductFormConfig {
-  return { formFields: defaultFormFields() };
+  return {
+    formFields: defaultFormFields().map((f) =>
+      f.preset === "customerCpf"
+        ? { ...f, enabled: true, required: true }
+        : f,
+    ),
+  };
 }
 
 export function parseProductFormConfig(raw: string | null | undefined): ProductFormConfig {

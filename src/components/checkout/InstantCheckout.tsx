@@ -115,7 +115,31 @@ export function InstantCheckout({ slug }: { slug: string }) {
   const [intakeCustomerName, setIntakeCustomerName] = useState("");
   const [intakeCustomerEmail, setIntakeCustomerEmail] = useState("");
 
-  const formFields: FormFieldConfig[] = enabledProductFormFields(formConfig);
+  const formFields: FormFieldConfig[] = useMemo(() => {
+    const base = enabledProductFormFields(formConfig);
+    if (productKind === "INTAKE") return base;
+
+    const withoutCpf = base.filter((f) => f.preset !== "customerCpf");
+    const existing = formConfig?.formFields.find((f) => f.preset === "customerCpf");
+    const cpfField: FormFieldConfig = {
+      id: existing?.id || "customerCpf",
+      preset: "customerCpf",
+      label: existing?.label || "CPF",
+      type: "cpf",
+      required: true,
+      enabled: true,
+      sortOrder: existing?.sortOrder ?? 3,
+    };
+    const phoneIdx = withoutCpf.findIndex((f) => f.preset === "customerPhone");
+    if (phoneIdx >= 0) {
+      return [
+        ...withoutCpf.slice(0, phoneIdx + 1),
+        cpfField,
+        ...withoutCpf.slice(phoneIdx + 1),
+      ];
+    }
+    return [...withoutCpf, cpfField];
+  }, [formConfig, productKind]);
   const isIntake = productKind === "INTAKE";
   const formReady = useMemo(
     () => (isIntake ? intakePaymentReady : isFormReady(formFields, details, answers)),
@@ -216,14 +240,12 @@ export function InstantCheckout({ slug }: { slug: string }) {
       customerName: details.customerName.trim(),
       customAnswers: Object.keys(customAnswers).length ? customAnswers : undefined,
       clickIds: clickIdsForPayload(),
+      customerCpf: details.customerCpf.replace(/\D/g, "") || undefined,
     };
     for (const field of formFields) {
       if (field.preset === "customerEmail") payload.customerEmail = details.customerEmail.trim();
       if (field.preset === "customerPhone") {
         payload.customerPhone = details.customerPhone.replace(/\D/g, "");
-      }
-      if (field.preset === "customerCpf" && details.customerCpf) {
-        payload.customerCpf = details.customerCpf.replace(/\D/g, "");
       }
     }
 
