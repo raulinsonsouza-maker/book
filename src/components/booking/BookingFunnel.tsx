@@ -14,7 +14,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
-import { formatBRL, DEFAULT_TIMEZONE, isValidCpf } from "@/lib/utils";
+import { formatBRL, DEFAULT_TIMEZONE, formatCpf, isValidCpf } from "@/lib/utils";
 import { enabledFormFields } from "@/lib/funnel-config";
 import type { FunnelConfig } from "@/types/funnel-config";
 import { FunnelLandingBlocks } from "@/components/booking/FunnelLandingBlocks";
@@ -1037,6 +1037,7 @@ export function BookingFunnel({
             paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS"
               ? Math.min(installments, cardMaxInstallments)
               : 1,
+          customerCpf: details.customerCpf.replace(/\D/g, ""),
         }),
       },
     );
@@ -1995,6 +1996,24 @@ export function BookingFunnel({
                     value={card.holderName}
                     onChange={(e) =>
                       setCard({ ...card, holderName: e.target.value })
+                    }
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium">CPF do titular</span>
+                  <input
+                    required
+                    className="input-field"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="000.000.000-00"
+                    value={details.customerCpf}
+                    disabled={awaitingCardConfirm}
+                    onChange={(e) =>
+                      setDetails({
+                        ...details,
+                        customerCpf: formatCpf(e.target.value),
+                      })
                     }
                   />
                 </label>

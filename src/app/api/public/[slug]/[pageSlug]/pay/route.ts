@@ -134,14 +134,31 @@ export async function POST(
         fingerprint: z.string().min(1),
         cardToken: z.string().min(1),
         installments: z.number().int().min(1).max(12).optional(),
+        customerCpf: z.string().optional(),
       });
       const body = cardSchema.parse(await req.json());
-      const booking = await loadBooking(body.bookingId, orgSlug, pageSlug);
+      let booking = await loadBooking(body.bookingId, orgSlug, pageSlug);
       if (!booking) {
         return NextResponse.json(
           { error: "Agendamento inválido ou expirado" },
           { status: 404 },
         );
+      }
+
+      const cpfDigits = (body.customerCpf || booking.customerCpf || "").replace(
+        /\D/g,
+        "",
+      );
+      if (cpfDigits && isValidCpf(cpfDigits) && booking.customerCpf !== cpfDigits) {
+        booking = await prisma.booking.update({
+          where: { id: booking.id },
+          data: { customerCpf: cpfDigits },
+          include: {
+            service: true,
+            bookingPage: { include: { organization: true } },
+            payment: true,
+          },
+        });
       }
 
       const org = booking.bookingPage.organization;

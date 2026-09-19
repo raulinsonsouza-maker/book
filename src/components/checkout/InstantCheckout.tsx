@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatBRL, isValidCpf } from "@/lib/utils";
+import { formatBRL, formatCpf, isValidCpf } from "@/lib/utils";
 import { enabledProductFormFields } from "@/lib/product-form-config";
 import type { ProductFormConfig } from "@/lib/product-form-config";
 import type { FormFieldConfig } from "@/types/funnel-config";
@@ -552,6 +552,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
           paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS"
             ? Math.min(installments, cardMaxInstallments)
             : 1,
+        customerCpf: details.customerCpf.replace(/\D/g, ""),
       }),
     });
     const data = await res.json();
@@ -694,6 +695,11 @@ export function InstantCheckout({ slug }: { slug: string }) {
                       paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS"
                     }
                     awaitingCardConfirm={awaitingCardConfirm}
+                    cpf={details.customerCpf}
+                    onCpfChange={(v) =>
+                      setDetails({ ...details, customerCpf: v })
+                    }
+                    formatCpf={formatCpf}
                   />
                 </section>
               )}
@@ -782,6 +788,11 @@ export function InstantCheckout({ slug }: { slug: string }) {
                       paymentProvider === "ASAAS"
                     }
                     awaitingCardConfirm={awaitingCardConfirm}
+                    cpf={details.customerCpf}
+                    onCpfChange={(v) =>
+                      setDetails({ ...details, customerCpf: v })
+                    }
+                    formatCpf={formatCpf}
                   />
                 ) : (
                   <p className="text-sm text-muted">Aguardando liberação do pagamento…</p>

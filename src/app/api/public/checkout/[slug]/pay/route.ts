@@ -158,9 +158,10 @@ export async function POST(
         fingerprint: z.string().min(1),
         cardToken: z.string().min(1),
         installments: z.number().int().min(1).max(12).optional(),
+        customerCpf: z.string().optional(),
       });
       const body = cardSchema.parse(await req.json());
-      const order = await loadOrder(body.orderId, slug);
+      let order = await loadOrder(body.orderId, slug);
       if (!order) {
         return NextResponse.json(
           { error: "Pedido inválido ou expirado" },
@@ -169,6 +170,23 @@ export async function POST(
       }
       const intakeBlock = intakePayBlock(order);
       if (intakeBlock) return intakeBlock;
+
+      const cpfDigits = (body.customerCpf || order.customerCpf || "").replace(
+        /\D/g,
+        "",
+      );
+      if (cpfDigits && isValidCpf(cpfDigits) && order.customerCpf !== cpfDigits) {
+        order = await prisma.checkoutOrder.update({
+          where: { id: order.id },
+          data: { customerCpf: cpfDigits },
+          include: {
+            product: { include: { organization: true } },
+            checkoutLink: true,
+            payment: true,
+            intakeSubmission: true,
+          },
+        });
+      }
 
       const org = order.product.organization;
       const provider = resolvePaymentProvider(org);

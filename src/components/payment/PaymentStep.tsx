@@ -1,6 +1,6 @@
 "use client";
 
-import { formatBRL } from "@/lib/utils";
+import { formatBRL, formatCpf as defaultFormatCpf } from "@/lib/utils";
 import { PixQrImage } from "@/components/payment/PixQrImage";
 
 type CardState = {
@@ -43,8 +43,9 @@ type PaymentStepProps = {
   awaitingCardConfirm?: boolean;
   /** Oculta o título/preço (quando a página já tem resumo do pedido). */
   hideHeader?: boolean;
-  cpf?: string;
-  onCpfChange?: (v: string) => void;
+  /** CPF do titular — obrigatório para cartão (Asaas / Mercado Pago). */
+  cpf: string;
+  onCpfChange: (v: string) => void;
   formatCpf?: (v: string) => string;
 };
 
@@ -80,7 +81,7 @@ export function PaymentStep({
   hideHeader = false,
   cpf,
   onCpfChange,
-  formatCpf,
+  formatCpf = defaultFormatCpf,
 }: PaymentStepProps) {
   return (
     <div className="space-y-4 animate-in">
@@ -253,20 +254,19 @@ export function PaymentStep({
               disabled={awaitingCardConfirm}
             />
           </label>
-          {onCpfChange && formatCpf && (
-            <label className="block text-sm">
-              <span className="mb-1.5 block font-medium">CPF do titular</span>
-              <input
-                required
-                className="input-field"
-                inputMode="numeric"
-                placeholder="000.000.000-00"
-                value={cpf || ""}
-                disabled={awaitingCardConfirm}
-                onChange={(e) => onCpfChange(formatCpf(e.target.value))}
-              />
-            </label>
-          )}
+          <label className="block text-sm">
+            <span className="mb-1.5 block font-medium">CPF do titular</span>
+            <input
+              required
+              className="input-field"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="000.000.000-00"
+              value={cpf}
+              disabled={awaitingCardConfirm}
+              onChange={(e) => onCpfChange(formatCpf(e.target.value))}
+            />
+          </label>
           <label className="block text-sm">
             <span className="mb-1.5 block font-medium">Número</span>
             <input
