@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseProductFormConfig } from "@/lib/product-form-config";
 import { resolvePaymentProvider, paymentProviderLabel } from "@/lib/payments/resolve-provider";
 import { resolveBrand } from "@/lib/branding";
+import { resolveCardMaxInstallments } from "@/lib/payments/installments";
 
 export async function GET(
   _req: Request,
@@ -67,7 +68,12 @@ export async function GET(
     demoPayments: provider === "DEMO",
     mercadoPagoPublicKey: org.mercadoPagoPublicKey,
     caktoSdkClientId: org.caktoSdkClientId,
-    cardMaxInstallments: Math.min(
+    cardMaxInstallments: resolveCardMaxInstallments(
+      link.product.cardMaxInstallments,
+      org.cardMaxInstallments,
+    ),
+    /** Padrão da organização (para UI admin / referência). */
+    orgCardMaxInstallments: Math.min(
       12,
       Math.max(1, org.cardMaxInstallments || 12),
     ),

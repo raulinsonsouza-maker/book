@@ -24,6 +24,8 @@ type Product = {
   intakeTemplateKey: string | null;
   notifyEmails: string | null;
   intakeEmailAlerts: boolean;
+  cardMaxInstallments: number | null;
+  orgCardMaxInstallments?: number;
   checkoutLinks: { slug: string }[];
 };
 
@@ -54,6 +56,11 @@ export default function EditProductPage() {
   const [productKind, setProductKind] = useState<"SIMPLE" | "INTAKE">("SIMPLE");
   const [notifyEmailsText, setNotifyEmailsText] = useState("");
   const [intakeEmailAlerts, setIntakeEmailAlerts] = useState(true);
+  /** null = padrão do site */
+  const [cardMaxInstallments, setCardMaxInstallments] = useState<number | null>(
+    null,
+  );
+  const [orgCardMaxInstallments, setOrgCardMaxInstallments] = useState(12);
   const [paymentProvider, setPaymentProvider] = useState<
     "CAKTO" | "MERCADO_PAGO" | "ASAAS"
   >("CAKTO");
@@ -81,6 +88,10 @@ export default function EditProductPage() {
         setIntakeEmailAlerts(data.intakeEmailAlerts ?? true);
         setFormFields(parseProductFormConfig(data.formConfig).formFields);
         setLinkSlug(data.checkoutLinks?.[0]?.slug ?? null);
+        setCardMaxInstallments(
+          data.cardMaxInstallments == null ? null : data.cardMaxInstallments,
+        );
+        setOrgCardMaxInstallments(data.orgCardMaxInstallments || 12);
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -110,6 +121,7 @@ export default function EditProductPage() {
           .map((e) => e.trim())
           .filter(Boolean),
         intakeEmailAlerts,
+        cardMaxInstallments,
         formConfig: productKind === "SIMPLE" ? { formFields } : undefined,
       }),
     });
@@ -167,8 +179,45 @@ export default function EditProductPage() {
         ) : (
           <p className="text-sm text-muted">
             Pagamentos deste produto usam o{" "}
-            <strong className="text-foreground">Mercado Pago</strong> definido em Integrações.
+            <strong className="text-foreground">
+              {paymentProvider === "ASAAS" ? "Asaas" : "Mercado Pago"}
+            </strong>{" "}
+            definido em Integrações.
           </p>
+        )}
+        {(paymentProvider === "MERCADO_PAGO" ||
+          paymentProvider === "ASAAS") && (
+          <label className="block text-sm">
+            <span className="mb-1.5 block font-medium">Parcelas no cartão</span>
+            <p className="mb-1.5 text-xs text-muted">
+              Padrão do site:{" "}
+              {orgCardMaxInstallments === 1
+                ? "só à vista"
+                : `até ${orgCardMaxInstallments}x`}
+              . Altere só se este produto tiver condição diferente.
+            </p>
+            <select
+              className="input-field max-w-xs"
+              value={cardMaxInstallments == null ? "" : String(cardMaxInstallments)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCardMaxInstallments(v === "" ? null : Number(v) || 1);
+              }}
+            >
+              <option value="">
+                Usar padrão do site (
+                {orgCardMaxInstallments === 1
+                  ? "só à vista"
+                  : `até ${orgCardMaxInstallments}x`}
+                )
+              </option>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n === 1 ? "1x — só à vista" : `Até ${n}x`}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
         <label className="block text-sm">
           <span className="mb-1.5 block font-medium">Tipo de produto</span>

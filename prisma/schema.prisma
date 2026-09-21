@@ -423,6 +423,8 @@ model Product {
   priceCents         Int            @default(0)
   caktoOfferId       String?
   formConfig         String?
+  /** Máx. parcelas no cartão deste produto. Null = usa o padrão da organização. */
+  cardMaxInstallments Int?
   productKind        ProductKind    @default(SIMPLE)
   intakeTemplateKey  String?
   /** E-mails da equipe para aviso de intake (JSON array). */

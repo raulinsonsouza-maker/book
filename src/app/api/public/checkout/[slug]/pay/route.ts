@@ -19,6 +19,7 @@ import {
   resolveCardPaymentOutcome,
   toPaymentUserMessage,
 } from "@/lib/payments/user-messages";
+import { resolveCardMaxInstallments } from "@/lib/payments/installments";
 
 async function loadOrder(orderId: string, slug: string) {
   return prisma.checkoutOrder.findFirst({
@@ -225,7 +226,10 @@ export async function POST(
         cardToken: body.cardToken,
         installments: Math.min(
           body.installments || 1,
-          Math.min(12, Math.max(1, org.cardMaxInstallments || 12)),
+          resolveCardMaxInstallments(
+            order.product.cardMaxInstallments,
+            org.cardMaxInstallments,
+          ),
         ),
         metadata: { checkoutOrderId: order.id },
         remoteIp,

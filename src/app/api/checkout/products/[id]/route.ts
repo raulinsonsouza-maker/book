@@ -21,6 +21,8 @@ const schema = z.object({
   intakeTemplateKey: z.string().optional().nullable(),
   notifyEmails: z.array(z.string().email()).optional(),
   intakeEmailAlerts: z.boolean().optional(),
+  /** null = usar padrão da organização */
+  cardMaxInstallments: z.number().int().min(1).max(12).nullable().optional(),
 });
 
 export async function GET(
@@ -38,6 +40,7 @@ export async function GET(
     include: {
       checkoutLinks: { orderBy: { createdAt: "desc" } },
       _count: { select: { orders: true } },
+      organization: { select: { cardMaxInstallments: true } },
     },
   });
 
@@ -50,7 +53,14 @@ export async function GET(
     product.checkoutLinks = [link];
   }
 
-  return NextResponse.json(product);
+  const { organization, ...rest } = product;
+  return NextResponse.json({
+    ...rest,
+    orgCardMaxInstallments: Math.min(
+      12,
+      Math.max(1, organization.cardMaxInstallments || 12),
+    ),
+  });
 }
 
 export async function PATCH(
@@ -90,6 +100,9 @@ export async function PATCH(
           : {}),
         ...(body.intakeEmailAlerts !== undefined
           ? { intakeEmailAlerts: body.intakeEmailAlerts }
+          : {}),
+        ...(body.cardMaxInstallments !== undefined
+          ? { cardMaxInstallments: body.cardMaxInstallments }
           : {}),
         ...(body.formConfig !== undefined
           ? {
