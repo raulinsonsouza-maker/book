@@ -127,6 +127,11 @@ export default function CheckoutProductsPage() {
                       className={`h-2 w-2 rounded-full ${p.isActive ? "bg-success" : "bg-muted"}`}
                     />
                     <h2 className="font-semibold tracking-tight">{p.title}</h2>
+                    {!p.isActive && (
+                      <span className="rounded-full bg-muted-bg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                        Inativo · link fora do ar
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 text-sm text-muted">
                     {formatBRL(p.priceCents)} · {p._count.orders} vendas

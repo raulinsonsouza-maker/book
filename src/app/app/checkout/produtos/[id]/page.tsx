@@ -51,6 +51,7 @@ export default function EditProductPage() {
     defaultProductFormConfig().formFields,
   );
   const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [linkSlug, setLinkSlug] = useState<string | null>(null);
   const [productKind, setProductKind] = useState<"SIMPLE" | "INTAKE">("SIMPLE");
@@ -105,7 +106,8 @@ export default function EditProductPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await fetch(`/api/checkout/products/${id}`, {
+    setSaveMsg(null);
+    const res = await fetch(`/api/checkout/products/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -124,8 +126,18 @@ export default function EditProductPage() {
         cardMaxInstallments,
         formConfig: productKind === "SIMPLE" ? { formFields } : undefined,
       }),
-    });
+    }).catch(() => null);
     setSaving(false);
+    if (!res?.ok) {
+      setSaveMsg({ tone: "err", text: "Não foi possível salvar. Tente de novo." });
+      return;
+    }
+    setSaveMsg({
+      tone: "ok",
+      text: isActive
+        ? "Salvo. O link de pagamento está no ar."
+        : "Salvo. Produto inativo — o link de pagamento está fora do ar.",
+    });
   }
 
   async function remove() {
@@ -257,10 +269,18 @@ export default function EditProductPage() {
             </label>
           </>
         )}
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-          Produto ativo
-        </label>
+        <div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            Produto ativo
+          </label>
+          {!isActive && (
+            <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Com o produto inativo, o link de pagamento sai do ar e o cliente
+              vê “link não encontrado”.
+            </p>
+          )}
+        </div>
 
         {productKind === "SIMPLE" && (
           <div>
@@ -282,6 +302,20 @@ export default function EditProductPage() {
               })}
             </ul>
           </div>
+        )}
+
+        {saveMsg && (
+          <p
+            className={`rounded-lg border px-3 py-2 text-sm ${
+              saveMsg.tone === "err"
+                ? "border-red-200 bg-red-50 text-danger"
+                : isActive
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            {saveMsg.text}
+          </p>
         )}
 
         <div className="flex flex-wrap gap-2 pt-2">

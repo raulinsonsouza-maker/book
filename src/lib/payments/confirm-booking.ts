@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { emitBookingEvent, SlotUnavailableError } from "@/lib/events/booking-events";
 import { fireBookingPaidConversion } from "@/lib/tracking/server";
+import { settleSameChargePendings } from "@/lib/payments/settle-same-charge";
 
 export { SlotUnavailableError };
 
@@ -10,6 +11,7 @@ export async function confirmBooking(bookingId: string) {
     include: {
       service: true,
       bookingPage: true,
+      payment: true,
     },
   });
 
@@ -58,6 +60,21 @@ export async function confirmBooking(bookingId: string) {
       },
     });
     await prisma.slotHold.deleteMany({ where: { bookingId } });
+  }
+
+  try {
+    await settleSameChargePendings({
+      organizationId: existing.bookingPage.organizationId,
+      customerEmail: existing.customerEmail,
+      amountCents:
+        existing.payment?.status === "PAID"
+          ? existing.payment.amountCents
+          : existing.service.priceCents,
+      serviceId: existing.serviceId,
+      exceptBookingId: existing.id,
+    });
+  } catch (error) {
+    console.error("[payments] falha ao baixar pendencias do mesmo valor", error);
   }
 
   await emitBookingEvent({

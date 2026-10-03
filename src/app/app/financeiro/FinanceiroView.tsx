@@ -19,6 +19,7 @@ type PaymentRow = {
   amountCents: number;
   commissionCents?: number;
   paidAt: string | null;
+  createdAt: string;
   booking?: {
     id: string;
     customerName: string;
@@ -401,7 +402,7 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             <KpiCard
               label="Pendente"
               value={formatBRL(summary.pendente)}
-              hint="Aguardando pagamento"
+              hint="Ainda dá para pagar"
               tone="warn"
             />
           )}
@@ -429,7 +430,7 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             }
             hint={
               (summary.comissaoTotal ?? 0) > 0 && !isProfessionalView
-                ? "Aguardando pagamento"
+                ? "Ainda dá para pagar"
                 : "Por pagamento pago"
             }
             tone={(summary.comissaoTotal ?? 0) > 0 && !isProfessionalView ? "warn" : "ink"}
@@ -512,9 +513,10 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
                       className="transition hover:bg-muted-bg/40"
                     >
                       <td className="whitespace-nowrap px-5 py-3.5 text-muted">
-                        {p.paidAt
-                          ? format(new Date(p.paidAt), "dd/MM/yyyy HH:mm")
-                          : "—"}
+                        {format(
+                          new Date(p.paidAt || p.createdAt),
+                          "dd/MM/yyyy HH:mm",
+                        )}
                       </td>
                       {!isProfessionalView && (
                         <td className="px-4 py-3.5">

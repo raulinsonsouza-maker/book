@@ -21,7 +21,8 @@ function authorize(req: Request) {
 }
 
 /**
- * Cron enxuto: só libera holds expirados.
+ * Cron enxuto: libera holds expirados e encerra pedidos de checkout que
+ * já não podem ser pagos (Pix vencido, cartão parado, pedido sem cobrança).
  * Lembretes/e-mail/WhatsApp foram removidos daqui porque travavam o
  * event loop (Prisma/SQLite + I/O externo) e derrubavam o healthcheck.
  */
@@ -52,6 +53,23 @@ export async function POST(req: Request) {
       where: { expiresAt: { lt: now } },
     });
 
+    // Pagamento que chegar depois ainda confirma pelo webhook (confirmCheckoutOrder ignora o status).
+    const cardStaleBefore = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    const checkoutOrders = await prisma.checkoutOrder.updateMany({
+      where: {
+        status: "PENDING_PAYMENT",
+        holdExpiresAt: { lt: now },
+        intakeSubmission: { is: null },
+        OR: [
+          { payment: { is: null } },
+          { payment: { is: { status: { not: "PENDING" } } } },
+          { payment: { is: { method: "PIX", pixExpiresAt: { lt: now } } } },
+          { payment: { is: { method: "CARD", createdAt: { lt: cardStaleBefore } } } },
+        ],
+      },
+      data: { status: "EXPIRED", holdExpiresAt: null },
+    });
+
     return NextResponse.json({
       ok: true,
       at: now.toISOString(),
@@ -59,6 +77,7 @@ export async function POST(req: Request) {
       summary: {
         expiredHolds: expired.count,
         expiredSlotHolds: holds.count,
+        expiredCheckoutOrders: checkoutOrders.count,
         reminders: 0,
         pixPending: 0,
         feedback: 0,

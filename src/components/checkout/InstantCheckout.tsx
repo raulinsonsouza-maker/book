@@ -159,7 +159,10 @@ export function InstantCheckout({ slug }: { slug: string }) {
     [details, answers],
   );
   const lastOrderFingerprint = useRef<string | null>(null);
+  /** Bloqueia criar pedido de novo com os mesmos dados (erro ou tempo esgotado). */
   const failedFingerprint = useRef<string | null>(null);
+  const orderFingerprintRef = useRef(orderFingerprint);
+  orderFingerprintRef.current = orderFingerprint;
 
   useEffect(() => {
     fetch(`/api/public/checkout/${slug}`)
@@ -369,6 +372,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
     setPixQr(null);
     setAwaitingCardConfirm(false);
     lastOrderFingerprint.current = null;
+    failedFingerprint.current = orderFingerprintRef.current;
   }, [holdCountdown, holdExpiresAt, paid]);
 
   const startPix = useCallback(
@@ -394,13 +398,6 @@ export function InstantCheckout({ slug }: { slug: string }) {
 
   useEffect(() => {
     if (!orderId || !formReady || paid) return;
-    if (payMethod === "pix" && !pixQr && !pixLoading) {
-      void startPix(orderId);
-    }
-  }, [formReady, orderId, paid, payMethod, pixQr, pixLoading, startPix]);
-
-  useEffect(() => {
-    if (!orderId || !formReady || paid) return;
     if (payMethod === "pix" && !pixQr) return;
     if (payMethod === "card" && !awaitingCardConfirm) return;
     const tick = async () => {
@@ -422,6 +419,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
           setPixQr(null);
           setAwaitingCardConfirm(false);
           lastOrderFingerprint.current = null;
+          failedFingerprint.current = orderFingerprintRef.current;
         }
       } catch {
         /* keep polling */
@@ -454,6 +452,8 @@ export function InstantCheckout({ slug }: { slug: string }) {
         setHoldExpiresAt(null);
         setPixQr(null);
         setAwaitingCardConfirm(false);
+        lastOrderFingerprint.current = null;
+        failedFingerprint.current = orderFingerprintRef.current;
         return;
       }
       setPixCheckHint(
@@ -684,15 +684,14 @@ export function InstantCheckout({ slug }: { slug: string }) {
                     onPayMethodChange={(m) => {
                       setPayMethod(m);
                       setError("");
-                      if (m === "card") {
-                        setPixQr(null);
-                        setPixQrBase64(null);
-                      }
                     }}
                     pixLoading={pixLoading}
                     pixQr={pixQr}
                     pixQrBase64={pixQrBase64}
                     copied={copied}
+                    onGeneratePix={() => {
+                      if (orderId) void startPix(orderId);
+                    }}
                     onCopyPix={async () => {
                       if (pixQr) {
                         await navigator.clipboard.writeText(pixQr);
@@ -776,15 +775,14 @@ export function InstantCheckout({ slug }: { slug: string }) {
                     onPayMethodChange={(m) => {
                       setPayMethod(m);
                       setError("");
-                      if (m === "card") {
-                        setPixQr(null);
-                        setPixQrBase64(null);
-                      }
                     }}
                     pixLoading={pixLoading}
                     pixQr={pixQr}
                     pixQrBase64={pixQrBase64}
                     copied={copied}
+                    onGeneratePix={() => {
+                      if (orderId) void startPix(orderId);
+                    }}
                     onCopyPix={async () => {
                       if (pixQr) {
                         await navigator.clipboard.writeText(pixQr);

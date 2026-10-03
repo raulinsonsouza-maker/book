@@ -152,7 +152,7 @@ export function FinanceiroCharts({ series }: Props) {
       <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 lg:grid-cols-1">
         <div className="surface p-5">
           <h2 className="text-sm font-semibold tracking-tight">Por método</h2>
-          <p className="mt-0.5 text-xs text-muted">Distribuição do valor</p>
+          <p className="mt-0.5 text-xs text-muted">Só valores pagos</p>
           {series.byMethod.length === 0 ? (
             <p className="mt-6 text-sm text-muted">Sem dados</p>
           ) : (
@@ -194,7 +194,7 @@ export function FinanceiroCharts({ series }: Props) {
 
         <div className="surface p-5">
           <h2 className="text-sm font-semibold tracking-tight">Por status</h2>
-          <p className="mt-0.5 text-xs text-muted">Quantidade no filtro</p>
+          <p className="mt-0.5 text-xs text-muted">Pagos e cobranças ainda válidas</p>
           {series.byStatus.length === 0 ? (
             <p className="mt-6 text-sm text-muted">Sem dados</p>
           ) : (

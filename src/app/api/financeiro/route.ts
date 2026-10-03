@@ -66,7 +66,7 @@ export async function GET(req: Request) {
           },
         },
       },
-      orderBy: { paidAt: "desc" },
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
@@ -144,17 +144,16 @@ export async function GET(req: Request) {
       count: prevStatus.count + 1,
     });
 
-    const methodKey = row.method;
-    const prevMethod = byMethodMap.get(methodKey) || {
-      amountCents: 0,
-      count: 0,
-    };
-    byMethodMap.set(methodKey, {
-      amountCents: prevMethod.amountCents + row.amountCents,
-      count: prevMethod.count + 1,
-    });
-
     if (row.status === "PAID") {
+      const methodKey = row.method;
+      const prevMethod = byMethodMap.get(methodKey) || {
+        amountCents: 0,
+        count: 0,
+      };
+      byMethodMap.set(methodKey, {
+        amountCents: prevMethod.amountCents + row.amountCents,
+        count: prevMethod.count + 1,
+      });
       const day = ymdLocal(row.paidAt || row.createdAt);
       byDayMap.set(day, (byDayMap.get(day) || 0) + row.amountCents);
     }

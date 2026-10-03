@@ -167,13 +167,6 @@ export default function OnboardingPagamentoPage() {
     }
   }
 
-  useEffect(() => {
-    if (payMethod === "pix" && !pixQr && !pixLoading && plan && !loading) {
-      void startPix();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [payMethod, plan, loading]);
-
   async function checkPaid() {
     if (!paymentId) return;
     setChecking(true);
@@ -385,14 +378,11 @@ export default function OnboardingPagamentoPage() {
                 setPayMethod(m);
                 setError("");
                 setAwaitingCard(false);
-                if (m === "card") {
-                  setPixQr(null);
-                  setPixQrBase64(null);
-                }
               }}
               pixLoading={pixLoading}
               pixQr={pixQr}
               pixQrBase64={pixQrBase64}
+              onGeneratePix={() => void startPix()}
               copied={copied}
               onCopyPix={() => {
                 if (!pixQr) return;

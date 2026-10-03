@@ -60,6 +60,39 @@ export function paymentPeriodFilter(
   };
 }
 
+/**
+ * Pendente só entra no financeiro enquanto ainda dá para pagar.
+ * Pix vencido, pedido abandonado e cartão parado há horas ficam de fora
+ * para não inflar o total nem a lista.
+ */
+export function visibleInFinanceClause(
+  now = new Date(),
+): Prisma.PaymentWhereInput {
+  const cardFreshAfter = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  return {
+    OR: [
+      { status: { not: "PENDING" } },
+      {
+        AND: [
+          { status: "PENDING" },
+          {
+            OR: [
+              { checkoutOrder: { is: { status: "PENDING_PAYMENT" } } },
+              { booking: { is: { status: "PENDING_PAYMENT" } } },
+            ],
+          },
+          {
+            OR: [
+              { method: "PIX", pixExpiresAt: { gt: now } },
+              { method: "CARD", createdAt: { gte: cardFreshAfter } },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export function buildPaymentWhere(
   orgId: string,
   filters: {
@@ -93,6 +126,7 @@ export function buildPaymentWhere(
   if (period) clauses.push(period);
   if (filters.status) clauses.push({ status: filters.status });
   if (filters.method) clauses.push({ method: filters.method });
+  clauses.push(visibleInFinanceClause());
 
   return clauses.length === 1 ? clauses[0]! : { AND: clauses };
 }

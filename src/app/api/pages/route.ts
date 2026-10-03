@@ -30,7 +30,14 @@ export async function GET() {
         organizationId: orgId,
         isActive: true,
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        isActive: true,
+        coverImageUrl: true,
+        logoUrl: true,
+        createdAt: true,
         _count: {
           select: { bookings: true, availability: true },
         },

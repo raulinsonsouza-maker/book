@@ -29,6 +29,8 @@ type PageListItem = {
   title: string;
   slug: string;
   isActive: boolean;
+  coverImageUrl?: string | null;
+  logoUrl?: string | null;
   activeServiceCount?: number;
   teamHoursReady?: boolean;
   activeProfessionalCount?: number;
@@ -154,6 +156,8 @@ function AgendadorInner() {
   const [orgCatalog, setOrgCatalog] = useState<CatalogService[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [savingServices, setSavingServices] = useState(false);
+  const [pageSearch, setPageSearch] = useState("");
+  const [openPageMenuId, setOpenPageMenuId] = useState<string | null>(null);
 
   const pageMetaAutosaveSkip = useRef(true);
   const pageRef = useRef<PageData | null>(null);
@@ -549,34 +553,83 @@ function AgendadorInner() {
 
   /* ─── LISTA ─── */
   if (mode === "list") {
+    const q = pageSearch.trim().toLowerCase();
+    const filtered = q
+      ? list.filter(
+          (p) =>
+            p.title.toLowerCase().includes(q) ||
+            p.slug.toLowerCase().includes(q),
+        )
+      : list;
+
     return (
-      <div className="pages-hub mx-auto max-w-3xl space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <p className="max-w-xl text-sm text-muted">
-            Cada página é um link de agendamento — útil para unidades ou locais
-            diferentes.
-          </p>
+      <div className="pages-hub mx-auto max-w-5xl space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]">
+              Minhas páginas{" "}
+              <span className="font-semibold text-muted">({list.length})</span>
+            </h1>
+            <p className="mt-1 max-w-xl text-sm text-muted">
+              Cada página é um link de agendamento — controle serviços, horários
+              e o visual do funil.
+            </p>
+          </div>
           <Link href="/app/agendador?novo=1" className="btn-primary shrink-0">
-            Novo
+            + Adicionar página
           </Link>
         </div>
 
+        {list.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="pages-hub-search relative min-w-0 flex-1">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+                </svg>
+              </span>
+              <input
+                type="search"
+                className="input-field !pl-9"
+                placeholder="Encontrar páginas"
+                value={pageSearch}
+                onChange={(e) => setPageSearch(e.target.value)}
+              />
+            </label>
+          </div>
+        )}
+
         {list.length === 0 ? (
-          <div className="pages-hub-empty surface p-8 text-center">
-            <p className="text-sm font-semibold">Nenhuma página ainda</p>
+          <div className="pages-hub-empty surface p-10 text-center">
+            <p className="text-base font-semibold tracking-tight">
+              Nenhuma página ainda
+            </p>
             <p className="mt-1 text-sm text-muted">
               Crie a primeira para seus clientes marcarem horário.
             </p>
             <Link
               href="/app/agendador?novo=1"
-              className="btn-primary mt-4 inline-flex"
+              className="btn-primary mt-5 inline-flex"
             >
-              Criar página
+              + Adicionar página
             </Link>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="surface px-5 py-10 text-center text-sm text-muted">
+            Nenhuma página com “{pageSearch.trim()}”.
           </div>
         ) : (
           <ul className="space-y-3">
-            {list.map((p) => {
+            {filtered.map((p) => {
               const c = pageChecklist(
                 {
                   title: p.title,
@@ -591,45 +644,139 @@ function AgendadorInner() {
                 ? bookingPublicPath(orgSlug, p.slug)
                 : `/p/${p.slug}`;
               const url = `${appUrl}${path}`;
+              const thumb = p.coverImageUrl || p.logoUrl || null;
+              const menuOpen = openPageMenuId === p.id;
               return (
-                <li key={p.id} className="pages-hub-card surface p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
+                <li key={p.id} className="pages-hub-card surface overflow-hidden">
+                  <div className="pages-hub-row">
+                    <div className="pages-hub-thumb">
+                      {thumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={thumb} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="pages-hub-thumb-empty" aria-hidden />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="truncate font-semibold tracking-tight">
+                        <h2 className="truncate text-[15px] font-semibold tracking-tight">
                           {p.title}
                         </h2>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                            readyItem
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-amber-50 text-amber-800"
-                          }`}
-                        >
-                          {setupLabel(c)}
-                        </span>
+                        {!readyItem && (
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                            {setupLabel(c)}
+                          </span>
+                        )}
                       </div>
-                      <p className="mt-1 text-sm text-muted">
-                        {p.activeServiceCount ?? 0} serviço(s) nesta página ·{" "}
-                        {p._count.bookings} agendamento(s)
-                      </p>
+                      <div className="pages-hub-url">
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="pages-hub-url-text"
+                          title={url}
+                        >
+                          {url.replace(/^https?:\/\//, "")}
+                        </a>
+                        <CopyLinkButton
+                          url={url}
+                          label="Copiar link"
+                          copiedLabel="Link copiado"
+                          iconOnly
+                          className="pages-hub-url-copy"
+                        />
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+
+                    <div className="pages-hub-stats">
+                      <div>
+                        <p className="pages-hub-stat-value">
+                          {p.activeServiceCount ?? 0}
+                        </p>
+                        <p className="pages-hub-stat-label">Serviços</p>
+                      </div>
+                      <div>
+                        <p className="pages-hub-stat-value">{p._count.bookings}</p>
+                        <p className="pages-hub-stat-label">Agendamentos</p>
+                      </div>
+                    </div>
+
+                    <div className="pages-hub-actions">
+                      <Link
+                        href={`/app/agendador?id=${p.id}`}
+                        className="btn-secondary !rounded-lg !px-3.5 !py-2 !text-sm"
+                      >
+                        Editar
+                      </Link>
                       <a
                         href={url}
                         target="_blank"
                         rel="noreferrer"
-                        className="btn-secondary !py-1.5 !text-xs"
+                        className="pages-hub-icon-btn"
+                        title="Abrir página"
+                        aria-label="Abrir página"
                       >
-                        Abrir
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden
+                        >
+                          <path
+                            d="M14 4h6v6M10 14L20 4M20 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
                       </a>
-                      <CopyLinkButton url={url} />
-                      <Link
-                        href={`/app/agendador?id=${p.id}`}
-                        className="btn-primary !py-1.5 !text-xs"
-                      >
-                        Editar
-                      </Link>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="pages-hub-icon-btn"
+                          aria-label="Mais opções"
+                          aria-expanded={menuOpen}
+                          onClick={() =>
+                            setOpenPageMenuId(menuOpen ? null : p.id)
+                          }
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            aria-hidden
+                          >
+                            <circle cx="12" cy="5" r="1.6" />
+                            <circle cx="12" cy="12" r="1.6" />
+                            <circle cx="12" cy="19" r="1.6" />
+                          </svg>
+                        </button>
+                        {menuOpen && (
+                          <>
+                            <button
+                              type="button"
+                              className="fixed inset-0 z-10 cursor-default"
+                              aria-label="Fechar menu"
+                              onClick={() => setOpenPageMenuId(null)}
+                            />
+                            <div className="pages-hub-menu absolute right-0 z-20 mt-1.5 min-w-[10rem]">
+                              <DeletePageButton
+                                pageId={p.id}
+                                pageTitle={p.title}
+                                compact
+                                onDeactivated={() => {
+                                  setOpenPageMenuId(null);
+                                  void loadList();
+                                }}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </li>

@@ -37,24 +37,39 @@ export async function POST(
       }
     }
 
-    const order = await prisma.checkoutOrder.create({
-      data: {
-        checkoutLinkId: link.id,
-        productId: link.product.id,
-        status: "PENDING_PAYMENT",
-        customerName: body.customerName,
-        customerEmail: body.customerEmail?.toLowerCase() ?? "",
-        customerPhone: body.customerPhone?.replace(/\D/g, "") ?? "",
-        customerCpf: body.customerCpf?.replace(/\D/g, "") || null,
-        customAnswers: Object.keys(customAnswers).length
-          ? JSON.stringify(customAnswers)
-          : null,
-        holdExpiresAt,
-        gclid: clickIds.gclid || null,
-        fbclid: clickIds.fbclid || null,
-        fbc: clickIds.fbc || null,
-        fbp: clickIds.fbp || null,
-      },
+    const email = body.customerEmail?.toLowerCase() ?? "";
+    const order = await prisma.$transaction(async (tx) => {
+      if (email) {
+        await tx.checkoutOrder.updateMany({
+          where: {
+            productId: link.product.id,
+            customerEmail: email,
+            status: "PENDING_PAYMENT",
+            intakeSubmission: { is: null },
+          },
+          data: { status: "EXPIRED", holdExpiresAt: null },
+        });
+      }
+
+      return tx.checkoutOrder.create({
+        data: {
+          checkoutLinkId: link.id,
+          productId: link.product.id,
+          status: "PENDING_PAYMENT",
+          customerName: body.customerName,
+          customerEmail: email,
+          customerPhone: body.customerPhone?.replace(/\D/g, "") ?? "",
+          customerCpf: body.customerCpf?.replace(/\D/g, "") || null,
+          customAnswers: Object.keys(customAnswers).length
+            ? JSON.stringify(customAnswers)
+            : null,
+          holdExpiresAt,
+          gclid: clickIds.gclid || null,
+          fbclid: clickIds.fbclid || null,
+          fbc: clickIds.fbc || null,
+          fbp: clickIds.fbp || null,
+        },
+      });
     });
 
     return NextResponse.json({

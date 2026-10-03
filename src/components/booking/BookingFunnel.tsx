@@ -474,14 +474,6 @@ export function BookingFunnel({
     [apiBase, checkoutPayBase, service?.isIntake],
   );
 
-  // Poll status + auto Pix
-  useEffect(() => {
-    if (step !== "payment" || !activePayId) return;
-    if (payMethod === "pix" && !pixQr && !pixLoading) {
-      startPix(activePayId);
-    }
-  }, [step, activePayId, payMethod, pixQr, pixLoading, startPix]);
-
   const daySet = useMemo(() => new Set(availableDays), [availableDays]);
   const weekDays = useMemo(() => availableDays.slice(0, 7), [availableDays]);
   const calendarDays = useMemo(() => {
@@ -1865,6 +1857,25 @@ export function BookingFunnel({
 
             {payMethod === "pix" && (
               <div className="space-y-3">
+                {!pixLoading && !pixQr && (
+                  <div className="booking-card space-y-3 p-4 text-center">
+                    <p className="text-sm font-medium">Gere o Pix quando for pagar</p>
+                    <p className="text-xs text-muted">
+                      O código só é criado neste clique. Assim uma tentativa
+                      abandonada não vira cobrança em aberto.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn-primary w-full !rounded-2xl !py-3.5"
+                      disabled={!activePayId || pixLoading}
+                      onClick={() => {
+                        if (activePayId) void startPix(activePayId);
+                      }}
+                    >
+                      Gerar código Pix
+                    </button>
+                  </div>
+                )}
                 {pixLoading && (
                   <div className="booking-card flex items-center justify-center gap-2 py-12 text-sm text-muted">
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-foreground" />

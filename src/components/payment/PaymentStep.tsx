@@ -25,6 +25,8 @@ type PaymentStepProps = {
   onCopyPix: () => void;
   onDemoConfirm: () => void;
   onCheckPix?: () => void;
+  /** Gera o Pix só quando a pessoa confirma que vai pagar. */
+  onGeneratePix?: () => void;
   checkingPix?: boolean;
   pixCheckHint?: string;
   paying: boolean;
@@ -63,6 +65,7 @@ export function PaymentStep({
   onCopyPix,
   onDemoConfirm,
   onCheckPix,
+  onGeneratePix,
   checkingPix = false,
   pixCheckHint = "",
   paying,
@@ -144,6 +147,26 @@ export function PaymentStep({
             <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-foreground" />
               Gerando Pix…
+            </div>
+          )}
+          {!pixLoading && !pixQr && onGeneratePix && (
+            <div className="space-y-3 rounded-2xl border border-border bg-[#fafbfc] p-4 sm:p-5">
+              <div className="text-center">
+                <p className="text-sm font-semibold tracking-tight">
+                  Gere o Pix quando for pagar
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  O código só é criado neste clique. Trocar de tela ou ajustar
+                  os dados antes disso não abre uma cobrança nova.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-primary w-full py-3"
+                onClick={onGeneratePix}
+              >
+                Gerar código Pix
+              </button>
             </div>
           )}
           {pixQr && (

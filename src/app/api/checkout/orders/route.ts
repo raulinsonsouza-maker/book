@@ -19,7 +19,9 @@ export async function GET(req: Request) {
 
   const where = {
     product: { organizationId: session.user.organizationId },
-    ...(status ? { status } : {}),
+    ...(status
+      ? { status }
+      : { status: { notIn: ["EXPIRED", "CANCELLED"] as CheckoutOrderStatus[] } }),
     ...(productId ? { productId } : {}),
     ...(q
       ? {

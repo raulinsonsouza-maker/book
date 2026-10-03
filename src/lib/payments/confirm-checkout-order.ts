@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendCheckoutConfirmation, sendIntakeAlertToTeam } from "@/lib/email";
 import { parseIntakeData } from "@/lib/intake/validation/company-opening-br";
 import { fireCheckoutPaidConversion } from "@/lib/tracking/server";
+import { settleSameChargePendings } from "@/lib/payments/settle-same-charge";
 
 export async function confirmCheckoutOrder(orderId: string) {
   const existing = await prisma.checkoutOrder.findUnique({
@@ -20,6 +21,7 @@ export async function confirmCheckoutOrder(orderId: string) {
 
   if (existing.status === "PAID") {
     fireCheckoutPaidConversion(orderId);
+    await clearSiblingPendings(existing);
     return existing;
   }
 
@@ -85,7 +87,28 @@ export async function confirmCheckoutOrder(orderId: string) {
   }
 
   fireCheckoutPaidConversion(order.id);
+  await clearSiblingPendings(order);
   return order;
+}
+
+async function clearSiblingPendings(order: {
+  id: string;
+  customerEmail: string;
+  productId: string;
+  product: { organizationId: string; priceCents: number };
+  payment: { amountCents: number } | null;
+}) {
+  try {
+    await settleSameChargePendings({
+      organizationId: order.product.organizationId,
+      customerEmail: order.customerEmail,
+      amountCents: order.payment?.amountCents ?? order.product.priceCents,
+      productId: order.productId,
+      exceptOrderId: order.id,
+    });
+  } catch (error) {
+    console.error("[payments] falha ao baixar pendencias do mesmo valor", error);
+  }
 }
 
 export async function markCheckoutPaymentPaidAndConfirm(orderId: string, paymentId: string) {
