@@ -176,6 +176,10 @@ model Organization {
   metaCapiAccessToken      String?
   /** Google Ads send_to completo, ex.: AW-123456789/AbCdEfGh. */
   googleAdsSendTo          String?
+  /** Libera a tela de declarações de comparecimento. */
+  attendanceEnabled        Boolean @default(false)
+  /** Cabeçalho das declarações (JSON): clínica, endereço, telefone, CNPJ, cidade, assinatura, logo. */
+  attendanceConfig         String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   memberships        Membership[]
@@ -190,6 +194,27 @@ model Organization {
   customers          Customer[]
   whatsappMessages   WhatsAppMessageLog[]
   otpChallenges      OtpChallenge[]
+  attendanceCertificates AttendanceCertificate[]
+}
+
+model AttendanceCertificate {
+  id              String       @id @default(cuid())
+  organizationId  String
+  patientName     String
+  /** AAAA-MM-DD */
+  visitDate       String
+  /** HH:mm */
+  startTime       String
+  endTime         String
+  issuedAt        DateTime
+  issueCity       String
+  /** Cabeçalho congelado no momento da emissão (JSON). */
+  headerSnapshot  String
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
 }
 
 model Membership {

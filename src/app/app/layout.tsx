@@ -40,6 +40,7 @@ export default async function AppLayout({
       logoUrl: true,
       businessMode: true,
       onboardingCompletedAt: true,
+      attendanceEnabled: true,
     },
   });
 
@@ -86,6 +87,7 @@ export default async function AppLayout({
       userName={accountName}
       role={session.user.role}
       businessMode={org?.businessMode || session.user.businessMode || "SOLO"}
+      attendanceEnabled={Boolean(org?.attendanceEnabled)}
     >
       {children}
     </AppShell>

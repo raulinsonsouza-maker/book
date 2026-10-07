@@ -121,6 +121,26 @@ export function NavIconFinance({ className = base }: NavIconProps) {
   );
 }
 
+export function NavIconDocument({ className = base }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M7 3.5h7.5L19 8v11a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 6 19V5A1.5 1.5 0 0 1 7.5 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 3.5V8h5M9 12.5h6M9 15.5h4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function NavIconIntegrations({ className = base }: NavIconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>

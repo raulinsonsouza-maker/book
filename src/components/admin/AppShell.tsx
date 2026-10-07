@@ -11,6 +11,7 @@ import {
   NavIconBookings,
   NavIconCalendar,
   NavIconCheckout,
+  NavIconDocument,
   NavIconFinance,
   NavIconHome,
   NavIconIntegrations,
@@ -33,6 +34,7 @@ const PRO_BLOCKED_PREFIXES = [
   "/app/settings",
   "/app/salao",
   "/app/equipe",
+  "/app/declaracoes",
 ];
 
 type NavItem = {
@@ -151,6 +153,7 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
     title: "Meu perfil",
   },
   { match: (p) => p.startsWith("/app/financeiro"), title: "Financeiro" },
+  { match: (p) => p.startsWith("/app/declaracoes"), title: "Declarações" },
   {
     match: (p) =>
       p.startsWith("/app/integracoes") || p.startsWith("/app/integrations"),
@@ -213,12 +216,14 @@ type Props = {
   userName?: string | null;
   role?: string | null;
   businessMode?: string | null;
+  attendanceEnabled?: boolean;
   children: React.ReactNode;
 };
 
 function navForRole(
   role: string | null | undefined,
   businessMode: string | null | undefined,
+  attendanceEnabled = false,
 ): NavSection[] {
   const isPro = role === "PROFESSIONAL";
   const isMember = role === "MEMBER";
@@ -358,6 +363,14 @@ function navForRole(
       match: (p) => p.startsWith("/app/financeiro"),
     },
   );
+  if (attendanceEnabled) {
+    negocio.push({
+      href: "/app/declaracoes",
+      label: "Declarações",
+      icon: NavIconDocument,
+      match: (p) => p.startsWith("/app/declaracoes"),
+    });
+  }
 
   return [
     { title: "Agenda", items: agenda },
@@ -372,6 +385,7 @@ export function AppShell({
   userName,
   role,
   businessMode,
+  attendanceEnabled = false,
   children,
 }: Props) {
   const pathname = usePathname();
@@ -382,7 +396,7 @@ export function AppShell({
   const isFloor = pathname.startsWith("/app/salao");
   const displayName = organizationName || userName || "Sua conta";
   const accountName = userName || organizationName || "Sua conta";
-  const sections = navForRole(role, businessMode);
+  const sections = navForRole(role, businessMode, attendanceEnabled);
 
   useEffect(() => {
     try {
