@@ -339,7 +339,9 @@ export function DeclaracoesView({ initialHeader, initialItems }: Props) {
         </div>
 
         <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">Prévia</p>
+          <p className="attendance-preview-label mb-2 text-xs font-medium uppercase tracking-wide text-muted">
+            Prévia
+          </p>
           <AttendancePreview header={previewHeader} data={previewData} />
         </div>
       </div>

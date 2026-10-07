@@ -5689,6 +5689,13 @@ button {
   color: #5c5c5c;
 }
 
+.attendance-preview,
+.attendance-preview-label {
+  width: 100%;
+  max-width: min(30rem, calc((100vh - 8rem) * 0.707));
+  margin-inline: auto;
+}
+
 .attendance-preview {
   position: relative;
   overflow: hidden;
