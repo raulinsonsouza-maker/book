@@ -3428,6 +3428,78 @@ button {
   color: var(--lp-ink);
 }
 
+.onboard-brand-wordmark {
+  display: block;
+  width: 132px;
+  line-height: 0;
+}
+
+.onboard-brand-wordmark img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: brightness(0) invert(1);
+}
+
+/* Temark product skin — same onboarding flow, Temark identity */
+.onboard-split[data-brand="temark"] {
+  --lp-ink: #10161c;
+  --lp-mist: #faf7f1;
+  --lp-steel: #64686c;
+  --lp-accent: #e9a900;
+  --lp-accent-soft: #ffe7b2;
+  --lp-lime: #ffbf19;
+  --foreground: #10161c;
+  --border: rgba(16, 22, 28, 0.1);
+  --muted: #64686c;
+  --muted-bg: rgba(16, 22, 28, 0.05);
+}
+
+.onboard-split[data-brand="temark"] .onboard-sidebar {
+  background:
+    radial-gradient(600px 320px at 10% 100%, rgba(255, 191, 25, 0.16), transparent 55%),
+    radial-gradient(500px 280px at 90% 0%, rgba(233, 169, 0, 0.22), transparent 50%),
+    linear-gradient(165deg, #10161c 0%, #1a222b 55%, #0d1217 100%);
+}
+
+.onboard-split[data-brand="temark"] .onboard-sidebar-deco {
+  background:
+    radial-gradient(circle at 30% 40%, rgba(255, 191, 25, 0.14), transparent 55%),
+    radial-gradient(circle at 70% 70%, rgba(233, 169, 0, 0.18), transparent 50%);
+}
+
+.onboard-split[data-brand="temark"] .onboard-workspace {
+  background: #faf7f1;
+}
+
+.onboard-split[data-brand="temark"] .onboard-stepper-item.is-done .onboard-stepper-marker {
+  background: #ffbf19;
+  color: #10161c;
+}
+
+.onboard-split[data-brand="temark"] .onboard-stepper-item.is-done .onboard-stepper-label {
+  color: #ffbf19;
+}
+
+.onboard-split[data-brand="temark"] .onboard-stepper-item.is-done .onboard-stepper-desc {
+  color: rgba(255, 191, 25, 0.75);
+}
+
+.onboard-split[data-brand="temark"] .onboard-stepper-item.is-done:not(:last-child)::before {
+  background: rgba(255, 191, 25, 0.55);
+}
+
+.onboard-split[data-brand="temark"] .onboard-panel .btn-primary:hover {
+  background: #26313a;
+}
+
+.onboard-split[data-brand="temark"] .onboard-panel input:focus,
+.onboard-split[data-brand="temark"] .onboard-panel select:focus,
+.onboard-split[data-brand="temark"] .onboard-panel textarea:focus {
+  border-color: rgba(233, 169, 0, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 191, 25, 0.28);
+}
+
 .onboard-sidebar {
   position: relative;
   display: flex;

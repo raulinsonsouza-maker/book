@@ -33,6 +33,10 @@ import {
   setVerticalCookie,
   type VerticalSlug,
 } from "@/lib/onboarding/verticals";
+import {
+  parseProductBrand,
+  setProductBrandCookie,
+} from "@/lib/product-brand";
 import { centsToBRLMask, parseBRLMaskToCents } from "@/lib/utils";
 import { toE164 } from "@/lib/whatsapp/phone";
 
@@ -174,6 +178,9 @@ function OnboardingWizard() {
   }, [needsSegmento, isLoggedInWithOrg]);
 
   useEffect(() => {
+    const brand = parseProductBrand(searchParams.get("brand"));
+    if (brand) setProductBrandCookie(brand);
+
     const tipo =
       parseVerticalSlug(searchParams.get("tipo")) || getVerticalCookie();
     if (tipo) {

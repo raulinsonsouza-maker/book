@@ -49,3 +49,7 @@ prisma/*.db-journal
 # uploads locais (capa do agendador)
 /public/uploads/covers/*
 !/public/uploads/covers/.gitkeep
+
+deploy/temark-landing/public/
+_vps_*.py
+

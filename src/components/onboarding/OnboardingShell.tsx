@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { useProductBrand } from "@/hooks/useProductBrand";
 import { OnboardingStepper } from "./OnboardingStepper";
 import {
   ONBOARDING_STEPS,
@@ -35,12 +36,24 @@ export function OnboardingShell({
   children,
 }: Props) {
   const allComplete = step === "pronto";
+  const brand = useProductBrand();
 
   return (
-    <div className="onboard-split">
+    <div className="onboard-split" data-brand={brand.id}>
       <aside className="onboard-sidebar" aria-label="Progresso">
         <div className="onboard-sidebar-inner">
-          <BrandLogo href="/" size="md" showText light />
+          {brand.wordmarkSrc ? (
+            <a
+              href={brand.homeHref}
+              className="onboard-brand-wordmark"
+              aria-label={`${brand.name}, início`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={brand.wordmarkSrc} alt={brand.name} />
+            </a>
+          ) : (
+            <BrandLogo href={brand.homeHref} size="md" showText light title={brand.name} />
+          )}
           <h2 className="onboard-sidebar-title">{sidebarTitle}</h2>
           <OnboardingStepper
             steps={steps}

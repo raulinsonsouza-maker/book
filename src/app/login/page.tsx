@@ -7,11 +7,17 @@ import { Suspense, useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { useProductBrand } from "@/hooks/useProductBrand";
 import { postLoginPath } from "@/lib/auth-routes";
+import {
+  parseProductBrand,
+  setProductBrandCookie,
+} from "@/lib/product-brand";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const brand = useProductBrand();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -20,6 +26,11 @@ function LoginForm() {
   const justCreated = searchParams.get("created") === "1";
   const justReset = searchParams.get("reset") === "1";
   const nextHint = searchParams.get("next");
+
+  useEffect(() => {
+    const productBrand = parseProductBrand(searchParams.get("brand"));
+    if (productBrand) setProductBrandCookie(productBrand);
+  }, [searchParams]);
 
   useEffect(() => {
     fetch("/api/auth/google-enabled")
@@ -70,8 +81,26 @@ function LoginForm() {
   return (
     <div className="surface w-full max-w-md p-8">
       <div className="mb-6 flex flex-col items-center gap-4 text-center">
-        <BrandLogo href="/" size="lg" showText />
-        <Link href="/" className="text-sm text-muted hover:text-foreground">
+        {brand.wordmarkSrc ? (
+          <a
+            href={brand.homeHref}
+            className="block w-40"
+            aria-label={`${brand.name}, início`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={brand.wordmarkSrc}
+              alt={brand.name}
+              className="h-auto w-full"
+            />
+          </a>
+        ) : (
+          <BrandLogo href={brand.homeHref} size="lg" showText title={brand.name} />
+        )}
+        <Link
+          href={brand.homeHref}
+          className="text-sm text-muted hover:text-foreground"
+        >
           ← Voltar
         </Link>
       </div>
@@ -139,7 +168,7 @@ function LoginForm() {
       <p className="mt-6 text-center text-sm text-muted">
         Não tem conta?{" "}
         <Link
-          href="/signup"
+          href={brand.id === "temark" ? "/signup?brand=temark" : "/signup"}
           className="font-medium text-foreground underline-offset-2 hover:underline"
         >
           Criar agora

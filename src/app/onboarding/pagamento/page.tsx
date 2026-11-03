@@ -2,11 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
 import { PaymentStep } from "@/components/payment/PaymentStep";
 import { PLATFORM_PLAN_FALLBACKS } from "@/lib/billing/plans-catalog";
+import { useProductBrand } from "@/hooks/useProductBrand";
 import { formatBRL, formatCpf, isValidCpf } from "@/lib/utils";
 
 type PlanInfo = {
@@ -45,8 +53,9 @@ declare global {
   }
 }
 
-export default function OnboardingPagamentoPage() {
+function OnboardingPagamentoForm() {
   const router = useRouter();
+  const brand = useProductBrand();
   const { status, update } = useSession();
   const [plan, setPlan] = useState<PlanInfo | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
@@ -412,10 +421,24 @@ export default function OnboardingPagamentoPage() {
         )}
 
         <p className="text-center text-[11px] leading-relaxed text-muted">
-          Ao pagar, você concorda com o acesso imediato ao Book Symbius no plano
+          Ao pagar, você concorda com o acesso imediato ao {brand.name} no plano
           escolhido. Dúvidas? Fale com o suporte.
         </p>
       </div>
     </OnboardingShell>
+  );
+}
+
+export default function OnboardingPagamentoPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="onboard-shell flex items-center justify-center px-4">
+          <p className="text-sm text-[var(--lp-steel)]">Carregando…</p>
+        </div>
+      }
+    >
+      <OnboardingPagamentoForm />
+    </Suspense>
   );
 }
