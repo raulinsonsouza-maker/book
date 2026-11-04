@@ -9,7 +9,10 @@ import {
   createPlatformPreapproval,
   createPlatformPreference,
 } from "@/lib/billing/mercadopago-platform";
-import { getRequestAppOrigin, getRequestProductBrand } from "@/lib/app-origin";
+import {
+  getRequestAppOrigin,
+  getRequestProductBrand,
+} from "@/lib/app-origin-server";
 
 export async function POST() {
   const auth = await apiRequireAdmin();

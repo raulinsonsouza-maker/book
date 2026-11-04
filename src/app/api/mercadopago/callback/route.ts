@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getRequestAppOrigin } from "@/lib/app-origin";
+import { getRequestAppOrigin } from "@/lib/app-origin-server";
 import {
   exchangeMercadoPagoCode,
   saveMercadoPagoTokens,

@@ -9,7 +9,7 @@ import {
   getPlatformConfig,
 } from "@/lib/billing/platform";
 import { isTeamMemberRole } from "@/lib/rbac";
-import { getRequestProductBrand } from "@/lib/app-origin";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
 
 export default async function AppLayout({
   children,

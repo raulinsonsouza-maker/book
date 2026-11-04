@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import {
   getProductBrand,
   type ProductBrand,
@@ -57,29 +56,6 @@ export function defaultAppOrigin(): string {
     process.env.NEXTAUTH_URL ||
     `https://${BOOK_APP_HOST}`
   ).replace(/\/$/, "");
-}
-
-/** Origin of the current HTTP request (Traefik sets x-forwarded-*). */
-export async function getRequestAppOrigin(): Promise<string> {
-  try {
-    const h = await headers();
-    const host = h.get("x-forwarded-host") || h.get("host");
-    if (!host) return defaultAppOrigin();
-    const proto = h.get("x-forwarded-proto");
-    return originFromHost(host, proto);
-  } catch {
-    return defaultAppOrigin();
-  }
-}
-
-export async function getRequestProductBrand(): Promise<ProductBrand> {
-  try {
-    const h = await headers();
-    const host = h.get("x-forwarded-host") || h.get("host");
-    return productBrandFromHost(host);
-  } catch {
-    return getProductBrand("book");
-  }
 }
 
 export function clientHostBrandId(): ProductBrandId {
