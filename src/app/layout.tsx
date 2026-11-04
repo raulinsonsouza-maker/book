@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Fraunces, Geist, Instrument_Serif, Outfit } from "next/font/google";
 import { Providers } from "@/components/Providers";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
 import "./globals.css";
 
 const geist = Geist({
@@ -43,14 +44,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const brand = await getRequestProductBrand();
   return (
     <html
       lang="pt-BR"
+      data-product-brand={brand.id}
       className={`${geist.variable} ${outfit.variable} ${dmSans.variable} ${fraunces.variable} ${instrument.variable} h-full`}
     >
       <body className="min-h-full antialiased font-sans">

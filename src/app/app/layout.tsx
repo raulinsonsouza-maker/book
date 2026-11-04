@@ -90,6 +90,7 @@ export default async function AppLayout({
       role={session.user.role}
       businessMode={org?.businessMode || session.user.businessMode || "SOLO"}
       attendanceEnabled={Boolean(org?.attendanceEnabled)}
+      productBrandId={brand.id}
     >
       {children}
     </AppShell>

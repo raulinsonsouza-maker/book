@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SignOutButton } from "@/components/admin/SignOutButton";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import { getProductBrand, type ProductBrandId } from "@/lib/product-brand";
 import { useHostProductBrand } from "@/hooks/useProductBrand";
 import {
   NavIconAccount,
@@ -219,6 +220,8 @@ type Props = {
   role?: string | null;
   businessMode?: string | null;
   attendanceEnabled?: boolean;
+  /** Server-resolved product brand (avoids Host flash / hydration mismatch). */
+  productBrandId?: ProductBrandId;
   children: React.ReactNode;
 };
 
@@ -388,11 +391,15 @@ export function AppShell({
   role,
   businessMode,
   attendanceEnabled = false,
+  productBrandId,
   children,
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
-  const brand = useHostProductBrand();
+  const hostBrand = useHostProductBrand();
+  const brand = productBrandId
+    ? getProductBrand(productBrandId)
+    : hostBrand;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const isBuilder = pathname.includes("/builder");
