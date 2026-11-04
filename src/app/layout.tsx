@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Geist, Instrument_Serif, Outfit } from "next/font/google";
+import { DM_Sans, Fraunces, Geist, Instrument_Serif, Outfit } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
@@ -12,6 +12,12 @@ const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const fraunces = Fraunces({
@@ -45,7 +51,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${geist.variable} ${outfit.variable} ${fraunces.variable} ${instrument.variable} h-full`}
+      className={`${geist.variable} ${outfit.variable} ${dmSans.variable} ${fraunces.variable} ${instrument.variable} h-full`}
     >
       <body className="min-h-full antialiased font-sans">
         <Providers>{children}</Providers>

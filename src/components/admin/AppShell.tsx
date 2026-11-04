@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SignOutButton } from "@/components/admin/SignOutButton";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import { useHostProductBrand } from "@/hooks/useProductBrand";
 import {
   NavIconAccount,
   NavIconBookings,
@@ -390,6 +392,7 @@ export function AppShell({
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
+  const brand = useHostProductBrand();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const isBuilder = pathname.includes("/builder");
@@ -397,6 +400,7 @@ export function AppShell({
   const displayName = organizationName || userName || "Sua conta";
   const accountName = userName || organizationName || "Sua conta";
   const sections = navForRole(role, businessMode, attendanceEnabled);
+  const isTemark = brand.id === "temark";
 
   useEffect(() => {
     try {
@@ -440,17 +444,39 @@ export function AppShell({
     const { collapsed: isCollapsed, showCollapseToggle, onNavigate } = opts;
     return (
       <div className="flex h-full flex-col">
-        <BrandLogo
-          href="/app"
-          size="md"
-          showText={!isCollapsed}
-          title={displayName}
-          logoUrl={organizationLogoUrl}
-          className={`sidebar-brand admin-topbar ${
-            isCollapsed ? "is-collapsed-brand" : ""
-          }`}
-          onClick={onNavigate}
-        />
+        {isTemark && brand.wordmarkSrc ? (
+          <Link
+            href="/app"
+            onClick={onNavigate}
+            className={`sidebar-brand admin-topbar temark-sidebar-brand ${
+              isCollapsed ? "is-collapsed-brand" : ""
+            }`}
+            aria-label={brand.name}
+          >
+            <span className="temark-wordmark">
+              <Image
+                src={brand.wordmarkSrc}
+                alt={brand.name}
+                width={isCollapsed ? 48 : 140}
+                height={isCollapsed ? 28 : 36}
+                className="temark-wordmark-img"
+                priority
+              />
+            </span>
+          </Link>
+        ) : (
+          <BrandLogo
+            href="/app"
+            size="md"
+            showText={!isCollapsed}
+            title={displayName}
+            logoUrl={organizationLogoUrl}
+            className={`sidebar-brand admin-topbar ${
+              isCollapsed ? "is-collapsed-brand" : ""
+            }`}
+            onClick={onNavigate}
+          />
+        )}
 
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
           {sections.map((section) => (
@@ -519,7 +545,10 @@ export function AppShell({
 
   return (
     <ConfirmProvider>
-    <div className={`admin-shell flex min-h-screen ${collapsed ? "sidebar-is-collapsed" : ""}`}>
+    <div
+      className={`admin-shell flex min-h-screen ${collapsed ? "sidebar-is-collapsed" : ""}`}
+      data-brand={brand.id}
+    >
       <aside
         className={`admin-sidebar hidden shrink-0 lg:sticky lg:top-0 lg:h-screen lg:flex lg:flex-col ${
           collapsed ? "is-collapsed" : ""
@@ -540,7 +569,7 @@ export function AppShell({
             className="absolute inset-0 bg-black/40"
             onClick={closeMobile}
           />
-          <div className="relative z-10 flex h-full w-[15.5rem] flex-col bg-white shadow-xl">
+          <div className="admin-sidebar relative z-10 flex h-full w-[15.5rem] flex-col shadow-xl">
             {renderSidebar({
               collapsed: false,
               showCollapseToggle: false,

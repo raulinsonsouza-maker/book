@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getRequestAppOrigin } from "@/lib/app-origin";
 import { prisma } from "@/lib/prisma";
 import { exchangeGoogleCode } from "@/lib/google/calendar";
 
 export async function GET(req: Request) {
-  const base = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const base = await getRequestAppOrigin();
   const session = await getServerSession(authOptions);
   if (!session?.user?.organizationId) {
     return NextResponse.redirect(new URL("/login", base));
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const tokens = await exchangeGoogleCode(code);
+    const tokens = await exchangeGoogleCode(code, base);
 
     const existing = await prisma.organization.findUnique({
       where: { id: session.user.organizationId },

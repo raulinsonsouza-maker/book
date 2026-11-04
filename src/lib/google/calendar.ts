@@ -13,12 +13,13 @@ export function googleConfigured() {
   );
 }
 
-export function getGoogleOAuthClient() {
+export function getGoogleOAuthClient(origin?: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri =
-    process.env.GOOGLE_REDIRECT_URI ||
-    `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/google/callback`;
+  const redirectUri = origin?.trim()
+    ? `${origin.replace(/\/$/, "")}/api/google/callback`
+    : process.env.GOOGLE_REDIRECT_URI ||
+      `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/google/callback`;
 
   if (!clientId || !clientSecret) {
     throw new Error("GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não configurados");
@@ -27,8 +28,8 @@ export function getGoogleOAuthClient() {
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
-export function getGoogleAuthUrl(state: string) {
-  const client = getGoogleOAuthClient();
+export function getGoogleAuthUrl(state: string, origin?: string) {
+  const client = getGoogleOAuthClient(origin);
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -37,8 +38,8 @@ export function getGoogleAuthUrl(state: string) {
   });
 }
 
-export async function exchangeGoogleCode(code: string) {
-  const client = getGoogleOAuthClient();
+export async function exchangeGoogleCode(code: string, origin?: string) {
+  const client = getGoogleOAuthClient(origin);
   const { tokens } = await client.getToken(code);
   client.setCredentials(tokens);
 

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Temark — O cliente marca, paga e aparece.</title>
+  <meta name="description" content="Sua agenda online completa para organizar atendimentos, receber pagamentos e atrair mais clientes. Conheça a Temark.">
+  <meta name="theme-color" content="#ffbf19">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;650;700;750;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=7"><script src="app.js?v=7" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#como-funciona">Ir para o conteúdo</a>
+<svg class="svg-library" xmlns="http://www.w3.org/2000/svg"><defs>
+  <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="calendar" viewBox="0 0 32 32"><rect x="5" y="7" width="22" height="21" rx="3"/><path d="M10 4v6m12-6v6M5 14h22m-16 7 3 3 7-6"/></symbol>
+  <symbol id="card" viewBox="0 0 32 32"><rect x="3" y="6" width="26" height="21" rx="4"/><path d="M3 13h26M8 21h4m5 0h3"/></symbol>
+  <symbol id="bell" viewBox="0 0 32 32"><path d="M12 26a4 4 0 0 0 8 0M5 24h22c-4-4-3-7-4-13a7 7 0 0 0-14 0C8 17 9 20 5 24Z"/></symbol>
+  <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></symbol>
+  <symbol id="instagram" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></symbol>
+</defs></svg>
+<main>
+  <section class="hero" id="inicio">
+    <div class="hero-photo"><img src="assets/salon.jpg" alt="Salão de beleza acolhedor com espelhos em arco, plantas e cadeiras de atendimento" fetchpriority="high"></div>
+    <header class="header container">
+      <a href="#inicio" class="brand" aria-label="Temark, início"><img src="assets/temark-logo.png" alt="Temark"></a>
+      <button class="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="navigation"><span></span><span></span></button>
+      <nav id="navigation" aria-label="Navegação principal"><a href="#como-funciona">Como funciona</a><a href="#na-pratica">Na prática</a><a href="#pagamentos">Pagamentos</a><a href="#para-quem">Para quem é</a><button class="button dark small" data-start>Criar minha agenda</button></nav>
+    </header>
+    <div class="container hero-content">
+      <h1>O cliente marca,<br>paga e aparece.</h1>
+      <p>Sua agenda online completa para<br class="desktop-break"> organizar atendimentos, receber pagamentos<br class="desktop-break"> e atrair mais clientes.</p>
+      <div class="hero-actions"><button class="button dark" data-start>Criar minha agenda</button><a class="button outline" href="#como-funciona">Ver como funciona</a></div>
+    </div>
+    <svg class="hero-wave" viewBox="0 0 1440 160" preserveAspectRatio="none" aria-hidden="true"><path fill="#faf7f1" d="M0 25C65 155 270 180 470 132C700 60 801 74 1005 130C1200 180 1340 156 1440 102V160H0Z"/></svg>
+    <img class="hero-arms" src="assets/bracos.png" alt="" aria-hidden="true" width="8000" height="4501">
+  </section>
+
+  <section class="how section" id="como-funciona">
+    <div class="container">
+      <div class="section-intro"><span class="eyebrow muted">Como funciona</span><h2>Um link seu. Uma agenda sua.<br><em>O dinheiro também.</em></h2><p>O Temark é o seu sistema de agendamento e pagamento online.<br>Você compartilha um link, o cliente marca, paga e você só se preocupa em atender.</p></div>
+      <div class="steps">
+        <article><div class="icon-blob"><svg><use href="#calendar"/></svg></div><h3>1. Você monta seus serviços</h3><p>Cadastre seus serviços, defina preços, duração, horários e sua disponibilidade de forma simples.</p></article>
+        <article><div class="icon-blob"><svg><use href="#card"/></svg></div><h3>2. O cliente marca e paga</h3><p>Seu cliente escolhe o serviço, o dia e o horário, e já faz o pagamento online com segurança.</p></article>
+        <article><div class="icon-blob"><svg><use href="#bell"/></svg></div><h3>3. Você atende com tranquilidade</h3><p>Receba notificações, acompanhe sua agenda e foque no que importa: seus clientes.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="practice section" id="na-pratica">
+    <div class="container practice-grid">
+      <div class="practice-copy"><span class="eyebrow">Na prática</span><h2>Do WhatsApp bagunçado<br>para a agenda <em>em ordem.</em></h2><p class="lead">Sua rotina organizada em um só lugar.<br>Sem planilhas, sem mensagens<br>perdidas e sem dor de cabeça.</p><ul class="check-list"><li>Agenda online personalizada</li><li>Confirmações e lembretes automáticos</li><li>Pagamentos online seguros</li><li>Controle de horários e bloqueios</li><li>Funciona no celular e no computador</li></ul><button class="text-link" id="explore-agenda">Conheça a plataforma <span>→</span></button></div>
+      <div class="agenda-visual"><img class="practice-photo" src="assets/salon.jpg" loading="lazy" alt="Interior de um salão de beleza com uma estação de atendimento"><div class="agenda-card" id="agenda-demo"><span class="rays" aria-hidden="true"><i></i><i></i><i></i></span><div class="agenda-top"><a class="brand" href="#inicio" aria-label="Temark"><img src="assets/temark-logo.png" alt="Temark"></a><span class="demo-label">Demonstração</span></div><div class="week" role="group" aria-label="Selecione um dia da agenda"><button data-day="10"><span>Seg</span>10</button><button data-day="11"><span>Ter</span>11</button><button data-day="12" class="selected" aria-pressed="true"><span>Qua</span>12</button><button data-day="13"><span>Qui</span>13</button><button data-day="14"><span>Sex</span>14</button><button data-day="15"><span>Sáb</span>15</button><button data-day="16"><span>Dom</span>16</button></div><div id="appointments" aria-live="polite"></div><button class="button dark new-booking" id="new-booking">Nova marcação <span>+</span></button></div></div>
+    </div>
+  </section>
+
+  <section class="payments section" id="pagamentos"><div class="container payments-grid">
+    <div class="payment-card"><span class="rays" aria-hidden="true"><i></i><i></i><i></i></span><span class="eyebrow muted">Pagamento online</span><div class="payment-services"><button data-service="Corte feminino" data-price="120">Corte feminino<span>R$ 120,00 <svg><use href="#arrow"/></svg></span></button><button data-service="Coloração" data-price="180">Coloração<span>R$ 180,00 <svg><use href="#arrow"/></svg></span></button><button data-service="Manicure" data-price="60">Manicure<span>R$ 60,00 <svg><use href="#arrow"/></svg></span></button><button data-service="Design de sobrancelha" data-price="70">Design de sobrancelha<span>R$ 70,00 <svg><use href="#arrow"/></svg></span></button></div><button class="button yellow receive" id="payment-demo"><svg><use href="#lock"/></svg>Receber pagamentos</button><p class="payment-note">Pagamentos 100% seguros via Stripe ou Mercado Pago.</p></div>
+    <div class="payments-copy"><span class="eyebrow">Mais receita</span><h2>Cobre sem mandar<br>o cliente para <em>outro app.</em></h2><p class="lead">Receba os pagamentos diretamente na sua agenda,<br class="desktop-break"> com segurança e sem complicação.</p><ul class="check-list"><li>PIX, cartão de crédito ou débito</li><li>Parcelamento automático</li><li>Mais controle financeiro</li><li>Menos faltas e cancelamentos</li></ul><div class="payment-brands" aria-label="Stripe, Mercado Pago e Pix"><span class="stripe">stripe</span><span class="mercadopago"><img src="assets/mercadopago-logo.png" alt="Mercado Pago" loading="lazy" decoding="async"></span><span class="pix"><img src="assets/pix-logo.png" alt="Pix" loading="lazy" decoding="async"></span></div></div>
+  </div></section>
+
+  <section class="audience section" id="para-quem"><div class="container"><span class="eyebrow muted">Para quem é</span><h2>Feito para o <em>seu</em> negócio.</h2><p class="lead">O Temark é ideal para profissionais da beleza, estética e bem-estar<br class="desktop-break"> que querem mais organização, autonomia e clientes.</p><div class="business-grid">
+    <button data-business="Cabeleireiros"><img src="assets/hair.jpg" alt="Profissional cuidando dos cabelos de uma cliente" loading="lazy"><span>Cabeleireiros<svg><use href="#arrow"/></svg></span></button>
+    <button data-business="Esteticistas"><img src="assets/face.jpg" alt="Tratamento facial em uma clínica de estética" loading="lazy"><span>Esteticistas<svg><use href="#arrow"/></svg></span></button>
+    <button data-business="Manicures e pedicures"><img src="assets/nails.jpg" alt="Unhas cuidadas e esmaltadas" loading="lazy"><span>Manicures e pedicures<svg><use href="#arrow"/></svg></span></button>
+    <button data-business="Barbearias"><img src="assets/barber.jpg" alt="Atendimento em uma barbearia" loading="lazy"><span>Barbearias<svg><use href="#arrow"/></svg></span></button>
+    <button data-business="Clínicas de estética"><img src="assets/spa.jpg" alt="Massagem relaxante em um espaço de bem-estar" loading="lazy"><span>Clínicas de estética<svg><use href="#arrow"/></svg></span></button>
+    <button data-business="Outros profissionais"><img src="assets/salon.jpg" alt="Espaço de beleza e bem-estar" loading="lazy"><span>Outros profissionais<svg><use href="#arrow"/></svg></span></button>
+  </div></div></section>
+
+  <section class="closing"><svg class="closing-ribbon" viewBox="0 0 1440 440" preserveAspectRatio="none" aria-hidden="true"><path d="M1280 -100 C1300 100 1120 290 910 500"/></svg><div class="container closing-grid"><div class="closing-copy"><span class="eyebrow">Mais tempo para o que importa</span><h2>Ser mais organizado<br>não é para qualquer um.<br>É para quem usa <em>Temark.</em></h2><p>Ganhe tempo, reduza faltas e tenha uma rotina<br class="desktop-break"> mais leve, com uma agenda feita para o seu dia a dia.</p><div class="closing-actions"><button class="button yellow" data-start>Criar minha agenda</button><a href="#como-funciona">Ver como funciona <span>→</span></a></div></div><div class="closing-photos"><img class="owner-photo" src="assets/stylist.jpg" loading="lazy" alt="Profissional organizando o seu negócio"><img class="salon-photo" src="assets/salon.jpg" loading="lazy" alt="Salão pronto para receber clientes"><span class="rays" aria-hidden="true"><i></i><i></i><i></i></span></div></div></section>
+</main>
+<footer class="footer"><div class="container"><div class="footer-grid"><div><a class="brand" href="#inicio" aria-label="Temark, início"><img src="assets/temark-logo.png" alt="Temark"></a><p>Sua agenda. Seus clientes. Sem complicação.</p><span class="footer-tagline">Um novo jeito de cuidar do seu negócio.</span></div><div class="footer-links"><h3>Produto</h3><a href="#como-funciona">Como funciona</a><a href="#na-pratica">A plataforma</a><a href="#pagamentos">Pagamentos</a><button data-info="faq">Perguntas frequentes</button></div><div class="footer-links"><h3>Empresa</h3><a href="#para-quem">Sobre</a><button data-info="contact">Contato</button><button data-info="terms">Termos de uso</button><button data-info="privacy">Política de privacidade</button></div><button class="button yellow small" data-start>Criar minha agenda</button></div><div class="footer-bottom"><span>© <span id="year">2026</span> Temark. Todos os direitos reservados.</span><span>Feito para simplificar.</span></div></div></footer>
+
+<dialog id="start-dialog" aria-labelledby="start-title"><button class="dialog-close" aria-label="Fechar">×</button><span class="eyebrow">Seu negócio, em ordem</span><h2 id="start-title">Sua agenda começa <em>aqui.</em></h2><p>Experimente uma prévia personalizada da sua agenda Temark.</p><form id="start-form"><label for="business-name">Nome do seu negócio</label><input id="business-name" name="business" placeholder="Ex.: Studio Ana" required maxlength="60" autocomplete="organization"><label for="business-type">Sua área de atuação</label><select id="business-type" name="category"><option>Cabeleireiros</option><option>Esteticistas</option><option>Manicures e pedicures</option><option>Barbearias</option><option>Clínicas de estética</option><option>Outros profissionais</option></select><button class="button yellow" type="submit">Criar minha prévia <span>→</span></button><small>Esta é uma demonstração. Nenhuma conta é criada e nenhum pagamento é realizado.</small></form><div id="start-result" hidden></div></dialog>
+<dialog id="booking-dialog" aria-labelledby="booking-title"><button class="dialog-close" aria-label="Fechar">×</button><span class="eyebrow">Experimente a agenda</span><h2 id="booking-title">Nova <em>marcação.</em></h2><form id="booking-form"><label for="client-name">Nome do cliente</label><input id="client-name" required maxlength="50" placeholder="Como seu cliente se chama?" autocomplete="off"><label for="service">Serviço</label><select id="service"><option>Corte feminino</option><option>Coloração</option><option>Escova</option><option>Manicure</option><option>Design de sobrancelha</option></select><label for="booking-time">Horário</label><input type="time" id="booking-time" value="17:00" required><button type="submit" class="button yellow">Adicionar à demonstração</button><small>Os agendamentos desta prévia ficam apenas nesta página.</small></form></dialog>
+<dialog id="info-dialog" aria-labelledby="info-title"><button class="dialog-close" aria-label="Fechar">×</button><div id="info-content"></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+</body></html>

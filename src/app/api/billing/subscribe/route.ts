@@ -9,6 +9,7 @@ import {
   createPlatformPreapproval,
   createPlatformPreference,
 } from "@/lib/billing/mercadopago-platform";
+import { getRequestAppOrigin, getRequestProductBrand } from "@/lib/app-origin";
 
 export async function POST() {
   const auth = await apiRequireAdmin();
@@ -43,17 +44,14 @@ export async function POST() {
     return NextResponse.json({ error: "Nenhum plano ativo" }, { status: 400 });
   }
 
-  const base = (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXTAUTH_URL ||
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
+  const base = await getRequestAppOrigin();
+  const brand = await getRequestProductBrand();
   const backUrl = `${base}/onboarding/aguardando`;
   const email = auth.ctx.email || "cliente@empresa.com";
 
   if (plan.interval === "SEMESTER") {
     const mp = await createPlatformPreference({
-      reason: `Book Symbius — ${plan.name}`,
+      reason: `${brand.name} — ${plan.name}`,
       payerEmail: email,
       amountCents: plan.priceCents,
       backUrl,
@@ -81,7 +79,7 @@ export async function POST() {
   }
 
   const mp = await createPlatformPreapproval({
-    reason: `Book Symbius — ${plan.name}`,
+    reason: `${brand.name} — ${plan.name}`,
     payerEmail: email,
     amountCents: plan.priceCents,
     backUrl,

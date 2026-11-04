@@ -10,6 +10,7 @@ export type ProductBrand = {
   /** Wide wordmark for Temark; square mark handled by BrandLogo for Book. */
   wordmarkSrc?: string;
   homeHref: string;
+  appOrigin: string;
 };
 
 export const PRODUCT_BRANDS: Record<ProductBrandId, ProductBrand> = {
@@ -18,6 +19,7 @@ export const PRODUCT_BRANDS: Record<ProductBrandId, ProductBrand> = {
     name: "Book Symbius",
     shortName: "Book",
     homeHref: "/",
+    appOrigin: "https://book.symbius.com.br",
   },
   temark: {
     id: "temark",
@@ -25,6 +27,7 @@ export const PRODUCT_BRANDS: Record<ProductBrandId, ProductBrand> = {
     shortName: "Temark",
     wordmarkSrc: "/temark-logo.png",
     homeHref: "https://temark.com.br",
+    appOrigin: "https://app.temark.com.br",
   },
 };
 
@@ -62,10 +65,12 @@ export function clearProductBrandCookie() {
 
 export function resolveProductBrandId(
   queryBrand: string | null | undefined,
+  hostBrand?: ProductBrandId | null,
 ): ProductBrandId {
   return (
     parseProductBrand(queryBrand) ||
     getProductBrandCookie() ||
+    hostBrand ||
     "book"
   );
 }

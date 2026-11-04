@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getRequestAppOrigin } from "@/lib/app-origin";
 import {
   getMercadoPagoAuthUrl,
   mercadoPagoOAuthConfigured,
@@ -15,7 +16,7 @@ function oauthDonePath(base: string, status: string, popup: boolean) {
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  const base = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const base = await getRequestAppOrigin();
   const popup = new URL(req.url).searchParams.get("popup") === "1";
 
   if (!session?.user?.organizationId) {
@@ -34,5 +35,5 @@ export async function GET(req: Request) {
     }),
   ).toString("base64url");
 
-  return NextResponse.redirect(await getMercadoPagoAuthUrl(state));
+  return NextResponse.redirect(await getMercadoPagoAuthUrl(state, base));
 }

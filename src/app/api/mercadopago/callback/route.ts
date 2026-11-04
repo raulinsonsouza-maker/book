@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getRequestAppOrigin } from "@/lib/app-origin";
 import {
   exchangeMercadoPagoCode,
   saveMercadoPagoTokens,
@@ -13,10 +14,7 @@ import {
 import { writePlatformAudit } from "@/lib/platform-audit";
 
 export async function GET(req: Request) {
-  const base =
-    process.env.NEXTAUTH_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000";
+  const base = await getRequestAppOrigin();
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -96,7 +94,7 @@ export async function GET(req: Request) {
       return done("forbidden");
     }
 
-    const tokens = await exchangeMercadoPagoCode(code);
+    const tokens = await exchangeMercadoPagoCode(code, base);
     await saveMercadoPagoTokens(session.user.organizationId, tokens);
     return done("connected");
   } catch (e) {

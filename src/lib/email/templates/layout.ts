@@ -1,11 +1,10 @@
-const APP_URL = () =>
-  (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://book.symbius.com.br").replace(
-    /\/$/,
-    "",
-  );
+import { defaultAppOrigin } from "@/lib/app-origin";
 
-export function appUrl(path = "") {
-  return `${APP_URL()}${path.startsWith("/") ? path : path ? `/${path}` : ""}`;
+const APP_URL = () => defaultAppOrigin();
+
+export function appUrl(path = "", origin?: string) {
+  const base = (origin || APP_URL()).replace(/\/$/, "");
+  return `${base}${path.startsWith("/") ? path : path ? `/${path}` : ""}`;
 }
 
 export function emailFrom() {

@@ -80,6 +80,16 @@ services:
         - traefik.http.routers.book-http.middlewares=book-https-redirect
         - traefik.http.middlewares.book-https-redirect.redirectscheme.scheme=https
         - traefik.http.middlewares.book-https-redirect.redirectscheme.permanent=true
+        # Temark product host (same service)
+        - traefik.http.routers.book-temark.rule=Host(`app.temark.com.br`)
+        - traefik.http.routers.book-temark.entrypoints=websecure
+        - traefik.http.routers.book-temark.tls=true
+        - traefik.http.routers.book-temark.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.book-temark.service=book
+        - traefik.http.routers.book-temark-http.rule=Host(`app.temark.com.br`)
+        - traefik.http.routers.book-temark-http.entrypoints=web
+        - traefik.http.routers.book-temark-http.middlewares=book-https-redirect
+        - traefik.http.routers.book-temark-http.service=book
 
 networks:
   traefik_proxy:
