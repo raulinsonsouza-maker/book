@@ -370,12 +370,14 @@ export function AgendadorFunnelStepPreview({
                   </p>
                 )}
               </div>
-              <p
-                className="booking-selected-service-price"
-                style={{ color: accent }}
-              >
-                {formatBRL(service.priceCents)}
-              </p>
+              {service.priceCents > 0 && (
+                <p
+                  className="booking-selected-service-price"
+                  style={{ color: accent }}
+                >
+                  {formatBRL(service.priceCents)}
+                </p>
+              )}
             </div>
             <div className="booking-selected-service-meta">
               <span className="booking-selected-service-duration">
@@ -448,7 +450,9 @@ export function AgendadorFunnelStepPreview({
             Seus dados
           </h1>
           <p className="mt-1.5 text-sm text-muted">
-            Para confirmar e enviar o comprovante
+            {service.priceCents > 0
+              ? "Para confirmar e enviar o comprovante"
+              : "Para confirmar seu horário"}
           </p>
         </div>
 
@@ -457,9 +461,11 @@ export function AgendadorFunnelStepPreview({
             <p className="booking-summary-title truncate">{service.title}</p>
             <p className="booking-summary-meta truncate">{whenLabel}</p>
           </div>
-          <p className="booking-summary-price" style={{ color: accent }}>
-            {formatBRL(service.priceCents)}
-          </p>
+          {service.priceCents > 0 && (
+            <p className="booking-summary-price" style={{ color: accent }}>
+              {formatBRL(service.priceCents)}
+            </p>
+          )}
         </div>
 
         <div className="booking-form-fields">
@@ -501,7 +507,9 @@ export function AgendadorFunnelStepPreview({
           onClick={onConfirmDetails}
           className="btn-primary w-full !rounded-2xl !py-3.5 text-base"
         >
-          {demoPayments ? "Confirmar agendamento" : "Continuar para pagamento"}
+          {service.priceCents <= 0 || demoPayments
+            ? "Confirmar agendamento"
+            : "Continuar para pagamento"}
         </button>
       </div>,
       <PreviewHeader
@@ -526,9 +534,11 @@ export function AgendadorFunnelStepPreview({
             </h1>
             <p className="mt-2 text-sm text-muted">Seguro · Pix ou cartão</p>
           </div>
-          <p className="text-2xl font-bold tracking-tight" style={{ color: accent }}>
-            {formatBRL(service.priceCents)}
-          </p>
+          {service.priceCents > 0 && (
+            <p className="text-2xl font-bold tracking-tight" style={{ color: accent }}>
+              {formatBRL(service.priceCents)}
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           <span
@@ -598,9 +608,11 @@ export function AgendadorFunnelStepPreview({
           <div className="booking-card mx-auto max-w-sm p-5 text-left text-sm">
             <p className="font-semibold tracking-tight">{service.title}</p>
             <p className="mt-1 capitalize text-muted">{whenLabel}</p>
-            <p className="mt-3 text-base font-bold" style={{ color: accent }}>
-              {formatBRL(service.priceCents)}
-            </p>
+            {service.priceCents > 0 && (
+              <p className="mt-3 text-base font-bold" style={{ color: accent }}>
+                {formatBRL(service.priceCents)}
+              </p>
+            )}
           </div>
           <button
             type="button"

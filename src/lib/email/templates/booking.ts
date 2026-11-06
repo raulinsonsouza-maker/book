@@ -30,16 +30,17 @@ export function bookingConfirmationEmail(params: {
 }) {
   const { dateCapitalized, time } = whenLabel(params.startAt, params.endAt, params.timezone);
   const local = params.meetLink || "A combinar com o profissional";
+  const free = params.priceCents <= 0;
   const body = `
     <p>Olá, ${escapeHtml(params.customerName)}.</p>
-    <p>Seu agendamento foi confirmado com sucesso. O pagamento também foi confirmado.</p>
+    <p>Seu agendamento foi confirmado com sucesso.${free ? "" : " O pagamento também foi confirmado."}</p>
     ${detailBox([
       { label: "Data", value: dateCapitalized },
       { label: "Horário", value: time },
       { label: "Serviço", value: params.serviceTitle },
       { label: "Profissional", value: params.professionalName },
       { label: "Local / link", value: local },
-      { label: "Valor", value: formatBRL(params.priceCents) },
+      ...(free ? [] : [{ label: "Valor", value: formatBRL(params.priceCents) }]),
     ])}
     <p style="color:#555;font-size:14px">Se precisar cancelar ou remarcar, use o botão abaixo.</p>
   `;

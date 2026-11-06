@@ -506,15 +506,29 @@ export function BookingFunnel({
     } else {
       steps = steps.filter((s) => s.id !== "intake");
     }
-    if (demoPayments && !service?.isIntake) {
+    if (
+      !service?.isIntake &&
+      (demoPayments || (service && service.priceCents <= 0))
+    ) {
       steps = steps.filter((s) => s.id !== "payment");
     }
     return steps;
-  }, [services.length, businessMode, demoPayments, service?.isIntake]);
+  }, [
+    services.length,
+    businessMode,
+    demoPayments,
+    service?.isIntake,
+    service?.priceCents,
+  ]);
+
+  const freeBooking = Boolean(
+    service && !service.isIntake && service.priceCents <= 0,
+  );
+  const skipsPayment = demoPayments || freeBooking;
 
   const stepIndex = visibleSteps.findIndex((s) => {
     if (step === "done") {
-      return s.id === (demoPayments ? "details" : "payment");
+      return s.id === (skipsPayment ? "details" : "payment");
     }
     return s.id === step;
   });
@@ -1347,12 +1361,14 @@ export function BookingFunnel({
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2 self-center">
-                      <span
-                        className="booking-service-price"
-                        style={{ background: accent }}
-                      >
-                        {formatBRL(s.priceCents)}
-                      </span>
+                      {s.priceCents > 0 && (
+                        <span
+                          className="booking-service-price"
+                          style={{ background: accent }}
+                        >
+                          {formatBRL(s.priceCents)}
+                        </span>
+                      )}
                       <span
                         className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white transition group-hover:scale-105"
                         style={{ background: accent }}
@@ -1520,12 +1536,14 @@ export function BookingFunnel({
                       </p>
                     )}
                   </div>
-                  <p
-                    className="booking-selected-service-price"
-                    style={{ color: accent }}
-                  >
-                    {formatBRL(service.priceCents)}
-                  </p>
+                  {service.priceCents > 0 && (
+                    <p
+                      className="booking-selected-service-price"
+                      style={{ color: accent }}
+                    >
+                      {formatBRL(service.priceCents)}
+                    </p>
+                  )}
                 </div>
                 <div className="booking-selected-service-meta">
                   <span className="booking-selected-service-duration">
@@ -1753,7 +1771,9 @@ export function BookingFunnel({
                 Seus dados
               </h1>
               <p className="mt-1.5 text-sm text-muted">
-                Para confirmar e enviar o comprovante
+                {freeBooking
+                  ? "Para confirmar seu horário"
+                  : "Para confirmar e enviar o comprovante"}
               </p>
             </div>
 
@@ -1765,9 +1785,11 @@ export function BookingFunnel({
                     <p className="booking-summary-meta truncate">{whenLabel}</p>
                   )}
                 </div>
-                <p className="booking-summary-price" style={{ color: accent }}>
-                  {formatBRL(service.priceCents)}
-                </p>
+                {service.priceCents > 0 && (
+                  <p className="booking-summary-price" style={{ color: accent }}>
+                    {formatBRL(service.priceCents)}
+                  </p>
+                )}
               </div>
             )}
 
@@ -1786,7 +1808,7 @@ export function BookingFunnel({
             >
               {paying
                 ? "Reservando horário…"
-                : demoPayments
+                : skipsPayment
                   ? "Confirmar agendamento"
                   : "Continuar para pagamento"}
             </button>
@@ -2153,9 +2175,11 @@ export function BookingFunnel({
               <div className="booking-card mx-auto max-w-sm p-5 text-left text-sm">
                 <p className="font-semibold tracking-tight">{service.title}</p>
                 <p className="mt-1 capitalize text-muted">{whenLabel}</p>
-                <p className="mt-3 text-base font-bold" style={{ color: accent }}>
-                  {formatBRL(service.priceCents)}
-                </p>
+                {service.priceCents > 0 && (
+                  <p className="mt-3 text-base font-bold" style={{ color: accent }}>
+                    {formatBRL(service.priceCents)}
+                  </p>
+                )}
               </div>
             )}
             {manageToken && (
@@ -2185,7 +2209,10 @@ export function BookingFunnel({
                 </span>
               </p>
               <p className="truncate text-xs text-muted">
-                {service.title} · {formatBRL(service.priceCents)}
+                {service.title}
+                {service.priceCents > 0
+                  ? ` · ${formatBRL(service.priceCents)}`
+                  : ""}
               </p>
             </div>
             <button

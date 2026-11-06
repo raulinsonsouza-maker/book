@@ -267,14 +267,16 @@ function ManageBookingInner() {
               </p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <span className="tag">{booking.durationMinutes} min</span>
-                <span
-                  className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
-                  style={{ background: accent }}
-                >
-                  {formatBRL(booking.priceCents)}
-                </span>
+                {booking.priceCents > 0 && (
+                  <span
+                    className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
+                    style={{ background: accent }}
+                  >
+                    {formatBRL(booking.priceCents)}
+                  </span>
+                )}
               </div>
-              {booking.paymentStatus && (
+              {booking.priceCents > 0 && booking.paymentStatus && (
                 <p className="text-xs text-muted">
                   Pagamento:{" "}
                   {booking.paymentStatus === "PAID"
@@ -363,12 +365,14 @@ function ManageBookingInner() {
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2">
                 <span className="tag">{booking.durationMinutes} min</span>
-                <span
-                  className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
-                  style={{ background: accent }}
-                >
-                  {formatBRL(booking.priceCents)}
-                </span>
+                {booking.priceCents > 0 && (
+                  <span
+                    className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
+                    style={{ background: accent }}
+                  >
+                    {formatBRL(booking.priceCents)}
+                  </span>
+                )}
               </div>
             </div>
 

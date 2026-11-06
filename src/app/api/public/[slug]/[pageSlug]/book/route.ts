@@ -95,7 +95,8 @@ export async function POST(
     const clickIds = sanitizeClickIds(raw.clickIds || raw);
     const startAt = new Date(body.startAt);
     const endAt = addMinutes(startAt, service.durationMinutes);
-    const needsPayment = requiresOnlinePayment(page.organization);
+    const needsPayment =
+      requiresOnlinePayment(page.organization) && service.priceCents > 0;
     const holdExpiresAt = needsPayment
       ? addMinutes(new Date(), HOLD_MINUTES)
       : null;
