@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { apiRequireStaff } from "@/lib/rbac";
 import { customerScopeWhere } from "@/lib/clients";
 import { resolveBusinessProfile } from "@/lib/business-profile";
+import { visitRecordSummary } from "@/lib/visit-record";
 
 type TimelineItem = {
   id: string;
@@ -115,8 +116,8 @@ export async function GET(
       id: `note-${n.id}`,
       kind: "note",
       at: n.createdAt.toISOString(),
-      title: "Nota no prontuário",
-      subtitle: n.body.slice(0, 120),
+      title: "Registro do atendimento",
+      subtitle: visitRecordSummary(n.body),
       meta: { noteId: n.id, bookingId: n.bookingId },
     });
   }

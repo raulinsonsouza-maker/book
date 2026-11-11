@@ -434,6 +434,152 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
 }
 
 /* Google Calendar–style booking detail modal */
+.visit-record-modal {
+  position: relative;
+  z-index: 1;
+  width: min(640px, 100%);
+  max-height: min(92dvh, 820px);
+  overflow: auto;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 32, 0.06),
+    0 24px 64px rgba(16, 24, 32, 0.22);
+}
+
+.visit-record-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  padding: 0 20px 10px;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.visit-record-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 20px 16px;
+}
+
+.visit-record-section {
+  border: 1px solid var(--border, #e7e2da);
+  border-radius: 14px;
+  background: #faf8f5;
+  padding: 14px;
+}
+
+.visit-record-section h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.visit-record-hint {
+  margin: 4px 0 12px;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.visit-record-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.visit-record-form label span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.visit-record-rx-grid {
+  display: grid;
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .visit-record-rx-grid {
+    grid-template-columns: 1.4fr 0.8fr 1fr;
+  }
+}
+
+.visit-record-linkish {
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.visit-record-ok {
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  color: #166534;
+}
+
+.visit-record-history {
+  margin-top: 12px;
+  border-top: 1px solid #e7e2da;
+  padding-top: 10px;
+}
+
+.visit-record-history-title {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.visit-record-history ul,
+.visit-record-rx-list,
+.visit-record-cert-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.visit-record-history li,
+.visit-record-rx-list li,
+.visit-record-cert-list li {
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.visit-record-history li span,
+.visit-record-rx-list li .text-xs {
+  display: block;
+  color: #64748b;
+}
+
+.visit-record-cert-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.visit-record-rx-list {
+  margin-bottom: 12px;
+}
+
 .agenda-detail-overlay {
   position: fixed;
   inset: 0;

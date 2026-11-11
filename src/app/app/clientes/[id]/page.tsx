@@ -6,9 +6,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  AgendaBookingModal,
-  type AgendaBookingDetails,
-} from "@/components/agenda/AgendaBookingModal";
+  VisitRecordModal,
+  type VisitBooking,
+} from "@/components/clients/VisitRecordModal";
+import { visitRecordSummary } from "@/lib/visit-record";
 
 type Tab = "timeline" | "bookings" | "payments" | "notes" | "prescriptions";
 
@@ -21,6 +22,7 @@ type Profile = {
   features: {
     visitNotes: boolean;
     prescriptions: boolean;
+    attendanceCertificates: boolean;
   };
 };
 
@@ -33,23 +35,10 @@ type Customer = {
   createdAt: string;
 };
 
-type BookingRow = {
-  id: string;
-  status: string;
-  startAt: string;
-  endAt: string;
+type BookingRow = VisitBooking & {
   timezone: string;
-  customerName: string;
-  customerEmail: string | null;
-  customerPhone: string | null;
-  serviceTitle: string;
   serviceImageUrl: string | null;
-  professionalName: string | null;
   professionalPhotoUrl: string | null;
-  pageTitle: string;
-  paymentStatus: string | null;
-  paymentMethod: string | null;
-  paymentAmountCents: number | null;
 };
 
 type NoteRow = {
@@ -114,8 +103,7 @@ export default function ClienteProntuarioPage() {
   const [tab, setTab] = useState<Tab>("timeline");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedBooking, setSelectedBooking] =
-    useState<AgendaBookingDetails | null>(null);
+  const [selectedVisit, setSelectedVisit] = useState<VisitBooking | null>(null);
 
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -178,28 +166,18 @@ export default function ClienteProntuarioPage() {
     return list;
   }, [profile]);
 
-  function openBooking(bookingId: string) {
+  function openVisit(bookingId: string) {
     const b = bookings.find((x) => x.id === bookingId);
     if (!b) return;
-    setSelectedBooking({
-      id: b.id,
-      status: b.status,
-      startAt: b.startAt,
-      endAt: b.endAt,
-      timezone: b.timezone,
-      customerName: b.customerName,
-      customerEmail: b.customerEmail,
-      customerPhone: b.customerPhone,
-      customerId: customer?.id ?? null,
-      serviceTitle: b.serviceTitle,
-      serviceImageUrl: b.serviceImageUrl,
-      professionalName: b.professionalName,
-      professionalPhotoUrl: b.professionalPhotoUrl,
-      pageTitle: b.pageTitle,
-      paymentStatus: b.paymentStatus,
-      paymentMethod: b.paymentMethod,
-      paymentAmountCents: b.paymentAmountCents,
-    });
+    setSelectedVisit(b);
+  }
+
+  function bookingIdFromItem(item: TimelineItem): string | null {
+    if (typeof item.meta?.bookingId === "string") return item.meta.bookingId;
+    if (item.kind === "booking" && item.id.startsWith("booking-")) {
+      return item.id.replace(/^booking-/, "");
+    }
+    return null;
   }
 
   async function saveNote(e: React.FormEvent) {
@@ -280,10 +258,20 @@ export default function ClienteProntuarioPage() {
 
   return (
     <div className="space-y-6">
-      {selectedBooking ? (
-        <AgendaBookingModal
-          booking={selectedBooking}
-          onClose={() => setSelectedBooking(null)}
+      {selectedVisit ? (
+        <VisitRecordModal
+          customerId={customer.id}
+          visitNoun={profile.visitNoun}
+          booking={selectedVisit}
+          notes={notes}
+          prescriptions={prescriptions}
+          features={{
+            visitNotes: profile.features.visitNotes,
+            prescriptions: profile.features.prescriptions,
+            attendanceCertificates:
+              profile.features.attendanceCertificates || false,
+          }}
+          onClose={() => setSelectedVisit(null)}
           onChanged={load}
         />
       ) : null}
@@ -374,38 +362,53 @@ export default function ClienteProntuarioPage() {
             <p className="text-sm text-muted">Sem eventos ainda.</p>
           ) : (
             <ol className="relative space-y-0 border-l border-border pl-5">
-              {timeline.map((item) => (
-                <li key={item.id} className="relative pb-5 last:pb-0">
-                  <span
-                    className={`absolute -left-[1.4rem] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-white ${
-                      item.kind === "payment"
-                        ? "bg-emerald-500"
-                        : item.kind === "note"
-                          ? "bg-amber-500"
-                          : item.kind === "prescription"
-                            ? "bg-sky-500"
-                            : "bg-[#1a1a1a]"
-                    }`}
-                  />
-                  <p className="text-xs text-muted">{fmtWhen(item.at)}</p>
-                  <p className="font-medium text-foreground">{item.title}</p>
-                  {item.subtitle ? (
-                    <p className="text-sm text-muted">{item.subtitle}</p>
-                  ) : null}
-                  {item.kind === "booking" &&
-                  typeof item.meta?.bookingId === "string" ? (
-                    <button
-                      type="button"
-                      className="mt-1 text-sm font-medium text-foreground underline-offset-2 hover:underline"
-                      onClick={() =>
-                        openBooking(item.meta!.bookingId as string)
-                      }
-                    >
-                      Ver detalhes
-                    </button>
-                  ) : null}
-                </li>
-              ))}
+              {timeline.map((item) => {
+                const bookingId = bookingIdFromItem(item);
+                const clickable = Boolean(bookingId);
+                return (
+                  <li key={item.id} className="relative pb-5 last:pb-0">
+                    <span
+                      className={`absolute -left-[1.4rem] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-white ${
+                        item.kind === "payment"
+                          ? "bg-emerald-500"
+                          : item.kind === "note"
+                            ? "bg-amber-500"
+                            : item.kind === "prescription"
+                              ? "bg-sky-500"
+                              : "bg-[#1a1a1a]"
+                      }`}
+                    />
+                    {clickable ? (
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-2 py-1.5 text-left transition hover:bg-[#faf8f5]"
+                        onClick={() => openVisit(bookingId!)}
+                      >
+                        <p className="text-xs text-muted">{fmtWhen(item.at)}</p>
+                        <p className="font-medium text-foreground">
+                          {item.title}
+                        </p>
+                        {item.subtitle ? (
+                          <p className="text-sm text-muted">{item.subtitle}</p>
+                        ) : null}
+                        <p className="mt-1 text-sm font-medium text-foreground underline-offset-2 hover:underline">
+                          Abrir {profile.visitNoun.toLowerCase()}
+                        </p>
+                      </button>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted">{fmtWhen(item.at)}</p>
+                        <p className="font-medium text-foreground">
+                          {item.title}
+                        </p>
+                        {item.subtitle ? (
+                          <p className="text-sm text-muted">{item.subtitle}</p>
+                        ) : null}
+                      </>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
           )}
         </div>
@@ -422,7 +425,7 @@ export default function ClienteProntuarioPage() {
                   <button
                     type="button"
                     className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-[#faf8f5]"
-                    onClick={() => openBooking(b.id)}
+                    onClick={() => openVisit(b.id)}
                   >
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{b.serviceTitle}</p>
@@ -505,8 +508,17 @@ export default function ClienteProntuarioPage() {
                   <li key={n.id} className="px-4 py-3">
                     <p className="text-xs text-muted">{fmtWhen(n.createdAt)}</p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
-                      {n.body}
+                      {visitRecordSummary(n.body)}
                     </p>
+                    {n.bookingId ? (
+                      <button
+                        type="button"
+                        className="mt-1 text-sm font-medium underline-offset-2 hover:underline"
+                        onClick={() => openVisit(n.bookingId!)}
+                      >
+                        Abrir {profile.visitNoun.toLowerCase()}
+                      </button>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -523,8 +535,8 @@ export default function ClienteProntuarioPage() {
           >
             <p className="text-sm font-medium">Nova prescrição / orientação</p>
             <p className="text-xs text-muted">
-              Registro operacional interno — não substitui receita com validade
-              legal.
+              Preferência: abra o {profile.visitNoun.toLowerCase()} na linha do
+              tempo para vincular a receita ao atendimento.
             </p>
             {rxItems.map((item, idx) => (
               <div
@@ -598,11 +610,7 @@ export default function ClienteProntuarioPage() {
                 onChange={(e) => setRxNotes(e.target.value)}
               />
             </label>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={savingRx}
-            >
+            <button type="submit" className="btn-primary" disabled={savingRx}>
               {savingRx ? "Salvando…" : "Salvar prescrição"}
             </button>
           </form>
@@ -627,6 +635,15 @@ export default function ClienteProntuarioPage() {
                     </ul>
                     {p.notes ? (
                       <p className="mt-2 text-sm text-muted">{p.notes}</p>
+                    ) : null}
+                    {p.bookingId ? (
+                      <button
+                        type="button"
+                        className="mt-1 text-sm font-medium underline-offset-2 hover:underline"
+                        onClick={() => openVisit(p.bookingId!)}
+                      >
+                        Abrir {profile.visitNoun.toLowerCase()}
+                      </button>
                     ) : null}
                   </li>
                 ))}
