@@ -27,7 +27,7 @@ export const PRODUCT_BRANDS: Record<ProductBrandId, ProductBrand> = {
     shortName: "Temark",
     wordmarkSrc: "/temark-logo.png",
     homeHref: "https://temark.com.br",
-    appOrigin: "https://app.temark.com.br",
+    appOrigin: "https://temark.com.br",
   },
 };
 

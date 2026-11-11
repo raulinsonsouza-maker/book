@@ -80,7 +80,7 @@ services:
         - traefik.http.routers.book-http.middlewares=book-https-redirect
         - traefik.http.middlewares.book-https-redirect.redirectscheme.scheme=https
         - traefik.http.middlewares.book-https-redirect.redirectscheme.permanent=true
-        # Temark product host (same service)
+        # Temark product host (subdomain)
         - traefik.http.routers.book-temark.rule=Host(`app.temark.com.br`)
         - traefik.http.routers.book-temark.entrypoints=websecure
         - traefik.http.routers.book-temark.tls=true
@@ -90,6 +90,18 @@ services:
         - traefik.http.routers.book-temark-http.entrypoints=web
         - traefik.http.routers.book-temark-http.middlewares=book-https-redirect
         - traefik.http.routers.book-temark-http.service=book
+        # Temark product paths on apex (works even when app. DNS fails for some ISPs)
+        - traefik.http.routers.book-temark-apex.rule=(Host(`temark.com.br`) || Host(`www.temark.com.br`)) && (PathPrefix(`/onboarding`) || PathPrefix(`/login`) || PathPrefix(`/signup`) || PathPrefix(`/app`) || PathPrefix(`/api`) || PathPrefix(`/_next`) || PathPrefix(`/primeiro-acesso`) || PathPrefix(`/esqueci-senha`) || PathPrefix(`/redefinir-senha`) || PathPrefix(`/m`) || PathPrefix(`/p`) || PathPrefix(`/pay`) || PathPrefix(`/intake`) || PathPrefix(`/admin`) || Path(`/temark-logo.png`) || Path(`/logo.png`) || Path(`/logo-white.png`) || Path(`/favicon.ico`))
+        - traefik.http.routers.book-temark-apex.entrypoints=websecure
+        - traefik.http.routers.book-temark-apex.tls=true
+        - traefik.http.routers.book-temark-apex.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.book-temark-apex.priority=200
+        - traefik.http.routers.book-temark-apex.service=book
+        - traefik.http.routers.book-temark-apex-http.rule=(Host(`temark.com.br`) || Host(`www.temark.com.br`)) && (PathPrefix(`/onboarding`) || PathPrefix(`/login`) || PathPrefix(`/signup`) || PathPrefix(`/app`) || PathPrefix(`/api`) || PathPrefix(`/_next`) || PathPrefix(`/primeiro-acesso`) || PathPrefix(`/esqueci-senha`) || PathPrefix(`/redefinir-senha`) || PathPrefix(`/m`) || PathPrefix(`/p`) || PathPrefix(`/pay`) || PathPrefix(`/intake`) || PathPrefix(`/admin`) || Path(`/temark-logo.png`) || Path(`/logo.png`) || Path(`/logo-white.png`) || Path(`/favicon.ico`))
+        - traefik.http.routers.book-temark-apex-http.entrypoints=web
+        - traefik.http.routers.book-temark-apex-http.middlewares=book-https-redirect
+        - traefik.http.routers.book-temark-apex-http.priority=200
+        - traefik.http.routers.book-temark-apex-http.service=book
 
 networks:
   traefik_proxy:

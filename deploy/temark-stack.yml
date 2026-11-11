@@ -26,10 +26,12 @@ services:
         - traefik.http.routers.temark.entrypoints=websecure
         - traefik.http.routers.temark.tls=true
         - traefik.http.routers.temark.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.temark.priority=10
         - traefik.http.services.temark.loadbalancer.server.port=80
         - traefik.http.routers.temark-http.rule=Host(`temark.com.br`) || Host(`www.temark.com.br`)
         - traefik.http.routers.temark-http.entrypoints=web
         - traefik.http.routers.temark-http.middlewares=temark-https-redirect
+        - traefik.http.routers.temark-http.priority=10
         - traefik.http.middlewares.temark-https-redirect.redirectscheme.scheme=https
         - traefik.http.middlewares.temark-https-redirect.redirectscheme.permanent=true
 

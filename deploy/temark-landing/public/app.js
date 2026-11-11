@@ -25,7 +25,6 @@ $$('dialog').forEach(dialog=>{
   dialog.addEventListener('close',()=>document.body.classList.remove('modal-open'));
   dialog.addEventListener('click',event=>{if(event.target===dialog){const rect=dialog.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dialog.close();}});
 });
-const APP_ORIGIN = 'https://app.temark.com.br';
 const CATEGORY_TO_TIPO = {
   'Cabeleireiros': 'salao-de-beleza',
   'Esteticistas': 'clinica-e-estetica',
@@ -38,7 +37,8 @@ function startUrl(category){
   const params = new URLSearchParams({ brand: 'temark' });
   const tipo = CATEGORY_TO_TIPO[category];
   if (tipo) params.set('tipo', tipo);
-  return `${APP_ORIGIN}/onboarding?${params}`;
+  // Same-origin on temark.com.br so access works even when app. DNS fails for some networks
+  return `/onboarding?${params}`;
 }
 function openStart(category){ window.location.assign(startUrl(category)); }
 $$('[data-start]').forEach(button=>button.addEventListener('click',()=>openStart()));
