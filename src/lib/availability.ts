@@ -71,6 +71,8 @@ export async function getBusyIntervals(params: {
       : {}),
     OR: [
       { status: "CONFIRMED" as const },
+      { status: "ARRIVED" as const },
+      { status: "COMPLETED" as const },
       { status: "PENDING_PAYMENT" as const, holdExpiresAt: { gt: now } },
     ],
   };
@@ -429,6 +431,8 @@ export async function assertSlotAvailable(params: {
       endAt: { gt: params.startAt },
       OR: [
         { status: "CONFIRMED" },
+        { status: "ARRIVED" },
+        { status: "COMPLETED" },
         { status: "PENDING_PAYMENT", holdExpiresAt: { gt: new Date() } },
       ],
     },

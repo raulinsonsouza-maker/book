@@ -307,6 +307,94 @@ button {
   background-size: 24px 24px;
 }
 
+/* Temark product chrome (host app.temark / temark.com.br) */
+html[data-product-brand="temark"] {
+  --ink: #101820;
+  --yellow: #ffbf19;
+  --cream: #fbf9f5;
+  --line: #eeece8;
+  --tm-muted: #75808f;
+  --background: var(--cream);
+  --foreground: var(--ink);
+  --card: #fffefd;
+  --muted: var(--tm-muted);
+  --muted-bg: #f5f2ed;
+  --border: var(--line);
+  --accent: var(--ink);
+  --accent-dark: #0c131a;
+  --ring: var(--yellow);
+  color-scheme: light;
+}
+
+html[data-product-brand="temark"] body {
+  font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+}
+
+html[data-product-brand="temark"] h1,
+html[data-product-brand="temark"] h2,
+html[data-product-brand="temark"] h3 {
+  font-family: var(--font-outfit), var(--font-dm-sans), sans-serif;
+  letter-spacing: -0.035em;
+}
+
+.auth-shell {
+  background-color: #ffffff;
+  background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.auth-shell[data-brand="temark"],
+html[data-product-brand="temark"] .auth-shell {
+  background-color: var(--cream);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255, 191, 25, 0.22), transparent 55%),
+    radial-gradient(circle at 12% 88%, rgba(255, 222, 120, 0.18), transparent 40%),
+    linear-gradient(180deg, #fbf9f5 0%, #f7f3eb 100%);
+}
+
+.auth-card {
+  background: #fffefd;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.auth-shell[data-brand="temark"] .auth-card,
+html[data-product-brand="temark"] .auth-card {
+  border-radius: 26px;
+  border-color: var(--line);
+  background: linear-gradient(135deg, #ffffffc9, #fffffff0);
+  box-shadow: 0 18px 50px rgba(16, 24, 32, 0.06);
+}
+
+.auth-shell[data-brand="temark"] .eyebrow,
+html[data-product-brand="temark"] .auth-shell .eyebrow {
+  color: #bc941f;
+  letter-spacing: 1.4px;
+}
+
+.auth-shell[data-brand="temark"] .btn-primary,
+html[data-product-brand="temark"] .auth-shell .btn-primary {
+  background: var(--yellow);
+  color: var(--ink);
+  border-radius: 28px;
+  font-weight: 600;
+}
+
+.auth-shell[data-brand="temark"] .btn-primary:hover,
+html[data-product-brand="temark"] .auth-shell .btn-primary:hover {
+  background: #ffd15c;
+}
+
+.auth-shell[data-brand="temark"] .input-field:focus,
+html[data-product-brand="temark"] .auth-shell .input-field:focus {
+  outline: 2px solid var(--yellow);
+  outline-offset: 1px;
+  border-color: #e2ded6;
+  box-shadow: none;
+}
+
 .dot-grid-soft {
   background-color: #fafafa;
   background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
@@ -345,40 +433,396 @@ button {
   text-underline-offset: 2px;
 }
 
-.agenda-booking-peek {
+/* Google Calendar–style booking detail modal */
+.agenda-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.7rem 0.9rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--border);
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+}
+
+@media (min-width: 640px) {
+  .agenda-detail-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+}
+
+.agenda-detail-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(16, 24, 32, 0.42);
+  backdrop-filter: blur(2px);
+  cursor: pointer;
+}
+
+.agenda-detail-modal {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+  max-height: min(88dvh, 640px);
+  overflow: auto;
+  border-radius: 16px;
   background: #fff;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 32, 0.06),
+    0 24px 64px rgba(16, 24, 32, 0.22);
 }
 
-.agenda-peek-link {
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.agenda-detail-accent {
+  height: 8px;
+  background: #94a3b8;
 }
 
-.agenda-peek-close {
+.agenda-detail-modal.is-confirmed .agenda-detail-accent {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.agenda-detail-modal.is-completed .agenda-detail-accent {
+  background: linear-gradient(90deg, #34d399, #059669);
+}
+
+.agenda-detail-modal.is-pending .agenda-detail-accent {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.admin-shell[data-brand="temark"] .agenda-detail-modal.is-confirmed .agenda-detail-accent {
+  background: linear-gradient(90deg, #ffd15c, #ffbf19);
+}
+
+.admin-shell[data-brand="temark"] .agenda-detail-modal.is-completed .agenda-detail-accent {
+  background: linear-gradient(90deg, #34d399, #0f766e);
+}
+
+.admin-shell[data-brand="temark"] .agenda-detail-modal.is-pending .agenda-detail-accent {
+  background: linear-gradient(90deg, #fcdbdc, #f9bdbd);
+}
+
+.agenda-detail-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 8px;
+}
+
+.agenda-detail-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.agenda-detail-title {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.agenda-detail-when {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
+.agenda-detail-close {
   flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 32px;
+  height: 32px;
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--agenda-muted);
-  font-size: 1.1rem;
+  color: #64748b;
+  font-size: 1.35rem;
   line-height: 1;
   cursor: pointer;
 }
 
-.agenda-peek-close:hover {
-  background: rgba(12, 18, 34, 0.06);
-  color: var(--agenda-ink);
+.agenda-detail-close:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+}
+
+.agenda-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 20px 6px;
+}
+
+.agenda-detail-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.agenda-detail-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.agenda-detail-thumb {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: #f1f5f9;
+}
+
+.agenda-detail-thumb.is-square {
+  border-radius: 10px;
+}
+
+.agenda-detail-thumb.is-round {
+  border-radius: 999px;
+}
+
+.agenda-detail-thumb-fallback {
+  display: grid;
+  place-items: center;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.admin-shell[data-brand="temark"] .agenda-detail-thumb-fallback,
+.admin-shell[data-brand="temark"] .agenda-detail-icon {
+  background: #fff3da;
+  color: #101820;
+}
+
+.admin-shell[data-brand="temark"] .settings-tabs {
+  border-color: var(--line);
+  background: #f5f2ed;
+}
+
+.admin-shell[data-brand="temark"] .settings-tab[aria-selected="true"] {
+  background: #fffefd;
+  box-shadow: 0 1px 2px rgba(16, 24, 32, 0.06);
+}
+
+.agenda-detail-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.agenda-detail-value {
+  margin: 2px 0 0;
+  font-size: 0.95rem;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.agenda-detail-link {
+  display: block;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.agenda-detail-link:hover {
+  text-decoration: underline;
+}
+
+.agenda-detail-meta {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.agenda-detail-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 20px 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f1f5f9;
+}
+
+.agenda-detail-status-banner.is-confirmed,
+.agenda-detail-status-banner.is-arrived {
+  background: #ecfdf5;
+}
+
+.agenda-detail-status-banner.is-completed {
+  background: #d1fae5;
+}
+
+.agenda-detail-status-banner.is-no_show,
+.agenda-detail-status-banner.is-cancelled,
+.agenda-detail-status-banner.is-expired {
+  background: #fef2f2;
+}
+
+.agenda-detail-status-banner.is-pending_payment {
+  background: #fffbeb;
+}
+
+.agenda-detail-status-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.agenda-detail-status-banner.is-completed .agenda-detail-status-title,
+.agenda-detail-status-banner.is-confirmed .agenda-detail-status-title,
+.agenda-detail-status-banner.is-arrived .agenda-detail-status-title {
+  color: #047857;
+}
+
+.agenda-detail-status-banner.is-no_show .agenda-detail-status-title,
+.agenda-detail-status-banner.is-cancelled .agenda-detail-status-title {
+  color: #b91c1c;
+}
+
+.agenda-detail-status-sub {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  text-transform: lowercase;
+}
+
+.agenda-status-update {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid #eef2f7;
+}
+
+.agenda-status-update-title {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.agenda-status-group {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e8edf3;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.agenda-status-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.agenda-status-action.has-divider {
+  border-top: 1px solid #eef2f7;
+}
+
+.agenda-status-action:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.agenda-status-action:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.agenda-status-glyph {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff;
+  background: #ef4444;
+}
+
+.agenda-status-glyph.is-arrive {
+  background: #f97316;
+}
+
+.agenda-status-glyph.is-done {
+  background: #059669;
+}
+
+.agenda-status-glyph.is-miss,
+.agenda-status-glyph.is-cancel {
+  background: #ef4444;
+}
+
+.agenda-status-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
+.admin-shell[data-brand="temark"] .agenda-detail-link {
+  color: #b8860b;
+}
+
+.admin-shell[data-brand="temark"] .agenda-status-glyph.is-arrive {
+  background: #e11d48;
+}
+
+.admin-shell[data-brand="temark"] .agenda-status-glyph.is-done {
+  background: #0f766e;
+}
+
+.agenda-detail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid #eef2f7;
+  margin-top: 10px;
+}
+
+.agenda-detail-secondary {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.agenda-detail-secondary:hover {
+  color: #0f172a;
+  text-decoration: underline;
 }
 
 .agenda-toolbar {
@@ -669,6 +1113,34 @@ button {
 
 .agenda-block-confirmed:hover {
   background: #047857;
+}
+
+.agenda-block-completed {
+  z-index: 3;
+  border: 0;
+  background: #0f766e;
+  color: #fff;
+  font-weight: 600;
+  opacity: 0.88;
+}
+
+.agenda-block-completed:hover {
+  background: #0d9488;
+  opacity: 1;
+}
+
+.agenda-block-noshow {
+  z-index: 3;
+  border: 0;
+  background: #b91c1c;
+  color: #fff;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.agenda-block-noshow:hover {
+  background: #991b1b;
+  opacity: 1;
 }
 
 .agenda-block-pending {
@@ -3500,13 +3972,14 @@ button {
   box-shadow: 0 0 0 3px rgba(255, 191, 25, 0.28);
 }
 
-/* ── Temark admin panel skin (host app.temark.com.br) ── */
+/* ── Temark admin = Bruno dashboard chrome (Tema/Temark) ── */
 .admin-shell[data-brand="temark"] {
   --ink: #101820;
   --yellow: #ffbf19;
   --cream: #fbf9f5;
   --line: #eeece8;
   --tm-muted: #75808f;
+  --tm-sidebar: clamp(240px, 17.15vw, 290px);
   --background: var(--cream);
   --foreground: var(--ink);
   --card: #fffefd;
@@ -3517,6 +3990,7 @@ button {
   --accent-dark: #0c131a;
   --ring: var(--yellow);
   --admin-bg: var(--cream);
+  --admin-topbar-height: 4.9rem;
   --time: #0787ff;
   --time-bg: #d9ecff;
   --time-border: #aed7ff;
@@ -3525,6 +3999,7 @@ button {
   --warn-border: #ffedbc;
   font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
   color: var(--ink);
+  background: var(--cream);
 }
 
 .admin-shell[data-brand="temark"] h1,
@@ -3535,20 +4010,29 @@ button {
 }
 
 .admin-shell[data-brand="temark"] .admin-sidebar {
-  width: clamp(240px, 17.15vw, 290px);
+  width: var(--tm-sidebar);
   background: linear-gradient(110deg, #fcfaf6, #faf7f1);
   border-right: 1px solid var(--line);
+}
+
+.admin-shell[data-brand="temark"].sidebar-is-collapsed {
+  --tm-sidebar: 88px;
+}
+
+.admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed {
+  width: 88px;
 }
 
 .admin-shell[data-brand="temark"] .temark-sidebar-brand {
   position: relative;
   isolation: isolate;
-  height: auto;
-  min-height: 5.5rem;
+  height: 119px;
+  min-height: 119px;
   justify-content: center;
   overflow: hidden;
   border-bottom: none;
   background: transparent;
+  padding: 31px 32px;
 }
 
 .admin-shell[data-brand="temark"] .temark-sidebar-brand::before {
@@ -3571,16 +4055,25 @@ button {
   max-width: 100%;
   overflow: hidden;
   position: relative;
+  margin-inline: auto;
+  aspect-ratio: 4.65;
 }
 
 .admin-shell[data-brand="temark"] .temark-wordmark-img {
+  position: absolute;
   width: 138%;
   max-width: none;
   height: auto;
-  margin-left: -19%;
-  margin-top: -8%;
+  left: -19%;
+  top: -24%;
   filter: brightness(0);
   object-fit: contain;
+}
+
+.admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .temark-sidebar-brand {
+  padding: 34px 15px;
+  height: 109px;
+  min-height: 109px;
 }
 
 .admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .temark-wordmark {
@@ -3592,16 +4085,29 @@ button {
   height: 70px;
 }
 
+.admin-shell[data-brand="temark"] .temark-nav {
+  padding: 0 24px 12px;
+}
+
 .admin-shell[data-brand="temark"] .sidebar-section-label {
+  margin: 23px 10px 12px;
+  padding: 0;
   color: #7b8390;
   letter-spacing: 1px;
   font-weight: 700;
+  font-size: 12px;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-link {
+  min-height: 53px;
+  margin-bottom: 5px;
+  padding: 5px 8px;
+  gap: 16px;
   border-radius: 18px;
   color: var(--ink);
-  font-size: 0.95rem;
+  font-size: 16px;
+  font-weight: 450;
+  white-space: nowrap;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-link:hover {
@@ -3617,11 +4123,18 @@ button {
 }
 
 .admin-shell[data-brand="temark"] .sidebar-icon {
+  width: 43px;
+  height: 43px;
   background: #f0efebaa;
   color: var(--ink);
-  border-radius: 9999px;
-  width: 2.5rem;
-  height: 2.5rem;
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.7;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-link:hover .sidebar-icon {
@@ -3638,19 +4151,32 @@ button {
 
 .admin-shell[data-brand="temark"] .sidebar-footer {
   background: transparent;
-  border-top-color: var(--line);
+  border-top: 1px solid var(--line);
+  padding: 13px 26px 11px;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-user-avatar {
+  width: 43px;
+  height: 43px;
   background: linear-gradient(120deg, #ffdb80, #ffe9ad);
   color: var(--ink);
+  font-size: 14px;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-user-meta p:first-child {
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-collapse-btn {
+  margin-top: 12px;
+  height: 32px;
   background: #eeece8a3;
   border: none;
   border-radius: 30px;
   color: #78818e;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-collapse-btn:hover {
@@ -3659,24 +4185,65 @@ button {
   border: none;
 }
 
-.admin-shell[data-brand="temark"] .admin-topbar:not(.sidebar-brand) {
-  background: color-mix(in srgb, var(--cream) 92%, white);
-  border-bottom-color: var(--line);
+.admin-shell[data-brand="temark"] .temark-mobile-bar {
+  display: none;
+  height: 79px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-shell[data-brand="temark"] .temark-mobile-bar .temark-wordmark {
+  width: 108px;
+}
+
+.admin-shell[data-brand="temark"] .temark-topbar {
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+  min-height: 110px;
+  height: auto;
+  padding: 28px 0 18px;
+}
+
+.admin-shell[data-brand="temark"] .temark-topbar h1 {
+  font-size: clamp(1.75rem, 3vw, 2.45rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
 }
 
 .admin-shell[data-brand="temark"] .admin-main {
   background: var(--cream);
+  position: relative;
+  isolation: isolate;
+}
+
+.admin-shell[data-brand="temark"] .admin-main.temark-main {
+  padding: 18px 34px 28px;
+}
+
+.admin-shell[data-brand="temark"] .admin-main.temark-main-home {
+  padding-top: 8px;
 }
 
 .admin-shell[data-brand="temark"] .btn-primary {
-  background: var(--yellow);
-  color: var(--ink);
+  background: linear-gradient(135deg, #121a22, #0c131a);
+  color: #fff;
   border-radius: 28px;
   font-weight: 550;
+  box-shadow: 0 4px 11px rgba(16, 24, 32, 0.08);
 }
 
 .admin-shell[data-brand="temark"] .btn-primary:hover {
-  background: #ffd15c;
+  background: #293640;
+}
+
+.admin-shell[data-brand="temark"] .btn-accent,
+.admin-shell[data-brand="temark"] .btn-yellow {
+  background: var(--yellow);
+  color: var(--ink);
+  border-radius: 28px;
 }
 
 .admin-shell[data-brand="temark"] .btn-secondary {
@@ -3688,6 +4255,14 @@ button {
 
 .admin-shell[data-brand="temark"] .btn-secondary:hover {
   background: #fff2cd;
+}
+
+.admin-shell[data-brand="temark"] .surface,
+.admin-shell[data-brand="temark"] .dashboard-panel {
+  border-color: var(--line);
+  background: #fffefd;
+  border-radius: 26px;
+  box-shadow: none;
 }
 
 .admin-shell[data-brand="temark"] input:focus,
@@ -3703,8 +4278,673 @@ button {
 .admin-shell[data-brand="temark"] [class*="rounded-2xl"].border,
 .admin-shell[data-brand="temark"] .rounded-2xl.border {
   border-color: var(--line);
-  background: linear-gradient(135deg, #ffffffc9, #fffffff0);
+  background: #fffefd;
   border-radius: 26px;
+}
+
+/* Temark home — Bruno dashboard layout */
+.tm-dash {
+  position: relative;
+  isolation: isolate;
+  padding-bottom: 40px;
+}
+
+.tm-dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 36px;
+  min-height: 112px;
+  margin-bottom: 32px;
+}
+
+.tm-eyebrow {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 1.15px;
+  font-weight: 700;
+  font-size: 12px;
+  color: #838d98;
+  margin-bottom: 6px;
+}
+
+.tm-welcome h1 {
+  position: relative;
+  display: inline-block;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 650;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.tm-welcome p {
+  color: #6c7787;
+  line-height: 1.55;
+  margin-top: 7px;
+  font-size: 15px;
+}
+
+.tm-rays {
+  position: absolute;
+  width: 64px;
+  height: 57px;
+  display: block;
+  pointer-events: none;
+}
+
+.tm-rays i {
+  position: absolute;
+  display: block;
+  width: 8px;
+  height: 24px;
+  border-radius: 10px;
+  background: linear-gradient(#ffce52, #ffb917);
+  left: 29px;
+  top: 12px;
+  transform: rotate(49deg);
+}
+
+.tm-rays i:first-child {
+  left: 9px;
+  top: 0;
+  transform: rotate(19deg);
+}
+
+.tm-rays i:last-child {
+  left: 39px;
+  top: 39px;
+  transform: rotate(88deg);
+  height: 22px;
+}
+
+.tm-greeting-rays {
+  right: -58px;
+  top: -28px;
+}
+
+.tm-integration-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  padding: 22px 23px;
+  border-radius: 27px;
+  position: relative;
+  isolation: isolate;
+  min-height: 112px;
+  max-width: 650px;
+  flex: 1;
+}
+
+.tm-integration-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(105deg, #fff6e4, #fff7e7);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.tm-wave-hand {
+  position: absolute;
+  z-index: -2;
+  width: 272px;
+  height: 136px;
+  left: -93px;
+  top: 4px;
+  pointer-events: none;
+}
+
+.tm-banner-copy h2 {
+  font-size: 19px;
+  margin: 0;
+}
+
+.tm-banner-copy p {
+  font-size: 14px;
+  color: #687486;
+  line-height: 1.45;
+  margin-top: 6px;
+}
+
+.tm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  min-height: 46px;
+  padding: 0 23px;
+  border-radius: 28px;
+  font-size: 14px;
+  font-weight: 550;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.tm-btn:hover {
+  transform: translateY(-2px);
+}
+
+.tm-btn-dark {
+  background: linear-gradient(135deg, #121a22, #0c131a);
+  color: white;
+  box-shadow: 0 4px 11px rgba(16, 24, 32, 0.08);
+}
+
+.tm-btn-dark:hover {
+  background: #293640;
+}
+
+.tm-btn-yellow {
+  background: var(--yellow, #ffbf19);
+  color: var(--ink, #101820);
+}
+
+.tm-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 21px;
+}
+
+.tm-stat-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 27px;
+  padding: 25px 28px;
+  border-radius: 24px;
+  min-height: 129px;
+  transition: transform 0.18s, box-shadow 0.18s;
+  color: inherit;
+  text-decoration: none;
+}
+
+.tm-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(80, 75, 54, 0.1);
+}
+
+.tm-stat-today {
+  background: linear-gradient(110deg, #ffedc1, #ffefc6);
+}
+
+.tm-stat-tomorrow {
+  background: linear-gradient(110deg, #fcdbdc, #fbdfe0);
+}
+
+.tm-stat-links {
+  background: linear-gradient(110deg, #d9ecff, #d7ebff);
+}
+
+.tm-stat-icon {
+  width: 53px;
+  height: 53px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.tm-stat-today .tm-stat-icon {
+  background: rgba(255, 223, 138, 0.5);
+}
+
+.tm-stat-tomorrow .tm-stat-icon {
+  background: rgba(249, 189, 189, 0.4);
+}
+
+.tm-stat-links .tm-stat-icon {
+  background: rgba(174, 215, 255, 0.5);
+}
+
+.tm-stat-title {
+  font-size: 15px;
+  display: block;
+  line-height: 1.3;
+}
+
+.tm-stat-number {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.tm-stat-number strong {
+  font-size: 49px;
+  font-family: var(--font-outfit), sans-serif;
+  font-weight: 600;
+  letter-spacing: -2px;
+  line-height: 1.12;
+}
+
+.tm-stat-number > span {
+  font-size: 12px;
+  color: #5e6165;
+  white-space: nowrap;
+}
+
+.tm-round-arrow {
+  position: absolute;
+  top: 25px;
+  right: 28px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 18px;
+}
+
+.tm-blue-marks {
+  position: absolute;
+  width: 78px;
+  height: 80px;
+  right: 19px;
+  top: 17px;
+  pointer-events: none;
+  transform: rotate(-4deg);
+}
+
+.tm-blue-marks i {
+  position: absolute;
+  display: block;
+  width: 10px;
+  height: 26px;
+  background: #0787ff;
+  border-radius: 8px;
+  transform: rotate(-43deg);
+  right: 0;
+  top: 0;
+}
+
+.tm-blue-marks i:nth-child(2) {
+  right: 28px;
+  top: 20px;
+  height: 31px;
+}
+
+.tm-blue-marks i:last-child {
+  right: 43px;
+  top: 47px;
+  height: 30px;
+}
+
+.tm-stat-links .tm-round-arrow {
+  z-index: 1;
+  background: rgba(175, 216, 255, 0.36);
+}
+
+.tm-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.73fr) minmax(290px, 1fr);
+  gap: 21px;
+  margin-top: 23px;
+}
+
+.tm-panel {
+  background: #fffefd;
+  border: 1px solid #eeece8;
+  border-radius: 26px;
+}
+
+.tm-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.tm-panel-heading h2 {
+  margin: 0;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.tm-chart-panel {
+  padding: 24px 27px 18px;
+  min-width: 0;
+  min-height: 278px;
+}
+
+.tm-chart-legend {
+  display: flex;
+  gap: 14px;
+  margin-left: auto;
+}
+
+.tm-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tm-legend-item i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: block;
+}
+
+.tm-yellow-dot {
+  background: #ffbd1f;
+}
+
+.tm-black-dot {
+  background: #101820;
+}
+
+.tm-period {
+  font-size: 11px;
+  color: #343c47;
+}
+
+.tm-chart-wrap {
+  margin-top: 23px;
+}
+
+.tm-chart {
+  display: block;
+  width: 100%;
+  height: 190px;
+}
+
+.tm-upcoming-panel {
+  padding: 25px 24px 20px;
+}
+
+.tm-upcoming-panel .tm-panel-heading {
+  justify-content: space-between;
+}
+
+.tm-upcoming-panel h2 {
+  font-size: 19px;
+}
+
+.tm-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #eaa300;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tm-upcoming-empty {
+  min-height: 189px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.tm-empty-icon {
+  position: relative;
+  background: #f2f1ef;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 19px 0 14px;
+}
+
+.tm-empty-icon .tm-rays {
+  top: -28px;
+  right: -34px;
+  transform: scale(0.75);
+}
+
+.tm-empty-title {
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 450;
+  margin: 0;
+}
+
+.tm-empty-description {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #7a8593;
+  margin-top: 4px;
+}
+
+.tm-empty-add {
+  background: none;
+  color: #a88016;
+  font-size: 11px;
+  margin-top: 9px;
+  border-bottom: 1px solid rgba(201, 173, 95, 0.33);
+}
+
+.tm-upcoming-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.tm-appointment-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line, #eeece8);
+}
+
+.tm-appointment-row:last-child {
+  border-bottom: 0;
+}
+
+.tm-avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f5ead2;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tm-appointment-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.tm-appointment-details strong {
+  font-size: 13px;
+  font-weight: 600;
+  display: block;
+}
+
+.tm-appointment-details span {
+  font-size: 12px;
+  color: var(--tm-muted, #75808f);
+  display: block;
+  margin-top: 3px;
+}
+
+.tm-appointment-time {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tm-monthly-panel {
+  padding: 21px 27px 26px;
+  margin-top: 23px;
+}
+
+.tm-monthly-panel > h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.tm-monthly-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.05fr 0.85fr;
+  gap: 30px;
+  margin-top: 20px;
+}
+
+.tm-month-stat {
+  display: flex;
+  align-items: center;
+  gap: 23px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.tm-month-icon {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  font-size: 30px;
+  font-family: var(--font-outfit), sans-serif;
+  font-weight: 600;
+}
+
+.tm-month-yellow {
+  background: #fff3da;
+}
+
+.tm-month-green {
+  background: #e0f6e9;
+  color: #00b870;
+}
+
+.tm-month-purple {
+  background: #eee5ff;
+  color: #5220e8;
+}
+
+.tm-metric-label {
+  color: #7a8393;
+  font-size: 13px;
+}
+
+.tm-month-value {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 3px;
+}
+
+.tm-month-value > strong {
+  font-family: var(--font-outfit), sans-serif;
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.7px;
+  white-space: nowrap;
+}
+
+.tm-month-stat p {
+  font-size: 12px;
+  color: #7b8595;
+  margin-top: 3px;
+}
+
+.tm-setup-hint {
+  margin-top: 23px;
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tm-setup-hint h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.tm-setup-hint p {
+  margin: 0;
+  color: var(--tm-muted, #75808f);
+  font-size: 14px;
+}
+
+.tm-bottom-ribbon {
+  position: absolute;
+  width: 235px;
+  height: 285px;
+  right: -20px;
+  bottom: -40px;
+  z-index: -1;
+  pointer-events: none;
+  color: var(--yellow, #ffbf19);
+  opacity: 0.8;
+  overflow: hidden;
+}
+
+@media (max-width: 1120px) {
+  .tm-dash-header {
+    gap: 20px;
+  }
+
+  .tm-welcome h1 {
+    font-size: 36px;
+  }
+
+  .tm-integration-banner {
+    max-width: 320px;
+  }
+
+  .tm-stat-number strong {
+    font-size: 37px;
+  }
+
+  .tm-overview-grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(225px, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-shell[data-brand="temark"] .admin-main.temark-main {
+    padding: 0 20px 26px;
+  }
+
+  .admin-shell[data-brand="temark"] .temark-mobile-bar {
+    display: flex;
+  }
+
+  .tm-dash-header {
+    display: block;
+    margin-bottom: 23px;
+  }
+
+  .tm-integration-banner {
+    max-width: none;
+    margin-top: 27px;
+    margin-left: 45px;
+  }
+
+  .tm-stat-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tm-overview-grid,
+  .tm-monthly-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tm-wide-only {
+    display: none;
+  }
 }
 
 .onboard-sidebar {

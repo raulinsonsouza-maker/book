@@ -14,6 +14,7 @@ import {
   resolveProfessionalScope,
 } from "@/lib/rbac";
 import { addDays, parseISO, startOfDay, endOfDay } from "date-fns";
+import { CALENDAR_VISIBLE_STATUSES } from "@/lib/booking-status";
 
 type SlotOut = {
   date: string;
@@ -166,9 +167,14 @@ export async function GET(req: Request) {
         ? { professionalId }
         : {}),
       startAt: { gte: startOfDay(fromDate), lte: endOfDay(toDate) },
-      status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
+      status: { in: [...CALENDAR_VISIBLE_STATUSES] },
     },
-    include: { service: true, payment: true, professional: true },
+    include: {
+      service: true,
+      payment: true,
+      professional: true,
+      bookingPage: { select: { title: true } },
+    },
     orderBy: { startAt: "asc" },
   });
 
@@ -329,12 +335,28 @@ export async function GET(req: Request) {
       status: b.status,
       startAt: b.startAt.toISOString(),
       endAt: b.endAt.toISOString(),
+      timezone: b.timezone,
+      customerId: b.customerId ?? null,
       customerName: b.customerName,
       customerEmail: b.customerEmail,
+      customerPhone: b.customerPhone,
       serviceTitle: b.service.title,
+      serviceImageUrl: b.service.imageUrl ?? null,
+      serviceDurationMinutes: b.service.durationMinutes,
       professionalName: b.professional?.displayName ?? null,
+      professionalPhotoUrl: b.professional?.photoUrl ?? null,
+      pageTitle: b.bookingPage.title,
+      confirmedAt: b.confirmedAt?.toISOString() ?? null,
+      arrivedAt: b.arrivedAt?.toISOString() ?? null,
+      completedAt: b.completedAt?.toISOString() ?? null,
+      cancelledAt: b.cancelledAt?.toISOString() ?? null,
+      cancelSource: b.cancelSource ?? null,
+      createdAt: b.createdAt.toISOString(),
       googleEventId: b.googleEventId,
-      paymentStatus: b.payment?.status,
+      googleMeetLink: b.googleMeetLink,
+      paymentStatus: b.payment?.status ?? null,
+      paymentMethod: b.payment?.method ?? null,
+      paymentAmountCents: b.payment?.amountCents ?? null,
     })),
     availableSlots,
     googleEvents,

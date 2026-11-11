@@ -7,12 +7,54 @@ import { toZonedTime } from "date-fns-tz";
 import { formatBRL } from "@/lib/utils";
 import { CancelBookingButton } from "@/components/admin/CancelBookingButton";
 
+function ProntuarioLink({
+  booking,
+}: {
+  booking: { id: string; customerId: string | null; customerPhone: string };
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function open() {
+    if (booking.customerId) {
+      window.location.href = `/app/clientes/${booking.customerId}`;
+      return;
+    }
+    if (!booking.customerPhone?.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/clients/ensure-from-booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.customerId) {
+        window.location.href = `/app/clientes/${data.customerId}`;
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="text-xs font-medium text-foreground underline-offset-2 hover:underline disabled:opacity-50"
+      disabled={busy || (!booking.customerId && !booking.customerPhone?.trim())}
+      onClick={() => void open()}
+    >
+      {busy ? "Abrindo…" : "Abrir prontuário"}
+    </button>
+  );
+}
+
 type Booking = {
   id: string;
   status: string;
   startAt: string;
   endAt: string;
   timezone: string;
+  customerId: string | null;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -31,6 +73,9 @@ const statusLabel: Record<string, string> = {
   ACTIVE: "Ativos",
   CONFIRMED: "Confirmado",
   PENDING_PAYMENT: "Aguardando pagamento",
+  ARRIVED: "Paciente chegou",
+  COMPLETED: "Atendido",
+  NO_SHOW: "Paciente faltou",
   CANCELLED: "Cancelado",
   EXPIRED: "Expirado",
 };
@@ -103,6 +148,9 @@ export default function AgendaListagemPage() {
         >
           <option value="ACTIVE">Ativos</option>
           <option value="CONFIRMED">Confirmados</option>
+          <option value="ARRIVED">Paciente chegou</option>
+          <option value="COMPLETED">Atendidos</option>
+          <option value="NO_SHOW">Faltas</option>
           <option value="PENDING_PAYMENT">Aguardando pagamento</option>
           <option value="EXPIRED">Expirados</option>
           <option value="CANCELLED">Cancelados</option>
@@ -171,9 +219,15 @@ export default function AgendaListagemPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {b.status !== "CANCELLED" && (
-                        <CancelBookingButton id={b.id} onDone={load} />
-                      )}
+                      <div className="flex flex-col items-end gap-2">
+                        <ProntuarioLink booking={b} />
+                        {b.status !== "CANCELLED" &&
+                          b.status !== "EXPIRED" &&
+                          b.status !== "COMPLETED" &&
+                          b.status !== "NO_SHOW" && (
+                            <CancelBookingButton id={b.id} onDone={load} />
+                          )}
+                      </div>
                     </td>
                   </tr>
                 );

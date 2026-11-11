@@ -19,6 +19,7 @@ import {
   parseMetaCapiToken,
   parseMetaPixelId,
 } from "@/lib/tracking/parse";
+import { resolveBusinessProfile } from "@/lib/business-profile";
 
 const schema = z.object({
   name: z.string().min(2).optional(),
@@ -27,6 +28,7 @@ const schema = z.object({
   logoUrl: z.string().nullable().optional(),
   accentColor: z.string().optional(),
   businessMode: z.enum(["SOLO", "SALON"]).optional(),
+  businessProfile: z.enum(["SALON", "CLINIC", "BARBER", "STUDIO"]).optional(),
   paymentProvider: z.enum(["CAKTO", "MERCADO_PAGO", "ASAAS"]).optional(),
   caktoClientId: z.string().nullable().optional(),
   caktoClientSecret: z.string().nullable().optional(),
@@ -57,6 +59,9 @@ type OrgRow = {
   logoUrl: string | null;
   accentColor: string;
   businessMode: "SOLO" | "SALON";
+  businessProfile?: "SALON" | "CLINIC" | "BARBER" | "STUDIO";
+  featureFlags?: string | null;
+  attendanceEnabled?: boolean;
   paymentProvider: "CAKTO" | "MERCADO_PAGO" | "ASAAS";
   caktoClientId: string | null;
   caktoSdkClientId: string | null;
@@ -97,6 +102,12 @@ async function serializeOrg(org: OrgRow) {
     logoUrl: org.logoUrl,
     accentColor: normalizeAccent(org.accentColor),
     businessMode: org.businessMode,
+    businessProfile: org.businessProfile ?? "SALON",
+    businessProfileResolved: resolveBusinessProfile(
+      org.businessProfile,
+      org.featureFlags,
+      org.attendanceEnabled,
+    ),
     paymentProvider: org.paymentProvider,
     caktoClientId: org.caktoClientId,
     caktoSdkClientId: org.caktoSdkClientId,
@@ -197,6 +208,10 @@ export async function PATCH(req: Request) {
         }
       }
       data.businessMode = body.businessMode;
+    }
+
+    if (body.businessProfile !== undefined) {
+      data.businessProfile = body.businessProfile;
     }
 
     if (body.name !== undefined) data.name = body.name;

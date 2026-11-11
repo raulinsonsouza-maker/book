@@ -9,6 +9,10 @@ export type ProductBrand = {
   shortName: string;
   /** Wide wordmark for Temark; square mark handled by BrandLogo for Book. */
   wordmarkSrc?: string;
+  faviconSrc: string;
+  title: string;
+  description: string;
+  themeColor: string;
   homeHref: string;
   appOrigin: string;
 };
@@ -18,6 +22,11 @@ export const PRODUCT_BRANDS: Record<ProductBrandId, ProductBrand> = {
     id: "book",
     name: "Book Symbius",
     shortName: "Book",
+    faviconSrc: "/book-favicon.ico",
+    title: "Book Symbius — Agenda online com cobrança na hora",
+    description:
+      "Link de agendamento com Pix e cartão na mesma tela. Para salão, barbearia, clínica e consultório: o cliente marca, paga e você vê tudo no painel.",
+    themeColor: "#0a0a0a",
     homeHref: "/",
     appOrigin: "https://book.symbius.com.br",
   },
@@ -26,8 +35,13 @@ export const PRODUCT_BRANDS: Record<ProductBrandId, ProductBrand> = {
     name: "Temark",
     shortName: "Temark",
     wordmarkSrc: "/temark-logo.png",
+    faviconSrc: "/temark-favicon.svg",
+    title: "Temark — Sua agenda, seus serviços e seus pagamentos",
+    description:
+      "Agenda, serviços e pagamentos em um só lugar. Marca, confirma e acompanha tudo no painel Temark.",
+    themeColor: "#faf8f4",
     homeHref: "https://temark.com.br",
-    appOrigin: "https://temark.com.br",
+    appOrigin: "https://app.temark.com.br",
   },
 };
 

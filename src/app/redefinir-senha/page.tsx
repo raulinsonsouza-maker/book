@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { BrandLogo } from "@/components/BrandLogo";
+import { AuthBrandMark } from "@/components/brand/AuthBrandMark";
+import { AuthShell } from "@/components/brand/AuthShell";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { useHostProductBrand } from "@/hooks/useProductBrand";
 
 function RedefinirSenhaForm() {
   const router = useRouter();
+  const brand = useHostProductBrand();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
 
@@ -64,9 +67,9 @@ function RedefinirSenhaForm() {
   }
 
   return (
-    <div className="surface w-full max-w-md p-8">
+    <div className="auth-card w-full max-w-md p-8">
       <div className="mb-6 flex flex-col items-center gap-4 text-center">
-        <BrandLogo href="/" size="lg" showText />
+        <AuthBrandMark brand={brand} />
         <Link href="/login" className="text-sm text-muted hover:text-foreground">
           ← Voltar ao login
         </Link>
@@ -127,11 +130,12 @@ function RedefinirSenhaForm() {
 }
 
 export default function RedefinirSenhaPage() {
+  const brand = useHostProductBrand();
   return (
-    <div className="dot-grid flex min-h-screen items-center justify-center px-4">
+    <AuthShell brandId={brand.id}>
       <Suspense fallback={<p className="text-sm text-muted">Carregando…</p>}>
         <RedefinirSenhaForm />
       </Suspense>
-    </div>
+    </AuthShell>
   );
 }

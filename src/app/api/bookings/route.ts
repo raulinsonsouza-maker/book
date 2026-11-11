@@ -7,6 +7,7 @@ import {
   bookingScopeWhere,
   isProfessionalRole,
 } from "@/lib/rbac";
+import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-status";
 
 export async function GET(req: Request) {
   const auth = await apiRequireStaff();
@@ -33,12 +34,15 @@ export async function GET(req: Request) {
         ? { professionalId: professionalIdParam }
         : {}),
       ...(status === "ACTIVE"
-        ? { status: { in: ["CONFIRMED", "PENDING_PAYMENT"] as const } }
+        ? { status: { in: [...ACTIVE_BOOKING_STATUSES] } }
         : status
           ? {
               status: status as
                 | "CONFIRMED"
                 | "PENDING_PAYMENT"
+                | "ARRIVED"
+                | "COMPLETED"
+                | "NO_SHOW"
                 | "CANCELLED"
                 | "EXPIRED",
             }
@@ -72,7 +76,19 @@ export async function GET(req: Request) {
   return NextResponse.json(bookings);
 }
 
-const cancelSchema = z.object({ id: z.string() });
+const patchSchema = z.object({
+  id: z.string(),
+  status: z
+    .enum([
+      "ARRIVED",
+      "COMPLETED",
+      "NO_SHOW",
+      "CANCELLED",
+      "CONFIRMED",
+    ])
+    .optional(),
+  cancelSource: z.enum(["PATIENT", "CLINIC"]).optional(),
+});
 
 export async function PATCH(req: Request) {
   const auth = await apiRequireStaff();
@@ -80,10 +96,10 @@ export async function PATCH(req: Request) {
   const { ctx } = auth;
 
   try {
-    const { id } = cancelSchema.parse(await req.json());
+    const body = patchSchema.parse(await req.json());
     const booking = await prisma.booking.findFirst({
       where: {
-        id,
+        id: body.id,
         ...bookingScopeWhere(ctx),
       },
       include: {
@@ -93,24 +109,123 @@ export async function PATCH(req: Request) {
     if (!booking) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    if (booking.status === "CANCELLED") {
-      return NextResponse.json(booking);
+
+    const nextStatus = body.status ?? "CANCELLED";
+    const now = new Date();
+
+    if (nextStatus === "CANCELLED") {
+      if (booking.status === "CANCELLED") {
+        return NextResponse.json(booking);
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id: body.id },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: now,
+          cancelSource: body.cancelSource ?? "CLINIC",
+        },
+      });
+      await prisma.slotHold.deleteMany({ where: { bookingId: body.id } });
+
+      await emitBookingEvent({
+        type: "booking.cancelled",
+        organizationId: booking.bookingPage.organizationId,
+        bookingId: body.id,
+        dedupeKey: `cancel-${body.id}-${now.getTime()}`,
+      });
+
+      return NextResponse.json(updated);
     }
 
-    const updated = await prisma.booking.update({
-      where: { id },
-      data: { status: "CANCELLED", cancelledAt: new Date() },
-    });
-    await prisma.slotHold.deleteMany({ where: { bookingId: id } });
+    if (booking.status === "CANCELLED" || booking.status === "EXPIRED") {
+      return NextResponse.json(
+        { error: "Agendamento encerrado não pode mudar de status" },
+        { status: 400 },
+      );
+    }
 
-    await emitBookingEvent({
-      type: "booking.cancelled",
-      organizationId: booking.bookingPage.organizationId,
-      bookingId: id,
-      dedupeKey: `cancel-${id}`,
-    });
+    if (nextStatus === "ARRIVED") {
+      if (!["CONFIRMED", "ARRIVED"].includes(booking.status)) {
+        return NextResponse.json(
+          { error: "Só é possível marcar chegada em agendamento confirmado" },
+          { status: 400 },
+        );
+      }
+      const updated = await prisma.booking.update({
+        where: { id: body.id },
+        data: {
+          status: "ARRIVED",
+          arrivedAt: booking.arrivedAt ?? now,
+          cancelSource: null,
+        },
+      });
+      return NextResponse.json(updated);
+    }
 
-    return NextResponse.json(updated);
+    if (nextStatus === "COMPLETED") {
+      if (!["CONFIRMED", "ARRIVED", "COMPLETED"].includes(booking.status)) {
+        return NextResponse.json(
+          { error: "Só é possível concluir agendamento confirmado" },
+          { status: 400 },
+        );
+      }
+      const updated = await prisma.booking.update({
+        where: { id: body.id },
+        data: {
+          status: "COMPLETED",
+          arrivedAt: booking.arrivedAt ?? now,
+          completedAt: booking.completedAt ?? now,
+          cancelSource: null,
+        },
+      });
+      await emitBookingEvent({
+        type: "booking.completed",
+        organizationId: booking.bookingPage.organizationId,
+        bookingId: body.id,
+        dedupeKey: `completed-${body.id}`,
+      });
+      return NextResponse.json(updated);
+    }
+
+    if (nextStatus === "NO_SHOW") {
+      if (!["CONFIRMED", "ARRIVED"].includes(booking.status)) {
+        return NextResponse.json(
+          { error: "Só é possível marcar falta em agendamento ativo" },
+          { status: 400 },
+        );
+      }
+      const updated = await prisma.booking.update({
+        where: { id: body.id },
+        data: {
+          status: "NO_SHOW",
+          cancelSource: null,
+        },
+      });
+      await prisma.slotHold.deleteMany({ where: { bookingId: body.id } });
+      return NextResponse.json(updated);
+    }
+
+    if (nextStatus === "CONFIRMED") {
+      if (!["ARRIVED", "NO_SHOW", "COMPLETED"].includes(booking.status)) {
+        return NextResponse.json(
+          { error: "Não é possível reverter para confirmado" },
+          { status: 400 },
+        );
+      }
+      const updated = await prisma.booking.update({
+        where: { id: body.id },
+        data: {
+          status: "CONFIRMED",
+          arrivedAt: null,
+          completedAt: null,
+          cancelSource: null,
+        },
+      });
+      return NextResponse.json(updated);
+    }
+
+    return NextResponse.json({ error: "Status inválido" }, { status: 400 });
   } catch {
     return NextResponse.json({ error: "Erro" }, { status: 400 });
   }

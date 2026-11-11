@@ -10,6 +10,10 @@ import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { getProductBrand, type ProductBrandId } from "@/lib/product-brand";
 import { useHostProductBrand } from "@/hooks/useProductBrand";
 import {
+  resolveBusinessProfile,
+  type BusinessProfileId,
+} from "@/lib/business-profile";
+import {
   NavIconAccount,
   NavIconBookings,
   NavIconCalendar,
@@ -136,6 +140,7 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith("/app/agenda/listagem"), title: "Lista" },
   { match: (p) => p.startsWith("/app/bookings"), title: "Lista" },
   { match: (p) => p.startsWith("/app/servicos"), title: "Serviços" },
+  { match: (p) => p.startsWith("/app/clientes"), title: "Clientes" },
   {
     match: (p) =>
       p.startsWith("/app/agendador") && p.includes("/availability"),
@@ -171,8 +176,13 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   },
 ];
 
-function pageTitle(pathname: string) {
-  return PAGE_TITLES.find((t) => t.match(pathname))?.title || "Book Symbius";
+function pageTitle(
+  pathname: string,
+  fallback: string,
+  clientsLabel = "Clientes",
+) {
+  if (pathname.startsWith("/app/clientes")) return clientsLabel;
+  return PAGE_TITLES.find((t) => t.match(pathname))?.title || fallback;
 }
 
 function initials(name?: string | null) {
@@ -219,6 +229,8 @@ type Props = {
   userName?: string | null;
   role?: string | null;
   businessMode?: string | null;
+  businessProfile?: BusinessProfileId | string | null;
+  featureFlags?: string | null;
   attendanceEnabled?: boolean;
   /** Server-resolved product brand (avoids Host flash / hydration mismatch). */
   productBrandId?: ProductBrandId;
@@ -229,6 +241,8 @@ function navForRole(
   role: string | null | undefined,
   businessMode: string | null | undefined,
   attendanceEnabled = false,
+  clientsLabel = "Clientes",
+  clientsCrm = true,
 ): NavSection[] {
   const isPro = role === "PROFESSIONAL";
   const isMember = role === "MEMBER";
@@ -268,6 +282,16 @@ function navForRole(
       {
         title: "Negócio",
         items: [
+          ...(clientsCrm
+            ? [
+                {
+                  href: "/app/clientes",
+                  label: clientsLabel,
+                  icon: NavIconAccount,
+                  match: (p: string) => p.startsWith("/app/clientes"),
+                } satisfies NavItem,
+              ]
+            : []),
           {
             href: "/app/financeiro",
             label: "Financeiro",
@@ -348,18 +372,20 @@ function navForRole(
         p.startsWith("/app/professionals"),
     });
   }
+  if (clientsCrm) {
+    negocio.push({
+      href: "/app/clientes",
+      label: clientsLabel,
+      icon: NavIconAccount,
+      match: (p) => p.startsWith("/app/clientes"),
+    });
+  }
   negocio.push(
     {
       href: "/app/checkout/produtos",
       label: "Checkout",
       icon: NavIconCheckout,
       match: (p) => p.startsWith("/app/checkout"),
-    },
-    {
-      href: "/intake",
-      label: "Aberturas",
-      icon: NavIconCheckout,
-      match: (p) => p.startsWith("/intake"),
     },
     {
       href: "/app/financeiro",
@@ -390,6 +416,8 @@ export function AppShell({
   userName,
   role,
   businessMode,
+  businessProfile,
+  featureFlags,
   attendanceEnabled = false,
   productBrandId,
   children,
@@ -400,14 +428,34 @@ export function AppShell({
   const brand = productBrandId
     ? getProductBrand(productBrandId)
     : hostBrand;
+  const profile = resolveBusinessProfile(
+    businessProfile,
+    featureFlags,
+    attendanceEnabled,
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const isBuilder = pathname.includes("/builder");
   const isFloor = pathname.startsWith("/app/salao");
+  const isHome = pathname === "/app";
   const displayName = organizationName || userName || "Sua conta";
   const accountName = userName || organizationName || "Sua conta";
-  const sections = navForRole(role, businessMode, attendanceEnabled);
+  const sections = navForRole(
+    role,
+    businessMode,
+    attendanceEnabled,
+    profile.clientNounPlural,
+    profile.features.clientsCrm,
+  );
   const isTemark = brand.id === "temark";
+  const roleLabel =
+    role === "PROFESSIONAL"
+      ? "Profissional"
+      : role === "MEMBER"
+        ? "Equipe · Aberturas"
+        : businessMode === "SALON"
+          ? "Equipe"
+          : "Individual";
 
   useEffect(() => {
     try {
@@ -485,13 +533,17 @@ export function AppShell({
           />
         )}
 
-        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
+        <nav
+          className={`flex-1 space-y-5 overflow-y-auto py-2 ${
+            isTemark ? "temark-nav" : "px-3"
+          }`}
+        >
           {sections.map((section) => (
             <div key={section.title}>
               {section.title && !isCollapsed && (
                 <p className="sidebar-section-label">{section.title}</p>
               )}
-              <div className="space-y-0.5">
+              <div className={isTemark ? "" : "space-y-0.5"}>
                 {section.items.map((item) => (
                   <SidebarNavLink
                     key={item.href}
@@ -507,7 +559,9 @@ export function AppShell({
         </nav>
 
         <div className="sidebar-footer">
-          <div
+          <Link
+            href="/app/conta"
+            onClick={onNavigate}
             className={`flex min-w-0 items-center gap-3 ${
               isCollapsed ? "justify-center" : ""
             }`}
@@ -520,18 +574,10 @@ export function AppShell({
                 <p className="truncate text-sm font-medium text-foreground">
                   {accountName}
                 </p>
-                <p className="text-[11px] text-muted">
-                  {role === "PROFESSIONAL"
-                    ? "Profissional"
-                    : role === "MEMBER"
-                      ? "Equipe · Aberturas"
-                      : businessMode === "SALON"
-                        ? "Equipe"
-                        : "Individual"}
-                </p>
+                <p className="text-[11px] text-muted">{roleLabel}</p>
               </div>
             )}
-          </div>
+          </Link>
           {showCollapseToggle && (
             <button
               type="button"
@@ -544,6 +590,11 @@ export function AppShell({
               <span aria-hidden>{isCollapsed ? "›" : "‹"}</span>
               {!isCollapsed && <span>Minimizar</span>}
             </button>
+          )}
+          {!isCollapsed && (
+            <div className={isTemark ? "mt-2" : "mt-3"}>
+              <SignOutButton />
+            </div>
           )}
         </div>
       </div>
@@ -587,27 +638,72 @@ export function AppShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {!isBuilder && !isFloor && (
-          <header className="admin-topbar sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-white/90 px-4 backdrop-blur md:px-6 lg:px-8">
+        {isTemark && !isBuilder && !isFloor && (
+          <div className="temark-mobile-bar px-5 lg:hidden">
             <button
               type="button"
-              className="btn-secondary !px-2 lg:hidden"
+              className="btn-secondary !px-2"
               onClick={() => setMobileOpen(true)}
               aria-label="Abrir menu"
             >
               <NavIconMenu />
             </button>
-            <h1 className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight">
-              {pageTitle(pathname)}
-            </h1>
-            <SignOutButton />
+            {brand.wordmarkSrc ? (
+              <Link href="/app" className="temark-wordmark" aria-label={brand.name}>
+                <Image
+                  src={brand.wordmarkSrc}
+                  alt={brand.name}
+                  width={108}
+                  height={28}
+                  className="temark-wordmark-img"
+                />
+              </Link>
+            ) : (
+              <span className="text-sm font-semibold">{brand.name}</span>
+            )}
+            <span className="sidebar-user-avatar">{initials(accountName)}</span>
+          </div>
+        )}
+
+        {!isBuilder && !isFloor && !(isTemark && isHome) && (
+          <header
+            className={
+              isTemark
+                ? "temark-topbar admin-topbar flex items-end justify-between gap-3 px-5 md:px-8 lg:px-[34px]"
+                : "admin-topbar sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-white/90 px-4 backdrop-blur md:px-6 lg:px-8"
+            }
+          >
+            {!isTemark && (
+              <button
+                type="button"
+                className="btn-secondary !px-2 lg:hidden"
+                onClick={() => setMobileOpen(true)}
+                aria-label="Abrir menu"
+              >
+                <NavIconMenu />
+              </button>
+            )}
+            <div className="min-w-0 flex-1">
+              <h1
+                className={
+                  isTemark
+                    ? "truncate"
+                    : "min-w-0 truncate text-base font-semibold tracking-tight"
+                }
+              >
+                {pageTitle(pathname, brand.name, profile.clientNounPlural)}
+              </h1>
+            </div>
+            {!isTemark && <SignOutButton />}
           </header>
         )}
         <main
           className={
             isBuilder || isFloor
               ? "flex-1"
-              : "admin-main flex-1 p-4 md:p-6 lg:p-8"
+              : isTemark
+                ? `admin-main temark-main flex-1 ${isHome ? "temark-main-home" : ""}`
+                : "admin-main flex-1 p-4 md:p-6 lg:p-8"
           }
         >
           {children}

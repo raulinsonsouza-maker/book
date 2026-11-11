@@ -335,7 +335,12 @@ async function handleBookingReminder(bookingId: string) {
 
 async function handleBookingCompleted(bookingId: string) {
   const booking = await loadBookingContext(bookingId);
-  if (!booking || booking.status !== "CONFIRMED") return;
+  if (
+    !booking ||
+    (booking.status !== "CONFIRMED" && booking.status !== "COMPLETED")
+  ) {
+    return;
+  }
   if (booking.feedbackSentAt) return;
   const org = booking.bookingPage.organization;
   if (!org.notifyClientFeedback) return;

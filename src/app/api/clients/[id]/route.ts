@@ -1,0 +1,143 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { apiRequireStaff } from "@/lib/rbac";
+import {
+  backfillCustomerBookings,
+  customerScopeWhere,
+} from "@/lib/clients";
+import { resolveBusinessProfile } from "@/lib/business-profile";
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await apiRequireStaff();
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  const { id } = await params;
+
+  const scope = customerScopeWhere(ctx);
+  const customer = await prisma.customer.findFirst({
+    where: { id, ...scope },
+  });
+  if (!customer) {
+    return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  }
+
+  await backfillCustomerBookings({
+    organizationId: ctx.organizationId,
+    customerId: customer.id,
+    phoneE164: customer.phoneE164,
+    email: customer.email,
+  });
+
+  const org = await prisma.organization.findUnique({
+    where: { id: ctx.organizationId },
+    select: {
+      businessProfile: true,
+      featureFlags: true,
+      attendanceEnabled: true,
+    },
+  });
+  const profile = resolveBusinessProfile(
+    org?.businessProfile,
+    org?.featureFlags,
+    org?.attendanceEnabled,
+  );
+
+  const [bookings, notes, prescriptions] = await Promise.all([
+    prisma.booking.findMany({
+      where: {
+        customerId: customer.id,
+        bookingPage: { organizationId: ctx.organizationId },
+      },
+      include: {
+        service: { select: { title: true, imageUrl: true } },
+        professional: { select: { displayName: true, photoUrl: true } },
+        payment: true,
+        bookingPage: { select: { title: true } },
+      },
+      orderBy: { startAt: "desc" },
+      take: 100,
+    }),
+    prisma.visitNote.findMany({
+      where: { customerId: customer.id, organizationId: ctx.organizationId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    profile.features.prescriptions
+      ? prisma.prescription.findMany({
+          where: {
+            customerId: customer.id,
+            organizationId: ctx.organizationId,
+          },
+          orderBy: { issuedAt: "desc" },
+          take: 50,
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const spentCents = bookings.reduce((acc, b) => {
+    if (b.payment?.status === "PAID") return acc + (b.payment.amountCents || 0);
+    return acc;
+  }, 0);
+
+  return NextResponse.json({
+    profile: {
+      clientNoun: profile.clientNoun,
+      clientNounPlural: profile.clientNounPlural,
+      visitNoun: profile.visitNoun,
+      visitNounPlural: profile.visitNounPlural,
+      chartNoun: profile.chartNoun,
+      features: profile.features,
+    },
+    customer: {
+      id: customer.id,
+      name: customer.name,
+      phoneE164: customer.phoneE164,
+      email: customer.email,
+      notes: customer.notes,
+      createdAt: customer.createdAt.toISOString(),
+    },
+    spentCents,
+    bookings: bookings.map((b) => ({
+      id: b.id,
+      status: b.status,
+      startAt: b.startAt.toISOString(),
+      endAt: b.endAt.toISOString(),
+      timezone: b.timezone,
+      customerName: b.customerName,
+      customerEmail: b.customerEmail,
+      customerPhone: b.customerPhone,
+      serviceTitle: b.service.title,
+      serviceImageUrl: b.service.imageUrl,
+      professionalName: b.professional?.displayName ?? null,
+      professionalPhotoUrl: b.professional?.photoUrl ?? null,
+      pageTitle: b.bookingPage.title,
+      paymentStatus: b.payment?.status ?? null,
+      paymentMethod: b.payment?.method ?? null,
+      paymentAmountCents: b.payment?.amountCents ?? null,
+    })),
+    notes: notes.map((n) => ({
+      id: n.id,
+      body: n.body,
+      bookingId: n.bookingId,
+      createdAt: n.createdAt.toISOString(),
+    })),
+    prescriptions: prescriptions.map((p) => ({
+      id: p.id,
+      items: safeJson(p.items),
+      notes: p.notes,
+      bookingId: p.bookingId,
+      issuedAt: p.issuedAt.toISOString(),
+    })),
+  });
+}
+
+function safeJson(raw: string) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}

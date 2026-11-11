@@ -14,6 +14,7 @@ import {
 import { newManageToken, manageBookingUrl, bookingPaymentUrl } from "@/lib/booking-notify";
 import { requiresOnlinePayment } from "@/lib/payments/resolve-provider";
 import { emitBookingEvent } from "@/lib/events/booking-events";
+import { ensureCustomerFromBooking } from "@/lib/clients";
 
 const MANUAL_HOLD_HOURS = 24;
 
@@ -194,6 +195,16 @@ export async function POST(req: Request) {
         bookingId: booking.id,
         dedupeKey: booking.id,
       });
+    }
+
+    if (body.customerPhone?.trim()) {
+      await ensureCustomerFromBooking({
+        organizationId: page.organizationId,
+        phone: body.customerPhone,
+        name: body.customerName,
+        email: body.customerEmail || null,
+        bookingId: booking.id,
+      }).catch(() => null);
     }
 
     const paymentUrl = confirmNow

@@ -6,6 +6,7 @@ import { apiRequireAdmin } from "@/lib/rbac";
 import { DESCRIPTION_MAX, normalizeAccent } from "@/lib/branding";
 import { ASAAS_ENABLED } from "@/lib/feature-flags";
 import { toE164 } from "@/lib/whatsapp/phone";
+import { parseBusinessProfile } from "@/lib/business-profile";
 
 const PRESET_WEEKDAYS = [1, 2, 3, 4, 5].flatMap((dayOfWeek) => [
   { dayOfWeek, startTime: "09:00", endTime: "12:00" },
@@ -31,6 +32,7 @@ const schema = z.object({
     }),
   accentColor: z.string().optional(),
   businessMode: z.enum(["SOLO", "SALON"]),
+  businessProfile: z.enum(["SALON", "CLINIC", "BARBER", "STUDIO"]).optional(),
   professionals: z
     .array(
       z.object({
@@ -192,6 +194,8 @@ export async function POST(req: Request) {
           logoUrl: body.logoUrl || null,
           accentColor: normalizeAccent(body.accentColor || "#0a0a0a"),
           businessMode: body.businessMode,
+          businessProfile:
+            parseBusinessProfile(body.businessProfile) || undefined,
           paymentProvider: body.paymentProvider || undefined,
           onboardingCompletedAt: new Date(),
         },

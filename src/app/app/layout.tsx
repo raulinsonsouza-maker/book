@@ -10,6 +10,17 @@ import {
 } from "@/lib/billing/platform";
 import { isTeamMemberRole } from "@/lib/rbac";
 import { getRequestProductBrand } from "@/lib/app-origin-server";
+import type { Metadata } from "next";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getRequestProductBrand();
+  return {
+    title: {
+      default: `Painel · ${brand.name}`,
+      template: `%s · ${brand.name}`,
+    },
+  };
+}
 
 export default async function AppLayout({
   children,
@@ -40,6 +51,8 @@ export default async function AppLayout({
       name: true,
       logoUrl: true,
       businessMode: true,
+      businessProfile: true,
+      featureFlags: true,
       onboardingCompletedAt: true,
       attendanceEnabled: true,
     },
@@ -89,6 +102,8 @@ export default async function AppLayout({
       userName={accountName}
       role={session.user.role}
       businessMode={org?.businessMode || session.user.businessMode || "SOLO"}
+      businessProfile={org?.businessProfile || "SALON"}
+      featureFlags={org?.featureFlags}
       attendanceEnabled={Boolean(org?.attendanceEnabled)}
       productBrandId={brand.id}
     >

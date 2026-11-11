@@ -1,0 +1,190 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { apiRequireStaff } from "@/lib/rbac";
+import { toE164 } from "@/lib/whatsapp/phone";
+import { customerScopeWhere } from "@/lib/clients";
+import { resolveBusinessProfile } from "@/lib/business-profile";
+
+export async function GET(req: Request) {
+  const auth = await apiRequireStaff();
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+
+  const org = await prisma.organization.findUnique({
+    where: { id: ctx.organizationId },
+    select: {
+      businessProfile: true,
+      featureFlags: true,
+      attendanceEnabled: true,
+    },
+  });
+  const profile = resolveBusinessProfile(
+    org?.businessProfile,
+    org?.featureFlags,
+    org?.attendanceEnabled,
+  );
+  if (!profile.features.clientsCrm) {
+    return NextResponse.json({ error: "CRM desativado" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get("q")?.trim() || "";
+  const take = Math.min(100, Number(searchParams.get("take") || 50) || 50);
+
+  const scope = customerScopeWhere(ctx);
+  const customers = await prisma.customer.findMany({
+    where: {
+      ...scope,
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q } },
+              { phoneE164: { contains: q.replace(/\D/g, "") } },
+              { email: { contains: q } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: { updatedAt: "desc" },
+    take,
+    include: {
+      bookings: {
+        orderBy: { startAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          startAt: true,
+          status: true,
+          service: { select: { title: true } },
+        },
+      },
+      _count: { select: { bookings: true } },
+    },
+  });
+
+  const ids = customers.map((c) => c.id);
+  const paid = ids.length
+    ? await prisma.payment.groupBy({
+        by: ["bookingId"],
+        where: {
+          status: "PAID",
+          booking: { customerId: { in: ids } },
+        },
+        _sum: { amountCents: true },
+      })
+    : [];
+
+  const bookingPay = await prisma.booking.findMany({
+    where: { customerId: { in: ids } },
+    select: {
+      id: true,
+      customerId: true,
+      payment: { select: { status: true, amountCents: true } },
+    },
+  });
+  const spentByCustomer = new Map<string, number>();
+  for (const b of bookingPay) {
+    if (!b.customerId || b.payment?.status !== "PAID") continue;
+    spentByCustomer.set(
+      b.customerId,
+      (spentByCustomer.get(b.customerId) || 0) + (b.payment.amountCents || 0),
+    );
+  }
+  void paid;
+
+  const upcoming = await prisma.booking.findMany({
+    where: {
+      customerId: { in: ids },
+      status: { in: ["CONFIRMED", "PENDING_PAYMENT"] },
+      startAt: { gte: new Date() },
+    },
+    orderBy: { startAt: "asc" },
+    select: {
+      id: true,
+      customerId: true,
+      startAt: true,
+      service: { select: { title: true } },
+    },
+  });
+  const nextByCustomer = new Map<string, (typeof upcoming)[number]>();
+  for (const b of upcoming) {
+    if (b.customerId && !nextByCustomer.has(b.customerId)) {
+      nextByCustomer.set(b.customerId, b);
+    }
+  }
+
+  return NextResponse.json({
+    profile: {
+      clientNoun: profile.clientNoun,
+      clientNounPlural: profile.clientNounPlural,
+      chartNoun: profile.chartNoun,
+      visitNoun: profile.visitNoun,
+    },
+    clients: customers.map((c) => ({
+      id: c.id,
+      name: c.name,
+      phoneE164: c.phoneE164,
+      email: c.email,
+      bookingsCount: c._count.bookings,
+      lastVisit: c.bookings[0]
+        ? {
+            startAt: c.bookings[0].startAt.toISOString(),
+            status: c.bookings[0].status,
+            serviceTitle: c.bookings[0].service.title,
+          }
+        : null,
+      nextVisit: nextByCustomer.get(c.id)
+        ? {
+            startAt: nextByCustomer.get(c.id)!.startAt.toISOString(),
+            serviceTitle: nextByCustomer.get(c.id)!.service.title,
+          }
+        : null,
+      spentCents: spentByCustomer.get(c.id) || 0,
+    })),
+  });
+}
+
+const createSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  phone: z.string().trim().min(8).max(20),
+  email: z.string().trim().email().optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+});
+
+export async function POST(req: Request) {
+  const auth = await apiRequireStaff();
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+
+  try {
+    const body = createSchema.parse(await req.json());
+    const phoneE164 = toE164(body.phone);
+    if (!phoneE164) {
+      return NextResponse.json({ error: "Telefone inválido" }, { status: 400 });
+    }
+    const customer = await prisma.customer.upsert({
+      where: {
+        organizationId_phoneE164: {
+          organizationId: ctx.organizationId,
+          phoneE164,
+        },
+      },
+      update: {
+        name: body.name,
+        email: body.email || null,
+        notes: body.notes || null,
+      },
+      create: {
+        organizationId: ctx.organizationId,
+        phoneE164,
+        name: body.name,
+        email: body.email || null,
+        notes: body.notes || null,
+      },
+    });
+    return NextResponse.json(customer, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+  }
+}

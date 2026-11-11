@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { useProductBrand } from "@/hooks/useProductBrand";
+import { useHostProductBrand } from "@/hooks/useProductBrand";
 import { OnboardingStepper } from "./OnboardingStepper";
 import {
   ONBOARDING_STEPS,
@@ -36,7 +36,7 @@ export function OnboardingShell({
   children,
 }: Props) {
   const allComplete = step === "pronto";
-  const brand = useProductBrand();
+  const brand = useHostProductBrand();
 
   return (
     <div className="onboard-split" data-brand={brand.id}>

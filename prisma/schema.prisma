@@ -19,9 +19,20 @@ enum BusinessMode {
   SALON
 }
 
+/** Segmento de produto: nomenclatura + módulos (CRM, prescrições, etc.). */
+enum BusinessProfile {
+  SALON
+  CLINIC
+  BARBER
+  STUDIO
+}
+
 enum BookingStatus {
   PENDING_PAYMENT
   CONFIRMED
+  ARRIVED
+  COMPLETED
+  NO_SHOW
   CANCELLED
   EXPIRED
 }
@@ -129,6 +140,10 @@ model Organization {
   logoUrl            String?
   accentColor        String        @default("#0a0a0a")
   businessMode       BusinessMode  @default(SOLO)
+  /** Perfil de segmento (salão, clínica…). Default SALON. */
+  businessProfile    BusinessProfile @default(SALON)
+  /** Overrides JSON de feature flags do perfil (opcional). */
+  featureFlags       String?
   caktoClientId      String?
   caktoClientSecret  String?
   caktoSdkClientId   String?
@@ -192,6 +207,8 @@ model Organization {
   platformPayments   PlatformPayment[]
   intakeSubmissions  IntakeSubmission[]
   customers          Customer[]
+  visitNotes         VisitNote[]
+  prescriptions      Prescription[]
   whatsappMessages   WhatsAppMessageLog[]
   otpChallenges      OtpChallenge[]
   attendanceCertificates AttendanceCertificate[]
@@ -393,7 +410,11 @@ model Booking {
   customAnswers   String?
   holdExpiresAt   DateTime?
   confirmedAt     DateTime?
+  arrivedAt       DateTime?
+  completedAt     DateTime?
   cancelledAt     DateTime?
+  /** PATIENT | CLINIC — quem cancelou, quando status=CANCELLED. */
+  cancelSource    String?
   googleEventId   String?
   googleMeetLink  String?
   manageToken     String?       @unique
@@ -701,15 +722,58 @@ model Customer {
   phoneE164      String
   name           String
   email          String?
+  notes          String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   bookings       Booking[]
   sessions       CustomerSession[]
+  visitNotes     VisitNote[]
+  prescriptions  Prescription[]
   whatsappMessages WhatsAppMessageLog[]
 
   @@unique([organizationId, phoneE164])
   @@index([organizationId, phoneE164])
+  @@index([organizationId, name])
+}
+
+/** Nota de evolução / anamnese leve no prontuário. */
+model VisitNote {
+  id             String       @id @default(cuid())
+  organizationId String
+  customerId     String
+  bookingId      String?
+  authorUserId   String?
+  body           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([bookingId])
+}
+
+/** Orientação / receita operacional (não é documento CFM). */
+model Prescription {
+  id             String       @id @default(cuid())
+  organizationId String
+  customerId     String
+  bookingId      String?
+  authorUserId   String?
+  /** JSON array: [{ title, dose?, instructions? }] */
+  items          String
+  notes          String?
+  issuedAt       DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, issuedAt])
+  @@index([organizationId, issuedAt])
+  @@index([bookingId])
 }
 
 model CustomerSession {

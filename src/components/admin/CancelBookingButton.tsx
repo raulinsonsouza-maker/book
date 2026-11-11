@@ -33,7 +33,11 @@ export function CancelBookingButton({
         await fetch("/api/bookings", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
+          body: JSON.stringify({
+            id,
+            status: "CANCELLED",
+            cancelSource: "CLINIC",
+          }),
         });
         setLoading(false);
         if (onDone) onDone();

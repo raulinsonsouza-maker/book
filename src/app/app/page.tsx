@@ -17,6 +17,8 @@ import {
   buildUtilizationItems,
 } from "@/components/admin/DashboardUtilization";
 import { PaymentSetupBanner } from "@/components/admin/PaymentSetupBanner";
+import { TemarkDashboard } from "@/components/admin/TemarkDashboard";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
 
 type ProStats = Awaited<ReturnType<typeof getDashboardStats>>;
 
@@ -94,6 +96,7 @@ function ProfessionalHome({
 export default async function AppHomePage() {
   const { org } = await requireOrg();
   const ctx = await getAuthContext();
+  const brand = await getRequestProductBrand();
 
   if (ctx && isTeamMemberRole(ctx.role)) {
     redirect("/intake");
@@ -105,6 +108,16 @@ export default async function AppHomePage() {
   const stats = await getDashboardStats(org.id, org.timezone, {
     professionalId: isPro ? ctx!.professionalId : null,
   });
+
+  if (brand.id === "temark") {
+    return (
+      <TemarkDashboard
+        stats={stats}
+        userName={ctx?.name}
+        businessMode={org.businessMode}
+      />
+    );
+  }
 
   if (isPro) {
     return <ProfessionalHome stats={stats} userName={ctx?.name} />;

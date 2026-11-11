@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Suspense, useEffect, useState } from "react";
-import { BrandLogo } from "@/components/BrandLogo";
+import { AuthBrandMark } from "@/components/brand/AuthBrandMark";
+import { AuthShell } from "@/components/brand/AuthShell";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useProductBrand } from "@/hooks/useProductBrand";
@@ -56,7 +57,6 @@ function LoginForm() {
     const sessionRes = await fetch("/api/auth/session");
     const session = await sessionRes.json();
     const dest = postLoginPath(session?.user);
-    // Só honra ?next= se for da mesma “área” do papel (evita MEMBER em /app)
     if (
       nextHint?.startsWith("/") &&
       !nextHint.startsWith("//") &&
@@ -79,111 +79,102 @@ function LoginForm() {
         : "Acesse o painel da sua empresa";
 
   return (
-    <div className="surface w-full max-w-md p-8">
-      <div className="mb-6 flex flex-col items-center gap-4 text-center">
-        {brand.wordmarkSrc ? (
-          <a
-            href={brand.homeHref}
-            className="block w-40"
-            aria-label={`${brand.name}, início`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={brand.wordmarkSrc}
-              alt={brand.name}
-              className="h-auto w-full"
-            />
-          </a>
-        ) : (
-          <BrandLogo href={brand.homeHref} size="lg" showText title={brand.name} />
-        )}
-        <Link
-          href={brand.homeHref}
-          className="text-sm text-muted hover:text-foreground"
-        >
-          ← Voltar
-        </Link>
-      </div>
-      <p className="eyebrow">Acesso</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Entrar</h1>
-      <p className="mt-1 text-sm text-muted">{subtitle}</p>
-
-      {justCreated && (
-        <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          Conta criada. Entre com o e-mail e a senha cadastrados.
-        </p>
-      )}
-      {justReset && (
-        <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          Senha atualizada. Entre com a nova senha.
-        </p>
-      )}
-
-      {googleEnabled && (
-        <>
-          <div className="mt-6">
-            <GoogleSignInButton enabled />
-          </div>
-          <AuthDivider />
-        </>
-      )}
-
-      <form
-        onSubmit={onSubmit}
-        className={`space-y-4 ${googleEnabled ? "" : "mt-6"}`}
-      >
-        <label className="block text-sm">
-          <span className="mb-1.5 block font-medium">E-mail</span>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="input-field"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1.5 block font-medium">Senha</span>
-          <PasswordInput
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="input-field"
-          />
-        </label>
-        <div className="flex justify-end">
+    <AuthShell brandId={brand.id}>
+      <div className="auth-card w-full max-w-md p-8">
+        <div className="mb-6 flex flex-col items-center gap-4 text-center">
+          <AuthBrandMark brand={brand} />
           <Link
-            href="/esqueci-senha"
-            className="text-sm font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
+            href={brand.homeHref}
+            className="text-sm text-muted hover:text-foreground"
           >
-            Esqueci minha senha
+            ← Voltar
           </Link>
         </div>
-        {error && <p className="text-sm text-danger">{error}</p>}
-        <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
-          {loading ? "Entrando…" : "Entrar"}
-        </button>
-      </form>
+        <p className="eyebrow">Acesso</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight">Entrar</h1>
+        <p className="mt-1 text-sm text-muted">{subtitle}</p>
 
-      <p className="mt-6 text-center text-sm text-muted">
-        Não tem conta?{" "}
-        <Link
-          href={brand.id === "temark" ? "/signup?brand=temark" : "/signup"}
-          className="font-medium text-foreground underline-offset-2 hover:underline"
+        {justCreated && (
+          <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Conta criada. Entre com o e-mail e a senha cadastrados.
+          </p>
+        )}
+        {justReset && (
+          <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Senha atualizada. Entre com a nova senha.
+          </p>
+        )}
+
+        {googleEnabled && (
+          <>
+            <div className="mt-6">
+              <GoogleSignInButton enabled />
+            </div>
+            <AuthDivider />
+          </>
+        )}
+
+        <form
+          onSubmit={onSubmit}
+          className={`space-y-4 ${googleEnabled ? "" : "mt-6"}`}
         >
-          Criar agora
-        </Link>
-      </p>
-    </div>
+          <label className="block text-sm">
+            <span className="mb-1.5 block font-medium">E-mail</span>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-field"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1.5 block font-medium">Senha</span>
+            <PasswordInput
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field"
+            />
+          </label>
+          <div className="flex justify-end">
+            <Link
+              href="/esqueci-senha"
+              className="text-sm font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
+            {loading ? "Entrando…" : "Entrar"}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-sm text-muted">
+          Não tem conta?{" "}
+          <Link
+            href={brand.id === "temark" ? "/signup?brand=temark" : "/signup"}
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            Criar agora
+          </Link>
+        </p>
+      </div>
+    </AuthShell>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="dot-grid flex min-h-screen items-center justify-center px-4">
-      <Suspense fallback={<p className="text-sm text-muted">Carregando…</p>}>
-        <LoginForm />
-      </Suspense>
-    </div>
+    <Suspense
+      fallback={
+        <div className="auth-shell flex min-h-screen items-center justify-center px-4">
+          <p className="text-sm text-muted">Carregando…</p>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

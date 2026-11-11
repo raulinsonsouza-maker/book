@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Fraunces, Geist, Instrument_Serif, Outfit } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import { getRequestProductBrand } from "@/lib/app-origin-server";
@@ -34,15 +34,26 @@ const instrument = Instrument_Serif({
   style: ["normal", "italic"],
 });
 
-export const metadata: Metadata = {
-  title: "Book Symbius — Agenda online com cobrança na hora",
-  description:
-    "Link de agendamento com Pix e cartão na mesma tela. Para salão, barbearia, clínica e consultório: o cliente marca, paga e você vê tudo no painel.",
-  icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getRequestProductBrand();
+  return {
+    title: brand.title,
+    description: brand.description,
+    applicationName: brand.name,
+    icons: {
+      icon: [{ url: brand.faviconSrc }],
+      shortcut: brand.faviconSrc,
+      apple: [{ url: brand.faviconSrc }],
+    },
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const brand = await getRequestProductBrand();
+  return {
+    themeColor: brand.themeColor,
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -57,7 +68,7 @@ export default async function RootLayout({
       className={`${geist.variable} ${outfit.variable} ${dmSans.variable} ${fraunces.variable} ${instrument.variable} h-full`}
     >
       <body className="min-h-full antialiased font-sans">
-        <Providers>{children}</Providers>
+        <Providers productBrandId={brand.id}>{children}</Providers>
       </body>
     </html>
   );

@@ -57,10 +57,11 @@ export async function GET(req: Request) {
     timezone,
   );
 
-  const statusFilter = ["CONFIRMED", "PENDING_PAYMENT"] as (
-    | "CONFIRMED"
-    | "PENDING_PAYMENT"
-  )[];
+  const statusFilter = [
+    "CONFIRMED",
+    "PENDING_PAYMENT",
+    "ARRIVED",
+  ] as ("CONFIRMED" | "PENDING_PAYMENT" | "ARRIVED")[];
 
   const bookingWhere = {
     bookingPage: { organizationId: ctx.organizationId },

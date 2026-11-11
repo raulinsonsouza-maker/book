@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Suspense, useEffect, useState } from "react";
-import { BrandLogo } from "@/components/BrandLogo";
+import { AuthBrandMark } from "@/components/brand/AuthBrandMark";
+import { AuthShell } from "@/components/brand/AuthShell";
 import { useProductBrand } from "@/hooks/useProductBrand";
 import {
   parseVerticalSlug,
@@ -70,34 +71,19 @@ function CompleteGoogleSignupForm() {
 
   if (status === "loading" || done || (status === "authenticated" && hasOrg)) {
     return (
-      <div className="dot-grid flex min-h-screen items-center justify-center px-4">
+      <AuthShell brandId={brand.id}>
         <p className="text-sm text-muted">
           {done ? "Abrindo configuração inicial…" : "Carregando…"}
         </p>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="dot-grid flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="surface w-full max-w-md p-8">
+    <AuthShell brandId={brand.id}>
+      <div className="auth-card w-full max-w-md p-8">
         <div className="mb-6 flex justify-center">
-          {brand.wordmarkSrc ? (
-            <a
-              href={brand.homeHref}
-              className="block w-40"
-              aria-label={`${brand.name}, início`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={brand.wordmarkSrc}
-                alt={brand.name}
-                className="h-auto w-full"
-              />
-            </a>
-          ) : (
-            <BrandLogo size="lg" showText title={brand.name} href={brand.homeHref} />
-          )}
+          <AuthBrandMark brand={brand} />
         </div>
         <p className="eyebrow">Quase lá</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Sua empresa</h1>
@@ -141,7 +127,7 @@ function CompleteGoogleSignupForm() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 

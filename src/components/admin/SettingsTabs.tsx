@@ -21,7 +21,7 @@ export function SettingsTabs({ active }: { active: SettingsTab }) {
     <div
       role="tablist"
       aria-label="Configurações"
-      className="flex gap-1 rounded-xl border border-border bg-muted-bg/60 p-1"
+      className="settings-tabs flex w-full gap-1 rounded-xl border border-border bg-muted-bg/60 p-1"
     >
       {TABS.map((tab) => {
         const selected = active === tab.id;
@@ -31,7 +31,7 @@ export function SettingsTabs({ active }: { active: SettingsTab }) {
             href={tab.href}
             role="tab"
             aria-selected={selected}
-            className={`flex-1 rounded-lg px-3 py-2 text-center text-sm font-medium transition ${
+            className={`settings-tab flex-1 rounded-lg px-3 py-2.5 text-center text-sm font-medium transition ${
               selected
                 ? "bg-white text-foreground shadow-sm"
                 : "text-muted hover:text-foreground"

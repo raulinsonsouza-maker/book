@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { BrandLogo } from "@/components/BrandLogo";
-import { PasswordInput } from "@/components/ui/PasswordInput";
+import { AuthBrandMark } from "@/components/brand/AuthBrandMark";
+import { AuthShell } from "@/components/brand/AuthShell";
+import { useHostProductBrand } from "@/hooks/useProductBrand";
 
 export default function EsqueciSenhaPage() {
   const router = useRouter();
+  const brand = useHostProductBrand();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -32,10 +34,10 @@ export default function EsqueciSenhaPage() {
   }
 
   return (
-    <div className="dot-grid flex min-h-screen items-center justify-center px-4">
-      <div className="surface w-full max-w-md p-8">
+    <AuthShell brandId={brand.id}>
+      <div className="auth-card w-full max-w-md p-8">
         <div className="mb-6 flex flex-col items-center gap-4 text-center">
-          <BrandLogo href="/" size="lg" showText />
+          <AuthBrandMark brand={brand} />
           <Link href="/login" className="text-sm text-muted hover:text-foreground">
             ← Voltar ao login
           </Link>
@@ -86,6 +88,6 @@ export default function EsqueciSenhaPage() {
           </form>
         )}
       </div>
-    </div>
+    </AuthShell>
   );
 }

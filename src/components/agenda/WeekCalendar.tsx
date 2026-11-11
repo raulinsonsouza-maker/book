@@ -12,17 +12,12 @@ import {
 import { ptBR } from "date-fns/locale";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ManualBookingModal } from "@/components/agenda/ManualBookingModal";
+import {
+  AgendaBookingModal,
+  type AgendaBookingDetails,
+} from "@/components/agenda/AgendaBookingModal";
 
-type BookingItem = {
-  id: string;
-  status: string;
-  startAt: string;
-  endAt: string;
-  customerName: string;
-  serviceTitle: string;
-  professionalName?: string | null;
-  googleEventId?: string | null;
-};
+type BookingItem = AgendaBookingDetails;
 
 type SlotItem = {
   date: string;
@@ -201,11 +196,16 @@ export function WeekCalendar({
           setSetupHint(null);
           return;
         }
-        setBookings(data.bookings || []);
+        const nextBookings: BookingItem[] = data.bookings || [];
+        setBookings(nextBookings);
         setSlots(data.availableSlots || []);
         setGoogleEvents(data.googleEvents || []);
         setGoogleConnected(Boolean(data.googleConnected));
         setSetupHint((data.setupHint as SetupHint) || null);
+        setSelectedBooking((prev) => {
+          if (!prev) return prev;
+          return nextBookings.find((b) => b.id === prev.id) ?? prev;
+        });
       })
       .catch(() => {
         setCalError("Falha de rede ao carregar o calendário");
@@ -284,34 +284,11 @@ export function WeekCalendar({
       )}
 
       {selectedBooking && (
-        <div className="agenda-booking-peek">
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold tracking-tight">
-              {selectedBooking.customerName}
-            </p>
-            <p className="truncate text-xs text-muted">
-              {format(parseISO(selectedBooking.startAt), "EEE d MMM · HH:mm", {
-                locale: ptBR,
-              })}
-              {" · "}
-              {selectedBooking.serviceTitle}
-              {selectedBooking.professionalName
-                ? ` · ${selectedBooking.professionalName}`
-                : ""}
-            </p>
-          </div>
-          <a href="/app/agenda/listagem" className="agenda-peek-link">
-            Detalhes
-          </a>
-          <button
-            type="button"
-            className="agenda-peek-close"
-            onClick={() => setSelectedBooking(null)}
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-        </div>
+        <AgendaBookingModal
+          booking={selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+          onChanged={load}
+        />
       )}
 
       <div className="agenda-toolbar">
@@ -551,16 +528,19 @@ export function WeekCalendar({
                   )
                   .map((b) => {
                     const { top } = topPx(b.startAt, weekStart);
-                    const confirmed = b.status === "CONFIRMED";
+                    const blockTone =
+                      b.status === "CONFIRMED" || b.status === "ARRIVED"
+                        ? "agenda-block-confirmed"
+                        : b.status === "COMPLETED"
+                          ? "agenda-block-completed"
+                          : b.status === "NO_SHOW"
+                            ? "agenda-block-noshow"
+                            : "agenda-block-pending";
                     return (
                       <button
                         type="button"
                         key={b.id}
-                        className={`agenda-block ${
-                          confirmed
-                            ? "agenda-block-confirmed"
-                            : "agenda-block-pending"
-                        }`}
+                        className={`agenda-block ${blockTone}`}
                         style={{
                           top: `${top}px`,
                           height: `${heightPx(b.startAt, b.endAt)}px`,

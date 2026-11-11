@@ -3,12 +3,15 @@
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { BrandLogo } from "@/components/BrandLogo";
+import { AuthBrandMark } from "@/components/brand/AuthBrandMark";
+import { AuthShell } from "@/components/brand/AuthShell";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { useHostProductBrand } from "@/hooks/useProductBrand";
 import { postLoginPath } from "@/lib/auth-routes";
 
 export default function PrimeiroAcessoPage() {
   const router = useRouter();
+  const brand = useHostProductBrand();
   const { data: session, status, update } = useSession();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -60,17 +63,17 @@ export default function PrimeiroAcessoPage() {
 
   if (status === "loading") {
     return (
-      <div className="dot-grid flex min-h-screen items-center justify-center px-4">
+      <AuthShell brandId={brand.id}>
         <p className="text-sm text-muted">Carregando…</p>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="dot-grid flex min-h-screen items-center justify-center px-4">
-      <div className="surface w-full max-w-md p-8">
+    <AuthShell brandId={brand.id}>
+      <div className="auth-card w-full max-w-md p-8">
         <div className="mb-6 flex flex-col items-center gap-4 text-center">
-          <BrandLogo href="/" size="lg" showText />
+          <AuthBrandMark brand={brand} />
         </div>
         <p className="eyebrow">Primeiro acesso</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">
@@ -122,6 +125,6 @@ export default function PrimeiroAcessoPage() {
           Sair
         </button>
       </div>
-    </div>
+    </AuthShell>
   );
 }

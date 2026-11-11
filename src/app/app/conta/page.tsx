@@ -10,6 +10,11 @@ import {
   SettingsTabs,
   useSettingsTab,
 } from "@/components/admin/SettingsTabs";
+import { useHostProductBrand } from "@/hooks/useProductBrand";
+import {
+  profileOptions,
+  type BusinessProfileId,
+} from "@/lib/business-profile";
 
 type BillingStatus = {
   billingEnabled: boolean;
@@ -26,6 +31,7 @@ type Org = {
   logoUrl: string | null;
   accentColor: string;
   businessMode: "SOLO" | "SALON";
+  businessProfile?: BusinessProfileId;
   notifyClientConfirmation: boolean;
   notifyClientReminder: boolean;
   notifyClientFeedback: boolean;
@@ -41,6 +47,7 @@ type Org = {
 
 function ContaSettingsBody() {
   const tab = useSettingsTab();
+  const brand = useHostProductBrand();
   const [org, setOrg] = useState<Org | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -61,6 +68,9 @@ function ContaSettingsBody() {
   const [savingComms, setSavingComms] = useState(false);
   const [savingMode, setSavingMode] = useState(false);
   const [businessMode, setBusinessMode] = useState<"SOLO" | "SALON">("SOLO");
+  const [businessProfile, setBusinessProfile] =
+    useState<BusinessProfileId>("SALON");
+  const [savingProfile, setSavingProfile] = useState(false);
   const [cardMaxInstallments, setCardMaxInstallments] = useState(12);
   const [savingInstallments, setSavingInstallments] = useState(false);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
@@ -75,6 +85,7 @@ function ContaSettingsBody() {
         setLogoUrl(data.logoUrl || "");
         setAccentColor(data.accentColor || "#0a0a0a");
         setBusinessMode(data.businessMode || "SOLO");
+        setBusinessProfile(data.businessProfile || "SALON");
         setCardMaxInstallments(data.cardMaxInstallments || 12);
         setComms({
           notifyClientConfirmation: data.notifyClientConfirmation,
@@ -113,6 +124,27 @@ function ContaSettingsBody() {
         : `Máximo de ${data.cardMaxInstallments}x no cartão`,
     );
     setTimeout(() => setMsg(""), 2500);
+  }
+
+  async function saveProfile(next: BusinessProfileId) {
+    setSavingProfile(true);
+    setError("");
+    const res = await fetch("/api/organization", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessProfile: next }),
+    });
+    const data = await res.json();
+    setSavingProfile(false);
+    if (!res.ok) {
+      setError(data.error || "Não foi possível salvar o perfil");
+      return;
+    }
+    setBusinessProfile(data.businessProfile || next);
+    setOrg(data);
+    setMsg("Perfil de negócio atualizado");
+    setTimeout(() => setMsg(""), 2500);
+    window.location.reload();
   }
 
   async function saveMode(next: "SOLO" | "SALON") {
@@ -192,13 +224,13 @@ function ContaSettingsBody() {
   const previewDesc = description.trim().slice(0, DESCRIPTION_MAX);
 
   return (
-    <div className={`mx-auto space-y-6 ${tab === "equipe" ? "max-w-3xl" : "max-w-xl"}`}>
+    <div className="settings-page mx-auto w-full max-w-3xl space-y-6">
       <SettingsTabs active={tab} />
 
       {tab === "equipe" ? (
         <EquipePanel />
       ) : (
-        <>
+        <div className="settings-account-stack mx-auto w-full max-w-xl space-y-6">
       {msg && (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
           {msg}
@@ -221,7 +253,7 @@ function ContaSettingsBody() {
       {billing?.billingEnabled && (
         <section className="surface space-y-4 p-6">
           <div>
-            <h2 className="text-sm font-semibold tracking-tight">Assinatura Book Symbius</h2>
+            <h2 className="text-sm font-semibold tracking-tight">Assinatura {brand.name}</h2>
             <p className="mt-1 text-xs text-muted">
               Plano da plataforma (separado do Mercado Pago da sua empresa).
             </p>
@@ -272,7 +304,7 @@ function ContaSettingsBody() {
           <div>
             <h2 className="text-sm font-semibold tracking-tight">WhatsApp (plataforma)</h2>
             <p className="mt-1 text-xs text-muted">
-              OTP e lembretes enviados pelo canal Book Symbius. Franquia do seu plano.
+              OTP e lembretes enviados pelo canal {brand.name}. Franquia do seu plano.
             </p>
           </div>
           <p className="text-2xl font-semibold tabular-nums">
@@ -293,6 +325,40 @@ function ContaSettingsBody() {
           )}
         </section>
       )}
+
+      <section className="surface space-y-4 p-6">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">Meu negócio é</h2>
+          <p className="mt-1 text-xs text-muted">
+            Define nomenclatura (cliente/paciente) e módulos como prontuário e
+            prescrições. Não apaga dados ao trocar.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {profileOptions().map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              disabled={savingProfile || businessProfile === opt.id}
+              onClick={() => void saveProfile(opt.id)}
+              className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
+                businessProfile === opt.id
+                  ? "border-foreground bg-foreground text-white"
+                  : "border-border bg-white hover:bg-muted-bg"
+              }`}
+            >
+              <p className="font-semibold">{opt.label}</p>
+              <p
+                className={`mt-1 text-xs ${
+                  businessProfile === opt.id ? "text-white/80" : "text-muted"
+                }`}
+              >
+                Lista de {opt.clientNounPlural.toLowerCase()}
+              </p>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="surface space-y-4 p-6">
         <div>
@@ -505,7 +571,7 @@ function ContaSettingsBody() {
         <div>
           <h2 className="text-sm font-semibold tracking-tight">Comunicação do Agendamento</h2>
           <p className="mt-1 text-xs text-muted">
-            E-mails com identidade Book Symbius. O Google Calendar cuida dos lembretes do profissional.
+            E-mails com identidade {brand.name}. O Google Calendar cuida dos lembretes do profissional.
           </p>
         </div>
 
@@ -574,7 +640,7 @@ function ContaSettingsBody() {
           {savingComms ? "Salvando…" : "Salvar comunicação"}
         </button>
       </form>
-        </>
+        </div>
       )}
     </div>
   );
