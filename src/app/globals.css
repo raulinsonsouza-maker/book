@@ -5445,20 +5445,20 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
   overflow: hidden;
   border-bottom: none;
   background: transparent;
-  padding: 28px 24px;
+  padding: 34px 32px 24px;
 }
 
 .admin-shell[data-brand="temark"] .temark-sidebar-brand::before {
   content: "";
   position: absolute;
-  width: 168px;
-  height: 168px;
+  width: 200px;
+  height: 112px;
   left: 50%;
-  top: 52%;
+  top: -8px;
   z-index: -1;
   background: linear-gradient(180deg, #ffde78, #ffca3e);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
+  border-radius: 0 0 100px 100px;
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -5484,7 +5484,7 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 }
 
 .admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .temark-sidebar-brand {
-  padding: 28px 12px;
+  padding: 32px 15px 22px;
   height: 109px;
   min-height: 109px;
 }
@@ -5494,9 +5494,9 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 }
 
 .admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .temark-sidebar-brand::before {
-  width: 92px;
-  height: 92px;
-  top: 50%;
+  width: 140px;
+  height: 78px;
+  top: -4px;
 }
 
 .admin-shell[data-brand="temark"] .temark-nav {
