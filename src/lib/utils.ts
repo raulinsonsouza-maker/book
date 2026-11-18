@@ -60,6 +60,19 @@ export function formatPhone(value: string) {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
+/** Exibe E.164 (+55…) ou dígitos crus no formato BR. */
+export function formatPhoneDisplay(value: string | null | undefined) {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  const national =
+    digits.startsWith("55") && digits.length >= 12 ? digits.slice(2) : digits;
+  return formatPhone(national) || value;
+}
+
+export function normalizeEmailInput(value: string) {
+  return value.replace(/\s+/g, "").toLowerCase();
+}
+
 export function formatCpf(value: string) {
   const d = value.replace(/\D/g, "").slice(0, 11);
   if (d.length <= 3) return d;

@@ -10,6 +10,7 @@ import {
   type VisitBooking,
 } from "@/components/clients/VisitRecordModal";
 import { visitRecordSummary } from "@/lib/visit-record";
+import { formatCpf, formatPhoneDisplay } from "@/lib/utils";
 
 type Tab = "timeline" | "bookings" | "payments" | "notes" | "prescriptions";
 
@@ -31,6 +32,7 @@ type Customer = {
   name: string;
   phoneE164: string;
   email: string | null;
+  cpf: string | null;
   notes: string | null;
   createdAt: string;
 };
@@ -39,6 +41,8 @@ type BookingRow = VisitBooking & {
   timezone: string;
   serviceImageUrl: string | null;
   professionalPhotoUrl: string | null;
+  customerCpf?: string | null;
+  customAnswers?: Record<string, string> | null;
 };
 
 type NoteRow = {
@@ -292,8 +296,9 @@ export default function ClienteProntuarioPage() {
               {customer.name}
             </h1>
             <p className="mt-1 text-sm text-muted">
-              {customer.phoneE164}
+              {formatPhoneDisplay(customer.phoneE164)}
               {customer.email ? ` · ${customer.email}` : ""}
+              {customer.cpf ? ` · CPF ${formatCpf(customer.cpf)}` : ""}
             </p>
             {customer.notes ? (
               <p className="mt-2 max-w-xl text-sm text-foreground/80">
@@ -432,6 +437,9 @@ export default function ClienteProntuarioPage() {
                       <p className="text-sm text-muted">
                         {fmtWhen(b.startAt)}
                         {b.professionalName ? ` · ${b.professionalName}` : ""}
+                        {b.customerCpf
+                          ? ` · CPF ${formatCpf(b.customerCpf)}`
+                          : ""}
                       </p>
                     </div>
                     <span className="text-xs font-medium uppercase tracking-wide text-muted">

@@ -4,11 +4,16 @@ import { addMinutes } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { assertSlotAvailable, SlotUnavailableError } from "@/lib/availability";
 import { parseBookBody } from "@/lib/book-validation";
-import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
+import {
+  enabledFormFields,
+  mergeFunnelConfig,
+  parseFunnelConfig,
+} from "@/lib/funnel-config";
 import { newManageToken } from "@/lib/booking-notify";
 import { requiresOnlinePayment } from "@/lib/payments/resolve-provider";
 import { emitBookingEvent } from "@/lib/events/booking-events";
 import { releaseCustomerPendingBookings } from "@/lib/booking-release-pending";
+import { ensureCustomerFromBooking } from "@/lib/clients";
 import { sanitizeClickIds } from "@/lib/tracking/click-ids";
 import { fireBookingScheduleConversion } from "@/lib/tracking/server";
 
@@ -149,6 +154,24 @@ export async function POST(
       return b;
     });
 
+    let customerId: string | null = null;
+    if (body.customerPhone?.trim()) {
+      const customer = await ensureCustomerFromBooking({
+        organizationId: page.organizationId,
+        phone: body.customerPhone,
+        name: body.customerName,
+        email: body.customerEmail?.toLowerCase() || null,
+        cpf: body.customerCpf || null,
+        bookingId: booking.id,
+        customAnswers: body.customAnswers || null,
+        formFields: enabledFormFields(funnelConfig),
+      }).catch((err) => {
+        console.error("[book:legacy] ensure customer failed", err);
+        return null;
+      });
+      customerId = customer?.id ?? null;
+    }
+
     if (!needsPayment) {
       await emitBookingEvent({
         type: "booking.confirmed",
@@ -168,6 +191,7 @@ export async function POST(
       amountCents: service.priceCents,
       serviceTitle: service.title,
       caktoOfferId: service.caktoOfferId,
+      customerId,
     });
   } catch (e) {
     if (e instanceof SlotUnavailableError) {

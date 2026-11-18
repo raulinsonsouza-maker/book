@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  formatCpf,
+  formatPhone,
+  formatPhoneDisplay,
+  normalizeEmailInput,
+} from "@/lib/utils";
 
 type ClientRow = {
   id: string;
@@ -70,6 +76,7 @@ export default function ClientesPage() {
     name: "",
     phone: "",
     email: "",
+    cpf: "",
     notes: "",
   });
 
@@ -117,6 +124,7 @@ export default function ClientesPage() {
           name: form.name,
           phone: form.phone,
           email: form.email || null,
+          cpf: form.cpf || null,
           notes: form.notes || null,
         }),
       });
@@ -126,7 +134,7 @@ export default function ClientesPage() {
         return;
       }
       setShowCreate(false);
-      setForm({ name: "", phone: "", email: "", notes: "" });
+      setForm({ name: "", phone: "", email: "", cpf: "", notes: "" });
       window.location.href = `/app/clientes/${data.id}`;
     } catch {
       setError("Falha de rede ao salvar");
@@ -174,10 +182,15 @@ export default function ClientesPage() {
               <span className="mb-1 block font-medium">Telefone</span>
               <input
                 className="input-field"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
                 required
-                placeholder="11999999999"
+                placeholder="(11) 99999-9999"
                 value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, phone: formatPhone(e.target.value) }))
+                }
               />
             </label>
             <label className="block text-sm">
@@ -185,8 +198,28 @@ export default function ClientesPage() {
               <input
                 className="input-field"
                 type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="nome@email.com"
                 value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    email: normalizeEmailInput(e.target.value),
+                  }))
+                }
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">CPF</span>
+              <input
+                className="input-field"
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+                value={form.cpf}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, cpf: formatCpf(e.target.value) }))
+                }
               />
             </label>
             <label className="block text-sm sm:col-span-2">
@@ -260,7 +293,7 @@ export default function ClientesPage() {
                       {c.name}
                     </p>
                     <p className="text-sm text-muted">
-                      {c.phoneE164}
+                      {formatPhoneDisplay(c.phoneE164)}
                       {c.email ? ` · ${c.email}` : ""}
                     </p>
                   </div>

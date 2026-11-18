@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
+import { formatPhone, normalizeEmailInput } from "@/lib/utils";
 
 type SlotItem = {
   date: string;
@@ -335,9 +336,14 @@ export function ManualBookingModal({
               </span>
               <input
                 type="email"
+                inputMode="email"
+                autoComplete="email"
                 className="input-field w-full"
+                placeholder="nome@email.com"
                 value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
+                onChange={(e) =>
+                  setCustomerEmail(normalizeEmailInput(e.target.value))
+                }
               />
             </label>
 
@@ -347,9 +353,12 @@ export function ManualBookingModal({
               </span>
               <input
                 type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
                 className="input-field w-full"
+                placeholder="(11) 99999-9999"
                 value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
+                onChange={(e) => setCustomerPhone(formatPhone(e.target.value))}
               />
             </label>
 

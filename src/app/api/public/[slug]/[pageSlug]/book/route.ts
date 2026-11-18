@@ -8,12 +8,17 @@ import {
   SlotUnavailableError,
 } from "@/lib/availability";
 import { parseBookBody } from "@/lib/book-validation";
-import { mergeFunnelConfig, parseFunnelConfig } from "@/lib/funnel-config";
+import {
+  enabledFormFields,
+  mergeFunnelConfig,
+  parseFunnelConfig,
+} from "@/lib/funnel-config";
 import { newManageToken } from "@/lib/booking-notify";
 import { requiresOnlinePayment } from "@/lib/payments/resolve-provider";
 import { emitBookingEvent } from "@/lib/events/booking-events";
 import { releaseCustomerPendingBookings } from "@/lib/booking-release-pending";
 import { upsertCustomer } from "@/lib/customer-auth";
+import { seedIntakeNoteFromBooking } from "@/lib/clients";
 import { toE164 } from "@/lib/whatsapp/phone";
 import { sanitizeClickIds } from "@/lib/tracking/click-ids";
 import { fireBookingScheduleConversion } from "@/lib/tracking/server";
@@ -132,18 +137,34 @@ export async function POST(
     }
 
     let customerId: string | null = null;
+    let isNewPatient = false;
     try {
       if (body.customerPhone) {
+        const phoneE164 = toE164(body.customerPhone);
+        if (phoneE164) {
+          const existing = await prisma.customer.findUnique({
+            where: {
+              organizationId_phoneE164: {
+                organizationId: page.organizationId,
+                phoneE164,
+              },
+            },
+            select: { id: true },
+          });
+          isNewPatient = !existing;
+        }
         const customer = await upsertCustomer({
           organizationId: page.organizationId,
           phone: body.customerPhone,
           name: body.customerName,
           email: body.customerEmail?.toLowerCase() ?? null,
+          cpf: body.customerCpf || null,
         });
         customerId = customer.id;
       }
     } catch {
       customerId = null;
+      isNewPatient = false;
     }
 
     const booking = await prisma.$transaction(async (tx) => {
@@ -233,6 +254,20 @@ export async function POST(
       return b;
     });
 
+    if (customerId) {
+      await seedIntakeNoteFromBooking({
+        organizationId: page.organizationId,
+        customerId,
+        bookingId: booking.id,
+        isNewPatient,
+        cpf: body.customerCpf?.replace(/\D/g, "") || null,
+        customAnswers: body.customAnswers || null,
+        formFields: enabledFormFields(funnelConfig),
+      }).catch((err) => {
+        console.error("[book] seed intake note failed", err);
+      });
+    }
+
     if (!needsPayment) {
       await emitBookingEvent({
         type: "booking.confirmed",
@@ -253,6 +288,7 @@ export async function POST(
       serviceTitle: service.title,
       caktoOfferId: service.caktoOfferId,
       professionalId,
+      customerId,
     });
   } catch (e) {
     if (e instanceof SlotUnavailableError) {

@@ -21,9 +21,11 @@ export async function upsertCustomer(input: {
   phone: string;
   name?: string;
   email?: string | null;
+  cpf?: string | null;
 }) {
   const phoneE164 = toE164(input.phone);
   if (!phoneE164) throw new Error("Telefone inválido");
+  const cpfDigits = input.cpf?.replace(/\D/g, "") || null;
 
   return prisma.customer.upsert({
     where: {
@@ -35,12 +37,14 @@ export async function upsertCustomer(input: {
     update: {
       ...(input.name ? { name: input.name } : {}),
       ...(input.email !== undefined ? { email: input.email } : {}),
+      ...(cpfDigits ? { cpf: cpfDigits } : {}),
     },
     create: {
       organizationId: input.organizationId,
       phoneE164,
       name: input.name?.trim() || "Cliente",
       email: input.email || null,
+      cpf: cpfDigits,
     },
   });
 }

@@ -148,7 +148,10 @@ export async function GET(req: Request) {
 const createSchema = z.object({
   name: z.string().trim().min(2).max(120),
   phone: z.string().trim().min(8).max(20),
-  email: z.string().trim().email().optional().nullable(),
+  email: z
+    .union([z.string().trim().email(), z.literal(""), z.null()])
+    .optional(),
+  cpf: z.union([z.string().trim().max(14), z.literal(""), z.null()]).optional(),
   notes: z.string().trim().max(2000).optional().nullable(),
 });
 
@@ -163,6 +166,8 @@ export async function POST(req: Request) {
     if (!phoneE164) {
       return NextResponse.json({ error: "Telefone inválido" }, { status: 400 });
     }
+    const email = body.email ? body.email.toLowerCase() : null;
+    const cpf = body.cpf?.replace(/\D/g, "") || null;
     const customer = await prisma.customer.upsert({
       where: {
         organizationId_phoneE164: {
@@ -172,14 +177,16 @@ export async function POST(req: Request) {
       },
       update: {
         name: body.name,
-        email: body.email || null,
+        email,
+        ...(cpf ? { cpf } : {}),
         notes: body.notes || null,
       },
       create: {
         organizationId: ctx.organizationId,
         phoneE164,
         name: body.name,
-        email: body.email || null,
+        email,
+        cpf,
         notes: body.notes || null,
       },
     });

@@ -722,6 +722,7 @@ model Customer {
   phoneE164      String
   name           String
   email          String?
+  cpf            String?
   notes          String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -735,6 +736,7 @@ model Customer {
   @@unique([organizationId, phoneE164])
   @@index([organizationId, phoneE164])
   @@index([organizationId, name])
+  @@index([organizationId, cpf])
 }
 
 /** Nota de evolução / anamnese leve no prontuário. */

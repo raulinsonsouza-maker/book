@@ -31,6 +31,24 @@ export async function GET(
     email: customer.email,
   });
 
+  if (!customer.cpf) {
+    const withCpf = await prisma.booking.findFirst({
+      where: {
+        customerId: customer.id,
+        customerCpf: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { customerCpf: true },
+    });
+    if (withCpf?.customerCpf) {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { cpf: withCpf.customerCpf },
+      });
+      customer.cpf = withCpf.customerCpf;
+    }
+  }
+
   const org = await prisma.organization.findUnique({
     where: { id: ctx.organizationId },
     select: {
@@ -96,6 +114,7 @@ export async function GET(
       name: customer.name,
       phoneE164: customer.phoneE164,
       email: customer.email,
+      cpf: customer.cpf,
       notes: customer.notes,
       createdAt: customer.createdAt.toISOString(),
     },
@@ -109,6 +128,8 @@ export async function GET(
       customerName: b.customerName,
       customerEmail: b.customerEmail,
       customerPhone: b.customerPhone,
+      customerCpf: b.customerCpf,
+      customAnswers: parseAnswers(b.customAnswers),
       serviceTitle: b.service.title,
       serviceImageUrl: b.service.imageUrl,
       professionalName: b.professional?.displayName ?? null,
@@ -140,4 +161,17 @@ function safeJson(raw: string) {
   } catch {
     return [];
   }
+}
+
+function parseAnswers(raw: string | null) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
