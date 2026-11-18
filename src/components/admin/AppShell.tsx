@@ -534,18 +534,14 @@ export function AppShell({
           ))}
         </nav>
 
-        <div className="sidebar-footer">
-          <div
-            className={`flex min-w-0 items-center gap-2 ${
-              isCollapsed ? "flex-col" : ""
-            }`}
-          >
+        <div
+          className={`sidebar-footer ${isCollapsed ? "is-collapsed" : ""}`}
+        >
+          <div className="sidebar-footer-user">
             <Link
               href={settingsHref}
               onClick={onNavigate}
-              className={`flex min-w-0 flex-1 items-center gap-3 ${
-                isCollapsed ? "justify-center" : ""
-              }`}
+              className="sidebar-footer-identity"
             >
               <span className="sidebar-user-avatar" title={accountName}>
                 {initials(accountName)}
@@ -555,7 +551,7 @@ export function AppShell({
                   <p className="truncate text-sm font-medium text-foreground">
                     {accountName}
                   </p>
-                  <p className="text-[11px] text-muted">{roleLabel}</p>
+                  <p className="truncate text-[11px] text-muted">{roleLabel}</p>
                 </div>
               )}
             </Link>
@@ -571,24 +567,25 @@ export function AppShell({
               <NavIconSettings />
             </Link>
           </div>
-          {showCollapseToggle && (
-            <button
-              type="button"
-              className="sidebar-collapse-btn"
-              onClick={toggleCollapsed}
-              aria-label={isCollapsed ? "Expandir menu" : "Minimizar menu"}
-              aria-expanded={!isCollapsed}
-              title={isCollapsed ? "Expandir" : "Minimizar"}
-            >
-              <span aria-hidden>{isCollapsed ? "›" : "‹"}</span>
-              {!isCollapsed && <span>Minimizar</span>}
-            </button>
-          )}
-          {!isCollapsed && (
-            <div className={isTemark ? "mt-2" : "mt-3"}>
-              <SignOutButton />
-            </div>
-          )}
+
+          <div className="sidebar-footer-actions">
+            {showCollapseToggle && (
+              <button
+                type="button"
+                className="sidebar-collapse-btn"
+                onClick={toggleCollapsed}
+                aria-label={isCollapsed ? "Expandir menu" : "Minimizar menu"}
+                aria-expanded={!isCollapsed}
+                title={isCollapsed ? "Expandir" : "Minimizar"}
+              >
+                <span aria-hidden>{isCollapsed ? "›" : "‹"}</span>
+                {!isCollapsed && <span>Minimizar</span>}
+              </button>
+            )}
+            {!isCollapsed && (
+              <SignOutButton className="sidebar-signout-btn" />
+            )}
+          </div>
         </div>
       </div>
     );

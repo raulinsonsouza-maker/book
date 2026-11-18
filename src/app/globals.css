@@ -54,58 +54,10 @@
   background: #ffffff;
 }
 
-.sidebar-collapse-btn {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  width: 100%;
-  margin-top: 0.75rem;
-  padding: 0.45rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 0.65rem;
-  background: #fff;
-  color: #64748b;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
-}
-
-@media (min-width: 1024px) {
-  .sidebar-collapse-btn {
-    display: inline-flex;
-  }
-}
-
-.sidebar-collapse-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-
-.admin-sidebar.is-collapsed .sidebar-collapse-btn {
-  width: 2rem;
-  height: 2rem;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 0;
-  font-size: 1rem;
-}
-
 .admin-sidebar.is-collapsed .sidebar-link {
   justify-content: center;
   padding-left: 0.45rem;
   padding-right: 0.45rem;
-}
-
-.admin-sidebar.is-collapsed .sidebar-footer {
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
 }
 
 .sidebar-brand {
@@ -196,9 +148,35 @@
 
 .sidebar-footer {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
   border-top: 1px solid var(--border);
-  padding: 0.875rem 1rem 1rem;
+  padding: 0.85rem 0.9rem 1rem;
   background: rgba(255, 255, 255, 0.72);
+}
+
+.sidebar-footer-user {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.sidebar-footer-identity {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.7rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.sidebar-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .sidebar-user-avatar {
@@ -245,8 +223,77 @@
 }
 
 .sidebar-settings-btn svg {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.sidebar-collapse-btn {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.sidebar-collapse-btn:hover {
+  color: var(--foreground);
+  background: rgba(12, 18, 34, 0.04);
+}
+
+.sidebar-signout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.sidebar-signout-btn:hover {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.admin-sidebar.is-collapsed .sidebar-footer {
+  align-items: center;
+  padding-inline: 0.55rem;
+}
+
+.admin-sidebar.is-collapsed .sidebar-footer-user {
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.admin-sidebar.is-collapsed .sidebar-footer-identity {
+  justify-content: center;
+  flex: 0;
+}
+
+.admin-sidebar.is-collapsed .sidebar-footer-actions {
+  width: 100%;
+  justify-content: center;
+}
+
+.admin-sidebar.is-collapsed .sidebar-collapse-btn {
+  flex: 0;
+  width: 2.25rem;
+  padding: 0;
 }
 
 .admin-header {
@@ -5287,30 +5334,57 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
 .admin-shell[data-brand="temark"] .sidebar-footer {
   background: transparent;
   border-top: 1px solid var(--line);
-  padding: 13px 26px 11px;
+  padding: 14px 18px 16px;
+  gap: 0.65rem;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-footer-user {
+  gap: 0.5rem;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-user-avatar {
-  width: 43px;
-  height: 43px;
+  width: 2.5rem;
+  height: 2.5rem;
   background: linear-gradient(120deg, #ffdb80, #ffe9ad);
   color: var(--ink);
-  font-size: 14px;
+  font-size: 0.8125rem;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-user-meta p:first-child {
-  font-size: 16px;
+  font-size: 0.9375rem;
   font-weight: 600;
+  line-height: 1.2;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-settings-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-color: var(--line);
+  background: #fffefd;
+  color: var(--tm-muted);
+  border-radius: 0.85rem;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-settings-btn:hover {
+  color: var(--ink);
+  border-color: #e2ded6;
+  background: #f7f4ef;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-settings-btn.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-collapse-btn {
-  margin-top: 12px;
-  height: 32px;
+  margin-top: 0;
+  height: 2rem;
   background: #eeece8a3;
   border: none;
   border-radius: 30px;
   color: #78818e;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 500;
 }
 
@@ -5318,6 +5392,19 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
   background: #e5e2dc;
   color: var(--ink);
   border: none;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-signout-btn {
+  height: 2rem;
+  border-color: var(--line);
+  background: #fffefd;
+  color: #78818e;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-signout-btn:hover {
+  color: #b91c1c;
+  border-color: #f3d2d2;
+  background: #fff5f5;
 }
 
 .admin-shell[data-brand="temark"] .temark-mobile-bar {
