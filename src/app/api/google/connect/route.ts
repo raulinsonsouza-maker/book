@@ -2,28 +2,31 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getRequestAppOrigin } from "@/lib/app-origin-server";
-import { getGoogleAuthUrl, googleConfigured } from "@/lib/google/calendar";
+import {
+  createGoogleOAuthState,
+  getGoogleAuthUrl,
+  googleConfigured,
+} from "@/lib/google/calendar";
 
 export async function GET() {
-  const base = await getRequestAppOrigin();
+  const returnOrigin = await getRequestAppOrigin();
   const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return NextResponse.redirect(new URL("/login", base));
+  if (!session?.user?.organizationId || !session.user.id) {
+    return NextResponse.redirect(new URL("/login", returnOrigin));
   }
 
   if (!googleConfigured()) {
     return NextResponse.redirect(
-      new URL("/app/integracoes?google=missing_env", base),
+      new URL("/app/integracoes?google=missing_env", returnOrigin),
     );
   }
 
-  const state = Buffer.from(
-    JSON.stringify({
-      organizationId: session.user.organizationId,
-      userId: session.user.id,
-    }),
-  ).toString("base64url");
+  const state = createGoogleOAuthState({
+    organizationId: session.user.organizationId,
+    userId: session.user.id,
+    returnOrigin,
+  });
 
-  const url = getGoogleAuthUrl(state, base);
+  const url = getGoogleAuthUrl(state);
   return NextResponse.redirect(url);
 }

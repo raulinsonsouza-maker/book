@@ -29,28 +29,6 @@ function Rays({ className }: { className?: string }) {
   );
 }
 
-function WaveHand() {
-  return (
-    <svg className="tm-wave-hand" viewBox="0 0 340 170" aria-hidden>
-      <defs>
-        <linearGradient id="tm-hand-gradient" x1="0" y1="0" x2="1" y2=".8">
-          <stop stopColor="#ffc52f" />
-          <stop offset=".52" stopColor="#ffd54f" />
-          <stop offset="1" stopColor="#ffe5a0" stopOpacity=".55" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M62 88C49 81 43 66 41 53L36 28C34 21 43 18 46 25L51 42L46 15C44 6 54 4 56 13L61 39L58 9C57 0 68-1 69 8L72 38L73 14C73 5 83 6 83 15L83 49L95 35C100 28 109 34 105 41L94 64C92 69 89 73 86 77C97 113 130 133 176 136C220 139 259 127 303 105L320 130C263 160 219 172 166 165C108 160 77 132 62 88Z"
-        fill="url(#tm-hand-gradient)"
-        stroke="none"
-      />
-      <g fill="none" stroke="#989c98" strokeWidth="1.7" strokeLinecap="round">
-        <path d="M26 38C22 46 23 56 29 64M16 42C12 52 15 63 22 71M112 19C118 26 119 35 116 44M121 14C128 24 130 35 126 46" />
-      </g>
-    </svg>
-  );
-}
-
 function TrendChart({
   months,
   maxValue,
@@ -136,7 +114,6 @@ function TrendChart({
 export function TemarkDashboard({
   stats,
   userName,
-  businessMode,
 }: {
   stats: Stats;
   userName?: string | null;
@@ -157,45 +134,6 @@ export function TemarkDashboard({
           </h1>
           <p>Aqui está o resumo da sua agenda e dos seus pagamentos.</p>
         </div>
-
-        {!stats.paymentReady ? (
-          <div className="tm-integration-banner">
-            <WaveHand />
-            <div className="tm-banner-copy">
-              <h2>Pagamentos online</h2>
-              <p>
-                Conecte Mercado Pago ou Asaas para
-                <br className="tm-wide-only" /> receber pagamentos automaticamente.
-              </p>
-            </div>
-            <Link href="/app/integracoes" className="tm-btn tm-btn-dark">
-              Configurar integrações
-              <span aria-hidden>→</span>
-            </Link>
-          </div>
-        ) : (
-          <div className="tm-integration-banner tm-integration-banner-ready">
-            <WaveHand />
-            <div className="tm-banner-copy">
-              <h2>Pagamentos ativos</h2>
-              <p>
-                Seu checkout está pronto.
-                {businessMode === "SALON" ? " Acompanhe a equipe na gestão à vista." : ""}
-              </p>
-            </div>
-            {businessMode === "SALON" ? (
-              <Link href="/app/salao" className="tm-btn tm-btn-dark">
-                Gestão à vista
-                <span aria-hidden>→</span>
-              </Link>
-            ) : (
-              <Link href="/app/financeiro" className="tm-btn tm-btn-dark">
-                Ver financeiro
-                <span aria-hidden>→</span>
-              </Link>
-            )}
-          </div>
-        )}
       </header>
 
       <div className="tm-stat-grid">

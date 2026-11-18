@@ -293,9 +293,9 @@ export async function GET(req: Request) {
     }
   }
 
+  // Org-level Google Calendar works for SOLO and SALON (admin). Pros keep their scoped agenda.
   const googleConnected =
-    !salonMode &&
-    !professionalId &&
+    !isProfessionalRole(ctx.role) &&
     Boolean(
       page.organization.googleRefreshToken || page.organization.googleAccessToken,
     );

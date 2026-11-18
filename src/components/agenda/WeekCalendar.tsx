@@ -388,7 +388,7 @@ export function WeekCalendar({
           >
             Google
           </button>
-          {!googleConnected && !isProfessionalView && !salonAdmin && (
+          {!googleConnected && !isProfessionalView && (
             <a href="/app/integracoes" className="agenda-connect">
               Conectar
             </a>

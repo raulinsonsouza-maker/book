@@ -1,5 +1,7 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { google } from "googleapis";
 import { prisma } from "@/lib/prisma";
+import { defaultAppOrigin } from "@/lib/app-origin";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
@@ -7,19 +9,85 @@ const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ];
 
+const STATE_TTL_MS = 15 * 60 * 1000;
+
+export type GoogleOAuthState = {
+  organizationId: string;
+  userId: string;
+  returnOrigin: string;
+  exp: number;
+};
+
 export function googleConfigured() {
   return Boolean(
     process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
   );
 }
 
-export function getGoogleOAuthClient(origin?: string) {
+/** Always the URI registered in Google Cloud (Book). Host brands must not override it. */
+export function googleOAuthRedirectUri() {
+  const configured = process.env.GOOGLE_REDIRECT_URI?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+  return `${defaultAppOrigin()}/api/google/callback`;
+}
+
+function stateSecret() {
+  return (
+    process.env.NEXTAUTH_SECRET ||
+    process.env.GOOGLE_CLIENT_SECRET ||
+    "google-oauth-state"
+  );
+}
+
+function signPayload(payload: string) {
+  return createHmac("sha256", stateSecret()).update(payload).digest("base64url");
+}
+
+export function createGoogleOAuthState(input: {
+  organizationId: string;
+  userId: string;
+  returnOrigin: string;
+}) {
+  const body: GoogleOAuthState = {
+    organizationId: input.organizationId,
+    userId: input.userId,
+    returnOrigin: input.returnOrigin.replace(/\/$/, ""),
+    exp: Date.now() + STATE_TTL_MS,
+  };
+  const payload = Buffer.from(JSON.stringify(body), "utf8").toString("base64url");
+  return `${payload}.${signPayload(payload)}`;
+}
+
+export function parseGoogleOAuthState(raw: string): GoogleOAuthState | null {
+  const [payload, sig] = raw.split(".");
+  if (!payload || !sig) return null;
+  const expected = signPayload(payload);
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  try {
+    const body = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as GoogleOAuthState;
+    if (
+      !body?.organizationId ||
+      !body?.userId ||
+      !body?.returnOrigin ||
+      !body?.exp ||
+      body.exp < Date.now()
+    ) {
+      return null;
+    }
+    return body;
+  } catch {
+    return null;
+  }
+}
+
+export function getGoogleOAuthClient() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = origin?.trim()
-    ? `${origin.replace(/\/$/, "")}/api/google/callback`
-    : process.env.GOOGLE_REDIRECT_URI ||
-      `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/google/callback`;
+  const redirectUri = googleOAuthRedirectUri();
 
   if (!clientId || !clientSecret) {
     throw new Error("GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não configurados");
@@ -28,8 +96,8 @@ export function getGoogleOAuthClient(origin?: string) {
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
-export function getGoogleAuthUrl(state: string, origin?: string) {
-  const client = getGoogleOAuthClient(origin);
+export function getGoogleAuthUrl(state: string) {
+  const client = getGoogleOAuthClient();
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -38,8 +106,8 @@ export function getGoogleAuthUrl(state: string, origin?: string) {
   });
 }
 
-export async function exchangeGoogleCode(code: string, origin?: string) {
-  const client = getGoogleOAuthClient(origin);
+export async function exchangeGoogleCode(code: string) {
+  const client = getGoogleOAuthClient();
   const { tokens } = await client.getToken(code);
   client.setCredentials(tokens);
 
