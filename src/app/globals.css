@@ -347,11 +347,9 @@ html[data-product-brand="temark"] h3 {
 
 .auth-shell[data-brand="temark"],
 html[data-product-brand="temark"] .auth-shell {
-  background-color: var(--cream);
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255, 191, 25, 0.22), transparent 55%),
-    radial-gradient(circle at 12% 88%, rgba(255, 222, 120, 0.18), transparent 40%),
-    linear-gradient(180deg, #fbf9f5 0%, #f7f3eb 100%);
+  background: var(--cream);
+  background-image: none;
+  background-size: auto;
 }
 
 .auth-card {
