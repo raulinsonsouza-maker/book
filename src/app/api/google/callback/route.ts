@@ -51,7 +51,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const tokens = await exchangeGoogleCode(code, requestOrigin);
+    const tokens = await exchangeGoogleCode(code);
 
     const existing = await prisma.organization.findUnique({
       where: { id: parsed.organizationId },

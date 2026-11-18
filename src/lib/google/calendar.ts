@@ -28,37 +28,16 @@ function normalizeCallbackUri(raw: string) {
   return raw.trim().replace(/\/$/, "");
 }
 
-/** Callbacks that can be used if also registered in Google Cloud Console. */
-export function googleOAuthAllowedRedirectUris(): string[] {
-  const book =
-    process.env.GOOGLE_REDIRECT_URI?.trim() ||
-    `${defaultAppOrigin()}/api/google/callback`;
-  const list = [
-    normalizeCallbackUri(book),
-    "https://book.symbius.com.br/api/google/callback",
-    "https://app.temark.com.br/api/google/callback",
-  ];
-  return [...new Set(list.filter(Boolean))];
-}
-
 /**
- * Prefer a callback on the same origin as the request when it is already
- * registered in Google Cloud — keeps the NextAuth session on that host.
- * Falls back to the canonical Book callback.
+ * Canonical Calendar OAuth callback — must match Google Cloud Console exactly.
+ * Temark/Book both start OAuth here; `returnOrigin` in state sends the user back.
  */
-export function googleOAuthRedirectUri(requestOrigin?: string) {
-  const allowed = googleOAuthAllowedRedirectUris();
-  if (requestOrigin) {
-    try {
-      const origin = new URL(requestOrigin).origin;
-      const candidate = normalizeCallbackUri(`${origin}/api/google/callback`);
-      const hit = allowed.find((uri) => uri === candidate);
-      if (hit) return hit;
-    } catch {
-      /* ignore */
-    }
-  }
-  return allowed[0]!;
+export function googleOAuthRedirectUri(_requestOrigin?: string) {
+  const configured = process.env.GOOGLE_REDIRECT_URI?.trim();
+  if (configured) return normalizeCallbackUri(configured);
+  return normalizeCallbackUri(
+    `${defaultAppOrigin()}/api/google/callback`,
+  );
 }
 
 function stateSecret() {
@@ -114,10 +93,10 @@ export function parseGoogleOAuthState(raw: string): GoogleOAuthState | null {
   }
 }
 
-export function getGoogleOAuthClient(requestOrigin?: string) {
+export function getGoogleOAuthClient() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = googleOAuthRedirectUri(requestOrigin);
+  const redirectUri = googleOAuthRedirectUri();
 
   if (!clientId || !clientSecret) {
     throw new Error("GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não configurados");
@@ -126,8 +105,8 @@ export function getGoogleOAuthClient(requestOrigin?: string) {
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
-export function getGoogleAuthUrl(state: string, requestOrigin?: string) {
-  const client = getGoogleOAuthClient(requestOrigin);
+export function getGoogleAuthUrl(state: string) {
+  const client = getGoogleOAuthClient();
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -136,8 +115,8 @@ export function getGoogleAuthUrl(state: string, requestOrigin?: string) {
   });
 }
 
-export async function exchangeGoogleCode(code: string, requestOrigin?: string) {
-  const client = getGoogleOAuthClient(requestOrigin);
+export async function exchangeGoogleCode(code: string) {
+  const client = getGoogleOAuthClient();
   const { tokens } = await client.getToken(code);
   client.setCredentials(tokens);
 

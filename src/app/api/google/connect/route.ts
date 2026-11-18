@@ -30,6 +30,6 @@ export async function GET() {
     returnOrigin,
   });
 
-  const url = getGoogleAuthUrl(state, returnOrigin);
+  const url = getGoogleAuthUrl(state);
   return NextResponse.redirect(url);
 }
