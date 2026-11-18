@@ -1680,6 +1680,43 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
   color: var(--agenda-ink);
 }
 
+.agenda-view-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.agenda-view-btn {
+  height: 1.85rem;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--agenda-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agenda-view-btn:hover {
+  background: rgba(12, 18, 34, 0.05);
+  color: var(--agenda-ink);
+}
+
+.agenda-view-btn.is-active {
+  background: var(--agenda-ink);
+  color: #fff;
+}
+
+.admin-shell[data-brand="temark"] .agenda-view-btn.is-active {
+  background: var(--ink);
+  color: #fff;
+}
+
 .agenda-loading {
   width: 0.65rem;
   height: 0.65rem;
@@ -1762,11 +1799,169 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
   transition: opacity 0.2s ease;
 }
 
+.agenda-grid-wrap.is-day .agenda-grid-head,
+.agenda-grid-wrap.is-day .agenda-grid-body {
+  min-width: 0;
+}
+
 .agenda-grid-head,
 .agenda-grid-body {
   display: grid;
   min-width: 800px;
   grid-template-columns: 48px repeat(7, 1fr);
+}
+
+.agenda-month-wrap {
+  overflow: hidden;
+  border-radius: 0.85rem;
+}
+
+.agenda-month-wrap.is-loading {
+  opacity: 0.72;
+  transition: opacity 0.2s ease;
+}
+
+.agenda-month-head,
+.agenda-month-body {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.agenda-month-head {
+  border-bottom: 1px solid var(--agenda-line);
+  background: #fafafa;
+}
+
+.agenda-month-weekday {
+  padding: 0.55rem 0.35rem;
+  text-align: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--agenda-muted);
+}
+
+.agenda-month-cell {
+  min-height: 7.5rem;
+  padding: 0.35rem;
+  border-right: 1px solid var(--agenda-line);
+  border-bottom: 1px solid var(--agenda-line);
+  background: #fff;
+}
+
+.agenda-month-cell:nth-child(7n) {
+  border-right: 0;
+}
+
+.agenda-month-cell.is-out {
+  background: #fafafa;
+}
+
+.agenda-month-cell.is-out .agenda-month-day-num {
+  color: #c4c4c4;
+}
+
+.agenda-month-cell.is-today {
+  background: rgba(12, 18, 34, 0.02);
+}
+
+.agenda-month-day-btn {
+  display: flex;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
+.agenda-month-day-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--agenda-ink);
+}
+
+.agenda-month-cell.is-today .agenda-month-day-num {
+  background: var(--agenda-ink);
+  color: #fff;
+}
+
+.agenda-month-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.agenda-month-chip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 0.3rem;
+  padding: 0.12rem 0.3rem;
+  text-align: left;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.agenda-month-chip.is-confirmed {
+  background: #059669;
+  color: #fff;
+}
+
+.agenda-month-chip.is-completed {
+  background: #0f766e;
+  color: #fff;
+}
+
+.agenda-month-chip.is-noshow {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.agenda-month-chip.is-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.agenda-month-chip.is-google {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.agenda-month-more {
+  border: 0;
+  background: transparent;
+  padding: 0.05rem 0.2rem;
+  text-align: left;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--agenda-muted);
+  cursor: pointer;
+}
+
+.agenda-month-more:hover {
+  color: var(--agenda-ink);
+}
+
+@media (max-width: 720px) {
+  .agenda-month-cell {
+    min-height: 5.5rem;
+  }
+
+  .agenda-month-chip {
+    font-size: 0.55rem;
+  }
 }
 
 .agenda-grid-head {

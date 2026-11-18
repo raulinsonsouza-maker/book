@@ -2,11 +2,19 @@
 
 import {
   addDays,
+  addMonths,
   addWeeks,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
   format,
   isSameDay,
+  isSameMonth,
   parseISO,
+  startOfDay,
+  startOfMonth,
   startOfWeek,
+  subMonths,
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -40,24 +48,48 @@ type ServiceOption = { id: string; title: string; durationMinutes: number };
 type ProOption = { id: string; displayName: string; serviceIds: string[] };
 
 type SetupHint = "NO_PROS" | "NO_HOURS" | "NEED_PRO_FILTER" | null;
+type AgendaView = "day" | "week" | "month";
 
 const HOUR_START = 7;
 const HOUR_END = 20;
-const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
+const HOURS = Array.from(
+  { length: HOUR_END - HOUR_START + 1 },
+  (_, i) => HOUR_START + i,
+);
+const WEEK_STARTS_ON = 0 as const;
+const VIEW_OPTIONS: { id: AgendaView; label: string }[] = [
+  { id: "day", label: "Dia" },
+  { id: "week", label: "Semana" },
+  { id: "month", label: "Mês" },
+];
 
 /** Sentinel no select: qualquer profissional disponível para o serviço. */
 const ANYONE = "__anyone__";
 
-function topPx(iso: string, weekStart: Date) {
+function topPx(iso: string) {
   const d = parseISO(iso);
   const hours = d.getHours() + d.getMinutes() / 60;
   const top = (hours - HOUR_START) * 48;
-  return { top: Math.max(0, top) };
+  return Math.max(0, top);
 }
 
 function heightPx(startAt: string, endAt: string) {
   const ms = parseISO(endAt).getTime() - parseISO(startAt).getTime();
   return Math.max(24, (ms / 3600000) * 48);
+}
+
+function bookingTone(status: string) {
+  if (status === "CONFIRMED" || status === "ARRIVED") return "agenda-block-confirmed";
+  if (status === "COMPLETED") return "agenda-block-completed";
+  if (status === "NO_SHOW") return "agenda-block-noshow";
+  return "agenda-block-pending";
+}
+
+function monthChipTone(status: string) {
+  if (status === "CONFIRMED" || status === "ARRIVED") return "is-confirmed";
+  if (status === "COMPLETED") return "is-completed";
+  if (status === "NO_SHOW") return "is-noshow";
+  return "is-pending";
 }
 
 type Props = {
@@ -79,9 +111,8 @@ export function WeekCalendar({
 }: Props) {
   const salonAdmin = businessMode === "SALON" && !isProfessionalView;
 
-  const [weekStart, setWeekStart] = useState(() =>
-    startOfWeek(new Date(), { weekStartsOn: 0 }),
-  );
+  const [view, setView] = useState<AgendaView>("week");
+  const [cursor, setCursor] = useState(() => startOfDay(new Date()));
   const [pageId, setPageId] = useState(initialPageId);
   const [serviceId, setServiceId] = useState(initialServiceId);
   const [services, setServices] = useState<ServiceOption[]>([]);
@@ -100,9 +131,31 @@ export function WeekCalendar({
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
   const [manualSlot, setManualSlot] = useState<SlotItem | null>(null);
 
-  const weekEnd = addDays(weekStart, 6);
-  const from = format(weekStart, "yyyy-MM-dd");
-  const to = format(weekEnd, "yyyy-MM-dd");
+  const range = useMemo(() => {
+    if (view === "day") {
+      return { start: cursor, end: cursor };
+    }
+    if (view === "week") {
+      const start = startOfWeek(cursor, { weekStartsOn: WEEK_STARTS_ON });
+      return { start, end: addDays(start, 6) };
+    }
+    const monthStart = startOfMonth(cursor);
+    const monthEnd = endOfMonth(cursor);
+    return {
+      start: startOfWeek(monthStart, { weekStartsOn: WEEK_STARTS_ON }),
+      end: endOfWeek(monthEnd, { weekStartsOn: WEEK_STARTS_ON }),
+    };
+  }, [cursor, view]);
+
+  const from = format(range.start, "yyyy-MM-dd");
+  const to = format(range.end, "yyyy-MM-dd");
+
+  const days = useMemo(
+    () => eachDayOfInterval({ start: range.start, end: range.end }),
+    [range.start, range.end],
+  );
+
+  const gridDays = view === "day" ? [cursor] : view === "week" ? days : days;
 
   const prosForService = useMemo(
     () => allPros.filter((p) => p.serviceIds.includes(serviceId)),
@@ -228,10 +281,37 @@ export function WeekCalendar({
     load();
   }, [load]);
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const showPageFilter = pages.length > 1;
   const selectedService = services.find((s) => s.id === serviceId);
   const today = new Date();
+
+  const rangeLabel =
+    view === "day"
+      ? format(cursor, "EEEE, d 'de' MMMM yyyy", { locale: ptBR })
+      : view === "week"
+        ? `${format(range.start, "d MMM", { locale: ptBR })} – ${format(range.end, "d MMM yyyy", { locale: ptBR })}`
+        : format(cursor, "MMMM yyyy", { locale: ptBR });
+
+  function goPrev() {
+    if (view === "day") setCursor((d) => addDays(d, -1));
+    else if (view === "week") setCursor((d) => subWeeks(d, 1));
+    else setCursor((d) => subMonths(d, 1));
+  }
+
+  function goNext() {
+    if (view === "day") setCursor((d) => addDays(d, 1));
+    else if (view === "week") setCursor((d) => addWeeks(d, 1));
+    else setCursor((d) => addMonths(d, 1));
+  }
+
+  function goToday() {
+    setCursor(startOfDay(new Date()));
+  }
+
+  function openDay(day: Date) {
+    setCursor(startOfDay(day));
+    setView("day");
+  }
 
   const modalProId =
     isProfessionalView && professionalId
@@ -243,6 +323,261 @@ export function WeekCalendar({
 
   const modalAnyone =
     salonAdmin && proFilter === ANYONE && !manualSlot?.professionalId;
+
+  function renderTimeGrid(columns: Date[]) {
+    const colCount = columns.length;
+    return (
+      <div
+        className={`agenda-grid-wrap surface ${loadingCal ? "is-loading" : ""} ${
+          colCount === 1 ? "is-day" : ""
+        }`}
+      >
+        <div
+          className="agenda-grid-head"
+          style={{ gridTemplateColumns: `48px repeat(${colCount}, 1fr)` }}
+        >
+          <div className="agenda-time-gutter" />
+          {columns.map((d) => {
+            const isToday = isSameDay(d, today);
+            return (
+              <div
+                key={d.toISOString()}
+                className={`agenda-day-head ${isToday ? "is-today" : ""}`}
+              >
+                <span className="agenda-day-name">
+                  {format(d, "EEE", { locale: ptBR })}
+                </span>
+                <span className="agenda-day-num">{format(d, "d")}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          className="agenda-grid-body"
+          style={{ gridTemplateColumns: `48px repeat(${colCount}, 1fr)` }}
+        >
+          <div className="agenda-time-col">
+            {HOURS.map((h) => (
+              <div key={h} className="agenda-hour-label">
+                {String(h).padStart(2, "0")}:00
+              </div>
+            ))}
+          </div>
+          {columns.map((day) => {
+            const isToday = isSameDay(day, today);
+            const dayKey = format(day, "yyyy-MM-dd");
+            return (
+              <div
+                key={day.toISOString()}
+                className={`agenda-day-col ${isToday ? "is-today" : ""}`}
+              >
+                {HOURS.map((h) => (
+                  <div key={h} className="agenda-hour-cell" />
+                ))}
+
+                {showGoogle &&
+                  googleEvents
+                    .filter(
+                      (ev) =>
+                        format(parseISO(ev.startAt), "yyyy-MM-dd") === dayKey,
+                    )
+                    .map((ev) => {
+                      const style = {
+                        top: `${topPx(ev.startAt)}px`,
+                        height: `${heightPx(ev.startAt, ev.endAt)}px`,
+                      };
+                      const className = "agenda-block agenda-block-google";
+                      const label = (
+                        <span className="truncate font-medium">
+                          {ev.summary}
+                        </span>
+                      );
+                      if (ev.htmlLink) {
+                        return (
+                          <a
+                            key={ev.id}
+                            href={ev.htmlLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={className}
+                            style={style}
+                            title={ev.summary}
+                          >
+                            {label}
+                          </a>
+                        );
+                      }
+                      return (
+                        <div
+                          key={ev.id}
+                          className={`${className} pointer-events-none`}
+                          style={style}
+                          title={ev.summary}
+                        >
+                          {label}
+                        </div>
+                      );
+                    })}
+
+                {showSlots &&
+                  slots
+                    .filter((s) => s.date === dayKey)
+                    .map((s, i) => {
+                      const proName =
+                        salonAdmin && s.professionalId
+                          ? prosForService.find(
+                              (p) => p.id === s.professionalId,
+                            )?.displayName
+                          : null;
+                      return (
+                        <button
+                          type="button"
+                          key={`slot-${s.startAt}-${i}`}
+                          className="agenda-block agenda-block-slot"
+                          style={{
+                            top: `${topPx(s.startAt)}px`,
+                            height: `${heightPx(s.startAt, s.endAt)}px`,
+                          }}
+                          title={
+                            proName ? `Agendar · ${proName}` : "Agendar"
+                          }
+                          onClick={() => {
+                            setSelectedBooking(null);
+                            setManualSlot(s);
+                          }}
+                        >
+                          <span>{s.label}</span>
+                          {proName && proFilter === ANYONE ? (
+                            <span className="agenda-block-sub">{proName}</span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+
+                {bookings
+                  .filter(
+                    (b) =>
+                      format(parseISO(b.startAt), "yyyy-MM-dd") === dayKey,
+                  )
+                  .map((b) => (
+                    <button
+                      type="button"
+                      key={b.id}
+                      className={`agenda-block ${bookingTone(b.status)}`}
+                      style={{
+                        top: `${topPx(b.startAt)}px`,
+                        height: `${heightPx(b.startAt, b.endAt)}px`,
+                      }}
+                      title={`${b.serviceTitle} · ${b.customerName}`}
+                      onClick={() => setSelectedBooking(b)}
+                    >
+                      <span className="truncate">{b.customerName}</span>
+                    </button>
+                  ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function renderMonthGrid() {
+    const weekdayLabels = Array.from({ length: 7 }, (_, i) =>
+      format(addDays(startOfWeek(new Date(), { weekStartsOn: WEEK_STARTS_ON }), i), "EEE", {
+        locale: ptBR,
+      }),
+    );
+
+    return (
+      <div
+        className={`agenda-month-wrap surface ${loadingCal ? "is-loading" : ""}`}
+      >
+        <div className="agenda-month-head">
+          {weekdayLabels.map((label) => (
+            <div key={label} className="agenda-month-weekday">
+              {label}
+            </div>
+          ))}
+        </div>
+        <div className="agenda-month-body">
+          {gridDays.map((day) => {
+            const dayKey = format(day, "yyyy-MM-dd");
+            const inMonth = isSameMonth(day, cursor);
+            const isToday = isSameDay(day, today);
+            const dayBookings = bookings.filter(
+              (b) => format(parseISO(b.startAt), "yyyy-MM-dd") === dayKey,
+            );
+            const dayGoogle = showGoogle
+              ? googleEvents.filter(
+                  (ev) =>
+                    format(parseISO(ev.startAt), "yyyy-MM-dd") === dayKey,
+                )
+              : [];
+            const chips = [
+              ...dayBookings.map((b) => ({
+                key: b.id,
+                label: b.customerName,
+                tone: monthChipTone(b.status),
+                onClick: () => setSelectedBooking(b),
+              })),
+              ...dayGoogle.map((ev) => ({
+                key: `g-${ev.id}`,
+                label: ev.summary,
+                tone: "is-google",
+                onClick: () => {
+                  if (ev.htmlLink) window.open(ev.htmlLink, "_blank", "noreferrer");
+                },
+              })),
+            ].slice(0, 4);
+            const extra =
+              dayBookings.length + dayGoogle.length - chips.length;
+
+            return (
+              <div
+                key={day.toISOString()}
+                className={`agenda-month-cell ${inMonth ? "" : "is-out"} ${
+                  isToday ? "is-today" : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  className="agenda-month-day-btn"
+                  onClick={() => openDay(day)}
+                  aria-label={`Abrir ${format(day, "d MMMM", { locale: ptBR })}`}
+                >
+                  <span className="agenda-month-day-num">{format(day, "d")}</span>
+                </button>
+                <div className="agenda-month-events">
+                  {chips.map((chip) => (
+                    <button
+                      type="button"
+                      key={chip.key}
+                      className={`agenda-month-chip ${chip.tone}`}
+                      title={chip.label}
+                      onClick={chip.onClick}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                  {extra > 0 && (
+                    <button
+                      type="button"
+                      className="agenda-month-more"
+                      onClick={() => openDay(day)}
+                    >
+                      +{extra}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="agenda-week space-y-3">
@@ -296,34 +631,42 @@ export function WeekCalendar({
           <div className="agenda-nav">
             <button
               type="button"
-              onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+              onClick={goPrev}
               className="agenda-nav-btn"
-              aria-label="Semana anterior"
+              aria-label="Anterior"
             >
               ‹
             </button>
             <button
               type="button"
-              onClick={() =>
-                setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }))
-              }
+              onClick={goToday}
               className="agenda-nav-today"
             >
               Hoje
             </button>
             <button
               type="button"
-              onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+              onClick={goNext}
               className="agenda-nav-btn"
-              aria-label="Próxima semana"
+              aria-label="Próximo"
             >
               ›
             </button>
           </div>
-          <p className="agenda-range capitalize">
-            {format(weekStart, "d MMM", { locale: ptBR })} –{" "}
-            {format(weekEnd, "d MMM yyyy", { locale: ptBR })}
-          </p>
+          <div className="agenda-view-switch" role="group" aria-label="Visualização">
+            {VIEW_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className={`agenda-view-btn ${view === opt.id ? "is-active" : ""}`}
+                aria-pressed={view === opt.id}
+                onClick={() => setView(opt.id)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="agenda-range capitalize">{rangeLabel}</p>
           {loadingCal && <span className="agenda-loading" aria-hidden />}
         </div>
 
@@ -372,14 +715,16 @@ export function WeekCalendar({
               ))}
             </select>
           )}
-          <button
-            type="button"
-            className={`agenda-chip ${showSlots ? "is-on is-slots" : ""}`}
-            aria-pressed={showSlots}
-            onClick={() => setShowSlots((v) => !v)}
-          >
-            Livres
-          </button>
+          {view !== "month" && (
+            <button
+              type="button"
+              className={`agenda-chip ${showSlots ? "is-on is-slots" : ""}`}
+              aria-pressed={showSlots}
+              onClick={() => setShowSlots((v) => !v)}
+            >
+              Livres
+            </button>
+          )}
           <button
             type="button"
             className={`agenda-chip ${showGoogle ? "is-on is-google" : ""}`}
@@ -396,167 +741,9 @@ export function WeekCalendar({
         </div>
       </div>
 
-      <div
-        className={`agenda-grid-wrap surface ${loadingCal ? "is-loading" : ""}`}
-      >
-        <div className="agenda-grid-head">
-          <div className="agenda-time-gutter" />
-          {days.map((d) => {
-            const isToday = isSameDay(d, today);
-            return (
-              <div
-                key={d.toISOString()}
-                className={`agenda-day-head ${isToday ? "is-today" : ""}`}
-              >
-                <span className="agenda-day-name">
-                  {format(d, "EEE", { locale: ptBR })}
-                </span>
-                <span className="agenda-day-num">{format(d, "d")}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="agenda-grid-body">
-          <div className="agenda-time-col">
-            {HOURS.map((h) => (
-              <div key={h} className="agenda-hour-label">
-                {String(h).padStart(2, "0")}:00
-              </div>
-            ))}
-          </div>
-          {days.map((day) => {
-            const isToday = isSameDay(day, today);
-            return (
-              <div
-                key={day.toISOString()}
-                className={`agenda-day-col ${isToday ? "is-today" : ""}`}
-              >
-                {HOURS.map((h) => (
-                  <div key={h} className="agenda-hour-cell" />
-                ))}
-
-                {showGoogle &&
-                  googleEvents
-                    .filter(
-                      (ev) =>
-                        format(parseISO(ev.startAt), "yyyy-MM-dd") ===
-                        format(day, "yyyy-MM-dd"),
-                    )
-                    .map((ev) => {
-                      const { top } = topPx(ev.startAt, weekStart);
-                      const style = {
-                        top: `${top}px`,
-                        height: `${heightPx(ev.startAt, ev.endAt)}px`,
-                      };
-                      const className = "agenda-block agenda-block-google";
-                      const label = (
-                        <span className="truncate font-medium">
-                          {ev.summary}
-                        </span>
-                      );
-                      if (ev.htmlLink) {
-                        return (
-                          <a
-                            key={ev.id}
-                            href={ev.htmlLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={className}
-                            style={style}
-                            title={ev.summary}
-                          >
-                            {label}
-                          </a>
-                        );
-                      }
-                      return (
-                        <div
-                          key={ev.id}
-                          className={`${className} pointer-events-none`}
-                          style={style}
-                          title={ev.summary}
-                        >
-                          {label}
-                        </div>
-                      );
-                    })}
-
-                {showSlots &&
-                  slots
-                    .filter((s) => s.date === format(day, "yyyy-MM-dd"))
-                    .map((s, i) => {
-                      const { top } = topPx(s.startAt, weekStart);
-                      const proName =
-                        salonAdmin && s.professionalId
-                          ? prosForService.find(
-                              (p) => p.id === s.professionalId,
-                            )?.displayName
-                          : null;
-                      return (
-                        <button
-                          type="button"
-                          key={`slot-${s.startAt}-${i}`}
-                          className="agenda-block agenda-block-slot"
-                          style={{
-                            top: `${top}px`,
-                            height: `${heightPx(s.startAt, s.endAt)}px`,
-                          }}
-                          title={
-                            proName
-                              ? `Agendar · ${proName}`
-                              : "Agendar"
-                          }
-                          onClick={() => {
-                            setSelectedBooking(null);
-                            setManualSlot(s);
-                          }}
-                        >
-                          <span>{s.label}</span>
-                          {proName && proFilter === ANYONE ? (
-                            <span className="agenda-block-sub">{proName}</span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-
-                {bookings
-                  .filter(
-                    (b) =>
-                      format(parseISO(b.startAt), "yyyy-MM-dd") ===
-                      format(day, "yyyy-MM-dd"),
-                  )
-                  .map((b) => {
-                    const { top } = topPx(b.startAt, weekStart);
-                    const blockTone =
-                      b.status === "CONFIRMED" || b.status === "ARRIVED"
-                        ? "agenda-block-confirmed"
-                        : b.status === "COMPLETED"
-                          ? "agenda-block-completed"
-                          : b.status === "NO_SHOW"
-                            ? "agenda-block-noshow"
-                            : "agenda-block-pending";
-                    return (
-                      <button
-                        type="button"
-                        key={b.id}
-                        className={`agenda-block ${blockTone}`}
-                        style={{
-                          top: `${top}px`,
-                          height: `${heightPx(b.startAt, b.endAt)}px`,
-                        }}
-                        title={`${b.serviceTitle} · ${b.customerName}`}
-                        onClick={() => setSelectedBooking(b)}
-                      >
-                        <span className="truncate">{b.customerName}</span>
-                      </button>
-                    );
-                  })}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {view === "month"
+        ? renderMonthGrid()
+        : renderTimeGrid(view === "day" ? [cursor] : days.slice(0, 7))}
     </div>
   );
 }
