@@ -24,8 +24,6 @@ type Props = {
 
 export function SidebarAccountMenu({
   accountName,
-  workspaceName,
-  roleLabel,
   settingsHref,
   settingsActive,
   collapsed,
@@ -71,10 +69,6 @@ export function SidebarAccountMenu({
             </span>
             <div className="min-w-0">
               <p className="sidebar-account-menu-name">{accountName}</p>
-              <p className="sidebar-account-menu-meta">
-                {workspaceName}
-                {roleLabel ? ` · ${roleLabel}` : ""}
-              </p>
             </div>
           </div>
 
@@ -127,11 +121,7 @@ export function SidebarAccountMenu({
           <>
             <span className="sidebar-account-trigger-text min-w-0 flex-1 text-left">
               <span className="sidebar-account-trigger-name truncate">
-                {workspaceName || accountName}
-              </span>
-              <span className="sidebar-account-trigger-meta truncate">
                 {accountName}
-                {roleLabel ? ` · ${roleLabel}` : ""}
               </span>
             </span>
             <span className="sidebar-account-caret" aria-hidden>

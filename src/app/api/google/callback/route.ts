@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { defaultAppOrigin } from "@/lib/app-origin";
 import { getRequestAppOrigin } from "@/lib/app-origin-server";
 import { prisma } from "@/lib/prisma";
@@ -37,18 +35,9 @@ export async function GET(req: Request) {
     );
   }
 
-  const session = await getServerSession(authOptions);
-  // Signed state already binds org+user from /api/google/connect.
-  // Prefer userId match: callback may land on another allowed host where a
-  // stale org cookie would falsely trip an organizationId check.
-  if (session?.user?.id && session.user.id !== parsed.userId) {
-    return NextResponse.redirect(
-      new URL(
-        "/app/configuracoes?tab=integracoes&google=forbidden",
-        returnOrigin,
-      ),
-    );
-  }
+  // OAuth state is HMAC-signed at /api/google/connect (already authenticated).
+  // Ignore callback-host session cookies — Temark OAuth returns to the Book
+  // callback URI, where a stale NextAuth cookie caused google=forbidden.
 
   try {
     const tokens = await exchangeGoogleCode(code);
