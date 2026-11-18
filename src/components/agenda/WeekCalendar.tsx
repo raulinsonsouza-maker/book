@@ -65,6 +65,8 @@ const VIEW_OPTIONS: { id: AgendaView; label: string }[] = [
 
 /** Sentinel no select: qualquer profissional disponível para o serviço. */
 const ANYONE = "__anyone__";
+/** Sentinel: todas as páginas / todos os serviços. */
+const ALL = "__all__";
 
 function topPx(iso: string) {
   const d = parseISO(iso);
@@ -156,12 +158,37 @@ export function WeekCalendar({
 
   const gridDays = view === "day" ? [cursor] : view === "week" ? days : days;
 
+  const concretePage = pageId !== ALL;
+  const concreteService = serviceId !== ALL;
+
   const prosForService = useMemo(
-    () => allPros.filter((p) => p.serviceIds.includes(serviceId)),
-    [allPros, serviceId],
+    () =>
+      concreteService
+        ? allPros.filter((p) => p.serviceIds.includes(serviceId))
+        : allPros,
+    [allPros, serviceId, concreteService],
   );
 
   useEffect(() => {
+    if (!concretePage) {
+      fetch("/api/services")
+        .then((r) => r.json())
+        .then((list) => {
+          const next = (Array.isArray(list) ? list : []).filter(
+            (s: ServiceOption & { isActive?: boolean }) => s.isActive !== false,
+          );
+          setServices(next);
+          if (
+            serviceId !== ALL &&
+            !next.find((s: ServiceOption) => s.id === serviceId)
+          ) {
+            setServiceId(ALL);
+          }
+        })
+        .catch(() => undefined);
+      return;
+    }
+
     fetch(`/api/pages/${pageId}`)
       .then((r) => r.json())
       .then((p) => {
@@ -169,11 +196,15 @@ export function WeekCalendar({
           (s: ServiceOption & { isActive?: boolean }) => s.isActive !== false,
         );
         setServices(list);
-        if (!list.find((s: ServiceOption) => s.id === serviceId)) {
-          setServiceId(list[0]?.id || "");
+        if (
+          serviceId !== ALL &&
+          !list.find((s: ServiceOption) => s.id === serviceId)
+        ) {
+          setServiceId(list[0]?.id || ALL);
         }
-      });
-  }, [pageId, serviceId]);
+      })
+      .catch(() => undefined);
+  }, [pageId, concretePage, serviceId]);
 
   useEffect(() => {
     if (!salonAdmin) return;
@@ -209,7 +240,13 @@ export function WeekCalendar({
 
   const load = useCallback(() => {
     if (!pageId || !serviceId) return;
-    if (salonAdmin && prosForService.length === 0 && allPros.length > 0) {
+    const wantSlots = view !== "month" && concretePage && concreteService;
+    if (
+      wantSlots &&
+      salonAdmin &&
+      prosForService.length === 0 &&
+      allPros.length > 0
+    ) {
       setBookings([]);
       setSlots([]);
       setSetupHint("NO_PROS");
@@ -225,6 +262,7 @@ export function WeekCalendar({
       bookingPageId: pageId,
       serviceId,
     });
+    if (!wantSlots) params.set("includeSlots", "0");
 
     if (isProfessionalView && professionalId) {
       params.set("professionalId", professionalId);
@@ -250,10 +288,10 @@ export function WeekCalendar({
         }
         const nextBookings: BookingItem[] = data.bookings || [];
         setBookings(nextBookings);
-        setSlots(data.availableSlots || []);
+        setSlots(wantSlots ? data.availableSlots || [] : []);
         setGoogleEvents(data.googleEvents || []);
         setGoogleConnected(Boolean(data.googleConnected));
-        setSetupHint((data.setupHint as SetupHint) || null);
+        setSetupHint(wantSlots ? (data.setupHint as SetupHint) || null : null);
         setSelectedBooking((prev) => {
           if (!prev) return prev;
           return nextBookings.find((b) => b.id === prev.id) ?? prev;
@@ -274,6 +312,9 @@ export function WeekCalendar({
     proFilter,
     prosForService.length,
     allPros.length,
+    view,
+    concretePage,
+    concreteService,
   ]);
 
   useEffect(() => {
@@ -523,13 +564,13 @@ export function WeekCalendar({
             const chips = [
               ...dayBookings.map((b) => ({
                 key: b.id,
-                label: b.customerName,
+                label: `${format(parseISO(b.startAt), "HH:mm")} ${b.customerName}`,
                 tone: monthChipTone(b.status),
                 onClick: () => setSelectedBooking(b),
               })),
               ...dayGoogle.map((ev) => ({
                 key: `g-${ev.id}`,
-                label: ev.summary,
+                label: `${format(parseISO(ev.startAt), "HH:mm")} ${ev.summary}`,
                 tone: "is-google",
                 onClick: () => {
                   if (ev.htmlLink) window.open(ev.htmlLink, "_blank", "noreferrer");
@@ -587,11 +628,11 @@ export function WeekCalendar({
   return (
     <div className="agenda-week space-y-3">
       <ManualBookingModal
-        open={Boolean(manualSlot)}
+        open={Boolean(manualSlot) && concretePage && concreteService}
         slot={manualSlot}
         serviceTitle={selectedService?.title || "Serviço"}
-        bookingPageId={pageId}
-        serviceId={serviceId}
+        bookingPageId={concretePage ? pageId : ""}
+        serviceId={concreteService ? serviceId : ""}
         businessMode={businessMode}
         professionalId={modalProId}
         isProfessionalView={isProfessionalView}
@@ -638,22 +679,36 @@ export function WeekCalendar({
               type="button"
               onClick={goPrev}
               className="agenda-nav-btn"
-              aria-label="Anterior"
+              aria-label={
+                view === "month"
+                  ? "Mês anterior"
+                  : view === "week"
+                    ? "Semana anterior"
+                    : "Dia anterior"
+              }
             >
               ‹
             </button>
-            <button
-              type="button"
-              onClick={goToday}
-              className="agenda-nav-today"
-            >
-              Hoje
-            </button>
+            {view !== "month" && (
+              <button
+                type="button"
+                onClick={goToday}
+                className="agenda-nav-today"
+              >
+                Hoje
+              </button>
+            )}
             <button
               type="button"
               onClick={goNext}
               className="agenda-nav-btn"
-              aria-label="Próximo"
+              aria-label={
+                view === "month"
+                  ? "Próximo mês"
+                  : view === "week"
+                    ? "Próxima semana"
+                    : "Próximo dia"
+              }
             >
               ›
             </button>
@@ -683,6 +738,7 @@ export function WeekCalendar({
               value={pageId}
               onChange={(e) => setPageId(e.target.value)}
             >
+              <option value={ALL}>Todos</option>
               {pages.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title}
@@ -690,13 +746,14 @@ export function WeekCalendar({
               ))}
             </select>
           )}
-          {services.length > 0 && (
+          {(services.length > 0 || serviceId === ALL) && (
             <select
               className="agenda-select"
               aria-label="Serviço"
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
             >
+              <option value={ALL}>Todos</option>
               {services.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.title}
@@ -704,7 +761,7 @@ export function WeekCalendar({
               ))}
             </select>
           )}
-          {salonAdmin && (
+          {salonAdmin && concreteService && (
             <select
               className="agenda-select"
               aria-label="Profissional"
