@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isTemarkHost } from "@/lib/app-origin";
+import { isTemarkAppHost, isTemarkHost } from "@/lib/app-origin";
 import {
   PRODUCT_BRAND_COOKIE,
   PRODUCT_BRAND_COOKIE_MAX_AGE,
@@ -14,10 +14,34 @@ function hostOf(request: NextRequest): string {
   );
 }
 
+function hasAuthSession(request: NextRequest): boolean {
+  return Boolean(
+    request.cookies.get("__Secure-next-auth.session-token")?.value ||
+      request.cookies.get("next-auth.session-token")?.value,
+  );
+}
+
 export function proxy(request: NextRequest) {
   const host = hostOf(request);
   const temark = isTemarkHost(host);
   const brandId = temark ? "temark" : "book";
+  const { pathname } = request.nextUrl;
+
+  // app.temark.com.br is the panel entry — never show the marketing LP.
+  if (isTemarkAppHost(host) && pathname === "/") {
+    const dest = new URL(
+      hasAuthSession(request) ? "/app" : "/login",
+      request.url,
+    );
+    const redirect = NextResponse.redirect(dest);
+    redirect.cookies.set(PRODUCT_BRAND_COOKIE, "temark", {
+      path: "/",
+      maxAge: PRODUCT_BRAND_COOKIE_MAX_AGE,
+      sameSite: "lax",
+    });
+    redirect.headers.set("x-product-brand", "temark");
+    return redirect;
+  }
 
   const response = NextResponse.next();
 

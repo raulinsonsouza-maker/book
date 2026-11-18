@@ -23,6 +23,12 @@ export function isTemarkHost(host: string | null | undefined): boolean {
   return TEMARK_HOSTS.has(normalizeHost(host));
 }
 
+/** Painel app.temark.com.br (não a LP de temark.com.br). */
+export function isTemarkAppHost(host: string | null | undefined): boolean {
+  const h = normalizeHost(host);
+  return h === TEMARK_APP_HOST || h === `www.${TEMARK_APP_HOST}`;
+}
+
 export function productBrandIdFromHost(
   host: string | null | undefined,
 ): ProductBrandId {
