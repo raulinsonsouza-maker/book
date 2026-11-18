@@ -50,8 +50,8 @@ type ProOption = { id: string; displayName: string; serviceIds: string[] };
 type SetupHint = "NO_PROS" | "NO_HOURS" | "NEED_PRO_FILTER" | null;
 type AgendaView = "day" | "week" | "month";
 
-const HOUR_START = 7;
-const HOUR_END = 20;
+const HOUR_START = 6;
+const HOUR_END = 22;
 const HOURS = Array.from(
   { length: HOUR_END - HOUR_START + 1 },
   (_, i) => HOUR_START + i,
@@ -469,10 +469,17 @@ export function WeekCalendar({
                         top: `${topPx(b.startAt)}px`,
                         height: `${heightPx(b.startAt, b.endAt)}px`,
                       }}
-                      title={`${b.serviceTitle} · ${b.customerName}`}
+                      title={`${b.serviceTitle} · ${b.customerName}${
+                        b.professionalName ? ` · ${b.professionalName}` : ""
+                      }`}
                       onClick={() => setSelectedBooking(b)}
                     >
-                      <span className="truncate">{b.customerName}</span>
+                      <span className="truncate font-medium">
+                        {b.customerName}
+                      </span>
+                      <span className="agenda-block-sub truncate">
+                        {b.serviceTitle}
+                      </span>
                     </button>
                   ))}
               </div>
@@ -715,32 +722,38 @@ export function WeekCalendar({
               ))}
             </select>
           )}
-          {view !== "month" && (
-            <button
-              type="button"
-              className={`agenda-chip ${showSlots ? "is-on is-slots" : ""}`}
-              aria-pressed={showSlots}
-              onClick={() => setShowSlots((v) => !v)}
-            >
-              Livres
-            </button>
-          )}
-          <button
-            type="button"
-            className={`agenda-chip ${showGoogle ? "is-on is-google" : ""}`}
-            aria-pressed={showGoogle}
-            onClick={() => setShowGoogle((v) => !v)}
-          >
-            Google
-          </button>
-          {!googleConnected && !isProfessionalView && (
-            <a
-              href="/app/configuracoes?tab=integracoes"
-              className="agenda-connect"
-            >
-              Conectar
-            </a>
-          )}
+          <div className="agenda-toggles">
+            {view !== "month" && (
+              <button
+                type="button"
+                className={`agenda-chip ${showSlots ? "is-on is-slots" : ""}`}
+                aria-pressed={showSlots}
+                onClick={() => setShowSlots((v) => !v)}
+                title="Mostrar horários livres"
+              >
+                Livres
+              </button>
+            )}
+            {googleConnected ? (
+              <button
+                type="button"
+                className={`agenda-chip ${showGoogle ? "is-on is-google" : ""}`}
+                aria-pressed={showGoogle}
+                onClick={() => setShowGoogle((v) => !v)}
+                title="Mostrar eventos do Google Calendar"
+              >
+                Google
+              </button>
+            ) : !isProfessionalView ? (
+              <a
+                href="/app/configuracoes?tab=integracoes"
+                className="agenda-chip agenda-chip-connect"
+                title="Conectar Google Calendar para ver compromissos externos"
+              >
+                Conectar Google
+              </a>
+            ) : null}
+          </div>
         </div>
       </div>
 

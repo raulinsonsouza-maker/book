@@ -395,6 +395,7 @@ export async function getGoogleCalendarEvents(params: {
       singleEvents: true,
       orderBy: "startTime",
       maxResults: 250,
+      showDeleted: false,
     });
 
     const items: GoogleCalendarEventItem[] = [];

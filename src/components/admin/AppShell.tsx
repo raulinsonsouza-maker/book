@@ -86,7 +86,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       {
         href: "/app/agendador",
-        label: "Páginas",
+        label: "Tela de agendamento",
         icon: NavIconPages,
         match: (p) => p.startsWith("/app/agendador") || p.startsWith("/app/pages"),
       },
@@ -98,7 +98,7 @@ const NAV_SECTIONS: NavSection[] = [
       },
       {
         href: "/app/checkout/produtos",
-        label: "Checkout",
+        label: "Link de pagamento",
         icon: NavIconCheckout,
         match: (p) => p.startsWith("/app/checkout"),
       },
@@ -125,11 +125,11 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
       p.startsWith("/app/agendador") && p.includes("/availability"),
     title: "Horários avançados",
   },
-  { match: (p) => p.startsWith("/app/agendador"), title: "Páginas" },
-  { match: (p) => p.startsWith("/app/pages"), title: "Páginas" },
+  { match: (p) => p.startsWith("/app/agendador"), title: "Tela de agendamento" },
+  { match: (p) => p.startsWith("/app/pages"), title: "Tela de agendamento" },
   { match: (p) => p.startsWith("/app/checkout/vendas"), title: "Vendas" },
-  { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Produtos" },
-  { match: (p) => p.startsWith("/app/checkout"), title: "Checkout" },
+  { match: (p) => p.startsWith("/app/checkout/produtos"), title: "Link de pagamento" },
+  { match: (p) => p.startsWith("/app/checkout"), title: "Link de pagamento" },
   {
     match: (p) =>
       p.startsWith("/app/profissionais") || p.startsWith("/app/professionals"),
@@ -194,7 +194,9 @@ function SidebarNavLink({
       <span className={`sidebar-icon ${active ? "sidebar-icon-active" : ""}`}>
         <Icon />
       </span>
-      {!collapsed && <span className="sidebar-link-label truncate">{item.label}</span>}
+      {!collapsed && (
+        <span className="sidebar-link-label">{item.label}</span>
+      )}
       {collapsed && <span className="sr-only">{item.label}</span>}
     </Link>
   );
@@ -315,7 +317,7 @@ function navForRole(
   const negocio: NavItem[] = [
     {
       href: "/app/agendador",
-      label: "Páginas",
+      label: "Tela de agendamento",
       icon: NavIconPages,
       match: (p) =>
         p.startsWith("/app/agendador") || p.startsWith("/app/pages"),
@@ -348,7 +350,7 @@ function navForRole(
   negocio.push(
     {
       href: "/app/checkout/produtos",
-      label: "Checkout",
+      label: "Link de pagamento",
       icon: NavIconCheckout,
       match: (p) => p.startsWith("/app/checkout"),
     },
@@ -510,7 +512,7 @@ export function AppShell({
         )}
 
         <nav
-          className={`flex-1 space-y-5 overflow-y-auto py-2 ${
+          className={`flex flex-1 flex-col space-y-5 overflow-y-auto py-2 ${
             isTemark ? "temark-nav" : "px-3"
           }`}
         >
@@ -532,6 +534,22 @@ export function AppShell({
               </div>
             </div>
           ))}
+
+          {showCollapseToggle && (
+            <div className="sidebar-nav-end">
+              <button
+                type="button"
+                className="sidebar-collapse-btn"
+                onClick={toggleCollapsed}
+                aria-label={isCollapsed ? "Expandir menu" : "Minimizar menu"}
+                aria-expanded={!isCollapsed}
+                title={isCollapsed ? "Expandir" : "Minimizar"}
+              >
+                <span aria-hidden>{isCollapsed ? "›" : "‹"}</span>
+                {!isCollapsed && <span>Minimizar</span>}
+              </button>
+            </div>
+          )}
         </nav>
 
         <div
@@ -568,24 +586,11 @@ export function AppShell({
             </Link>
           </div>
 
-          <div className="sidebar-footer-actions">
-            {showCollapseToggle && (
-              <button
-                type="button"
-                className="sidebar-collapse-btn"
-                onClick={toggleCollapsed}
-                aria-label={isCollapsed ? "Expandir menu" : "Minimizar menu"}
-                aria-expanded={!isCollapsed}
-                title={isCollapsed ? "Expandir" : "Minimizar"}
-              >
-                <span aria-hidden>{isCollapsed ? "›" : "‹"}</span>
-                {!isCollapsed && <span>Minimizar</span>}
-              </button>
-            )}
-            {!isCollapsed && (
+          {!isCollapsed && (
+            <div className="sidebar-footer-actions">
               <SignOutButton className="sidebar-signout-btn" />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );
