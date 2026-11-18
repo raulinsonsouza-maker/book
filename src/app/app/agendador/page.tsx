@@ -566,17 +566,13 @@ function AgendadorInner() {
       <div className="pages-hub mx-auto max-w-5xl space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-[1.75rem]">
-              Minhas páginas{" "}
-              <span className="font-semibold text-muted">({list.length})</span>
-            </h1>
-            <p className="mt-1 max-w-xl text-sm text-muted">
-              Cada página é um link de agendamento — controle serviços, horários
-              e o visual do funil.
+            <p className="max-w-xl text-sm text-muted">
+              Monte o link que seus clientes usam para marcar horário — serviços,
+              disponibilidade e visual do funil.
             </p>
           </div>
           <Link href="/app/agendador?novo=1" className="btn-primary shrink-0">
-            + Adicionar página
+            + Nova tela de agendamento
           </Link>
         </div>
 
@@ -600,7 +596,7 @@ function AgendadorInner() {
               <input
                 type="search"
                 className="input-field !pl-9"
-                placeholder="Encontrar páginas"
+                placeholder="Buscar tela de agendamento"
                 value={pageSearch}
                 onChange={(e) => setPageSearch(e.target.value)}
               />
@@ -611,7 +607,7 @@ function AgendadorInner() {
         {list.length === 0 ? (
           <div className="pages-hub-empty surface p-10 text-center">
             <p className="text-base font-semibold tracking-tight">
-              Nenhuma página ainda
+              Nenhuma tela de agendamento ainda
             </p>
             <p className="mt-1 text-sm text-muted">
               Crie a primeira para seus clientes marcarem horário.
@@ -620,12 +616,12 @@ function AgendadorInner() {
               href="/app/agendador?novo=1"
               className="btn-primary mt-5 inline-flex"
             >
-              + Adicionar página
+              + Nova tela de agendamento
             </Link>
           </div>
         ) : filtered.length === 0 ? (
           <div className="surface px-5 py-10 text-center text-sm text-muted">
-            Nenhuma página com “{pageSearch.trim()}”.
+            Nenhuma tela com “{pageSearch.trim()}”.
           </div>
         ) : (
           <ul className="space-y-3">

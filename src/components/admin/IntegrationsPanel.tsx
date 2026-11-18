@@ -70,7 +70,9 @@ export function IntegrationsPanel() {
       setMsg("Não foi possível conectar o Google. Tente de novo.");
     } else if (g === "forbidden") {
       setMsgTone("err");
-      setMsg("Sessão inválida na conexão Google. Entre de novo e tente outra vez.");
+      setMsg(
+        "Não foi possível confirmar sua sessão no Google. Atualize a página e clique em Conectar de novo.",
+      );
     } else if (g === "missing_env") {
       setMsgTone("err");
       setMsg(

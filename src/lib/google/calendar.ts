@@ -42,11 +42,23 @@ export function googleOAuthAllowedRedirectUris(): string[] {
 }
 
 /**
- * Prefer the canonical Book callback (must be in Google Cloud).
- * Host brands must not invent ad-hoc URIs.
+ * Prefer a callback on the same origin as the request when it is already
+ * registered in Google Cloud — keeps the NextAuth session on that host.
+ * Falls back to the canonical Book callback.
  */
-export function googleOAuthRedirectUri(_requestOrigin?: string) {
-  return googleOAuthAllowedRedirectUris()[0]!;
+export function googleOAuthRedirectUri(requestOrigin?: string) {
+  const allowed = googleOAuthAllowedRedirectUris();
+  if (requestOrigin) {
+    try {
+      const origin = new URL(requestOrigin).origin;
+      const candidate = normalizeCallbackUri(`${origin}/api/google/callback`);
+      const hit = allowed.find((uri) => uri === candidate);
+      if (hit) return hit;
+    } catch {
+      /* ignore */
+    }
+  }
+  return allowed[0]!;
 }
 
 function stateSecret() {
@@ -102,10 +114,10 @@ export function parseGoogleOAuthState(raw: string): GoogleOAuthState | null {
   }
 }
 
-export function getGoogleOAuthClient() {
+export function getGoogleOAuthClient(requestOrigin?: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = googleOAuthRedirectUri();
+  const redirectUri = googleOAuthRedirectUri(requestOrigin);
 
   if (!clientId || !clientSecret) {
     throw new Error("GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não configurados");
@@ -114,8 +126,8 @@ export function getGoogleOAuthClient() {
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
-export function getGoogleAuthUrl(state: string) {
-  const client = getGoogleOAuthClient();
+export function getGoogleAuthUrl(state: string, requestOrigin?: string) {
+  const client = getGoogleOAuthClient(requestOrigin);
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -124,8 +136,8 @@ export function getGoogleAuthUrl(state: string) {
   });
 }
 
-export async function exchangeGoogleCode(code: string) {
-  const client = getGoogleOAuthClient();
+export async function exchangeGoogleCode(code: string, requestOrigin?: string) {
+  const client = getGoogleOAuthClient(requestOrigin);
   const { tokens } = await client.getToken(code);
   client.setCredentials(tokens);
 

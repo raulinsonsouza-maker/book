@@ -38,10 +38,10 @@ export async function GET(req: Request) {
   }
 
   const session = await getServerSession(authOptions);
-  if (
-    session?.user?.organizationId &&
-    session.user.organizationId !== parsed.organizationId
-  ) {
+  // Signed state already binds org+user from /api/google/connect.
+  // Prefer userId match: callback may land on another allowed host where a
+  // stale org cookie would falsely trip an organizationId check.
+  if (session?.user?.id && session.user.id !== parsed.userId) {
     return NextResponse.redirect(
       new URL(
         "/app/configuracoes?tab=integracoes&google=forbidden",
@@ -51,7 +51,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const tokens = await exchangeGoogleCode(code);
+    const tokens = await exchangeGoogleCode(code, requestOrigin);
 
     const existing = await prisma.organization.findUnique({
       where: { id: parsed.organizationId },

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SignOutButton } from "@/components/admin/SignOutButton";
+import { SidebarAccountMenu } from "@/components/admin/SidebarAccountMenu";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { getProductBrand, type ProductBrandId } from "@/lib/product-brand";
 import { useHostProductBrand } from "@/hooks/useProductBrand";
@@ -24,7 +25,6 @@ import {
   NavIconMenu,
   NavIconPages,
   NavIconServices,
-  NavIconSettings,
 } from "@/components/admin/NavIcons";
 
 const PRO_BLOCKED_PREFIXES = [
@@ -535,42 +535,15 @@ export function AppShell({
         <div
           className={`sidebar-footer ${isCollapsed ? "is-collapsed" : ""}`}
         >
-          <div className="sidebar-footer-user">
-            <Link
-              href={settingsHref}
-              onClick={onNavigate}
-              className="sidebar-footer-identity"
-            >
-              <span className="sidebar-user-avatar" title={accountName}>
-                {initials(accountName)}
-              </span>
-              {!isCollapsed && (
-                <div className="sidebar-user-meta min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {accountName}
-                  </p>
-                  <p className="truncate text-[11px] text-muted">{roleLabel}</p>
-                </div>
-              )}
-            </Link>
-            <Link
-              href={settingsHref}
-              onClick={onNavigate}
-              className={`sidebar-settings-btn ${
-                settingsActive ? "is-active" : ""
-              }`}
-              aria-label="Configurações"
-              title="Configurações"
-            >
-              <NavIconSettings />
-            </Link>
-          </div>
-
-          {!isCollapsed && (
-            <div className="sidebar-footer-actions">
-              <SignOutButton className="sidebar-signout-btn" />
-            </div>
-          )}
+          <SidebarAccountMenu
+            accountName={accountName}
+            workspaceName={displayName}
+            roleLabel={roleLabel}
+            settingsHref={settingsHref}
+            settingsActive={settingsActive}
+            collapsed={isCollapsed}
+            onNavigate={onNavigate}
+          />
         </div>
       </div>
     );

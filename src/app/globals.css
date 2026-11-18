@@ -148,35 +148,157 @@
 
 .sidebar-footer {
   margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+  flex-shrink: 0;
   border-top: 1px solid var(--border);
-  padding: 0.85rem 0.9rem 1rem;
+  padding: 0.65rem 0.75rem 0.85rem;
   background: rgba(255, 255, 255, 0.72);
 }
 
-.sidebar-footer-user {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
+.sidebar-account {
+  position: relative;
 }
 
-.sidebar-footer-identity {
+.sidebar-account-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.4rem 0.45rem;
+  border: 0;
+  border-radius: 0.85rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.sidebar-account-trigger:hover,
+.sidebar-account.is-open .sidebar-account-trigger {
+  background: rgba(12, 18, 34, 0.05);
+}
+
+.sidebar-account-trigger-text {
   display: flex;
   min-width: 0;
-  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.sidebar-account-trigger-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--foreground);
+}
+
+.sidebar-account-trigger-meta {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.sidebar-account-caret {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.sidebar-account-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
+  z-index: 40;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  background: #fffefd;
+  box-shadow: 0 16px 40px rgba(16, 24, 32, 0.14);
+}
+
+.sidebar-account-menu-head {
+  display: flex;
   align-items: center;
   gap: 0.7rem;
-  text-decoration: none;
-  color: inherit;
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid var(--border);
 }
 
-.sidebar-footer-actions {
+.sidebar-account-menu-name {
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--foreground);
+}
+
+.sidebar-account-menu-meta {
+  margin-top: 0.15rem;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.sidebar-account-menu-section {
+  padding: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-account-menu-section:last-child {
+  border-bottom: 0;
+}
+
+.sidebar-account-menu-item {
   display: flex;
+  width: 100%;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sidebar-account-menu-item:hover {
+  background: rgba(12, 18, 34, 0.05);
+}
+
+.sidebar-account-menu-item.is-active {
+  background: rgba(12, 18, 34, 0.07);
+  font-weight: 600;
+}
+
+.sidebar-account-menu-item.is-danger {
+  color: #b91c1c;
+}
+
+.sidebar-account-menu-item.is-danger:hover {
+  background: #fef2f2;
+}
+
+.sidebar-account-menu-item svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.sidebar-account.is-collapsed .sidebar-account-trigger {
+  justify-content: center;
+  padding: 0.35rem;
+}
+
+.sidebar-account.is-collapsed .sidebar-account-menu {
+  left: 0;
+  right: auto;
+  width: 15.5rem;
 }
 
 .sidebar-nav-end {
@@ -291,16 +413,6 @@
 .admin-sidebar.is-collapsed .sidebar-footer {
   align-items: center;
   padding-inline: 0.55rem;
-}
-
-.admin-sidebar.is-collapsed .sidebar-footer-user {
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.admin-sidebar.is-collapsed .sidebar-footer-identity {
-  justify-content: center;
-  flex: 0;
 }
 
 .admin-sidebar.is-collapsed .sidebar-nav-end {
@@ -5469,12 +5581,26 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 .admin-shell[data-brand="temark"] .sidebar-footer {
   background: transparent;
   border-top: 1px solid var(--line);
-  padding: 14px 18px 16px;
-  gap: 0.65rem;
+  padding: 12px 14px 14px;
 }
 
-.admin-shell[data-brand="temark"] .sidebar-footer-user {
-  gap: 0.5rem;
+.admin-shell[data-brand="temark"] .sidebar-account-trigger:hover,
+.admin-shell[data-brand="temark"] .sidebar-account.is-open .sidebar-account-trigger {
+  background: #f0ede7;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-account-menu {
+  border-color: var(--line);
+  background: #fffefd;
+  box-shadow: 0 18px 44px rgba(16, 24, 32, 0.12);
+}
+
+.admin-shell[data-brand="temark"] .sidebar-account-menu-item:hover {
+  background: #f0ede7;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-account-menu-item.is-active {
+  background: linear-gradient(100deg, #ffebbb, #ffedc0);
 }
 
 .admin-shell[data-brand="temark"] .sidebar-user-avatar {
