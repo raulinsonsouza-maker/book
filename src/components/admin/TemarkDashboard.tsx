@@ -215,8 +215,8 @@ export function TemarkDashboard({
         <section className="tm-panel tm-upcoming-panel">
           <div className="tm-panel-heading">
             <h2>Próximos</h2>
-            <Link href="/app/agenda/listagem" className="tm-text-link">
-              Ver todos <span aria-hidden>→</span>
+            <Link href="/app/agenda/calendario" className="tm-text-link">
+              Ver agenda <span aria-hidden>→</span>
             </Link>
           </div>
           {stats.upcoming.length === 0 ? (

@@ -58,10 +58,10 @@ function ProfessionalHome({
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold tracking-tight">Próximos</h2>
           <Link
-            href="/app/agenda/listagem"
+            href="/app/agenda/calendario"
             className="text-xs font-medium text-[#2563eb] hover:underline"
           >
-            Ver todos
+            Ver agenda
           </Link>
         </div>
 
@@ -197,10 +197,10 @@ export default async function AppHomePage() {
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold tracking-tight">Próximos</h2>
             <Link
-              href="/app/agenda/listagem"
+              href="/app/agenda/calendario"
               className="text-xs font-medium text-[#2563eb] hover:underline"
             >
-              Lista
+              Agenda
             </Link>
           </div>
           {stats.upcoming.length === 0 ? (

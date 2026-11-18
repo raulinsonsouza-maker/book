@@ -496,6 +496,82 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
   box-shadow: none;
 }
 
+/* Public checkout / pay pages — Temark chrome */
+html[data-product-brand="temark"] .dot-grid,
+.checkout-shell[data-brand="temark"] {
+  background: var(--cream);
+  background-image: none;
+  color: var(--ink);
+}
+
+.checkout-shell[data-brand="temark"] .checkout-card,
+html[data-product-brand="temark"] .checkout-shell .checkout-card {
+  border-radius: 26px;
+  border-color: var(--line);
+  background: linear-gradient(135deg, #ffffffc9, #fffffff0);
+  box-shadow: 0 18px 50px rgba(16, 24, 32, 0.06);
+}
+
+.checkout-shell[data-brand="temark"] .checkout-price,
+html[data-product-brand="temark"] .checkout-shell .checkout-price {
+  color: var(--ink);
+}
+
+.checkout-shell[data-brand="temark"] .checkout-logo-fallback,
+html[data-product-brand="temark"] .checkout-shell .checkout-logo-fallback {
+  background: linear-gradient(135deg, #ffde78, #ffca3e);
+  color: var(--ink);
+  border-radius: 18px;
+}
+
+.checkout-shell[data-brand="temark"] .checkout-brand-footer,
+html[data-product-brand="temark"] .checkout-shell .checkout-brand-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.checkout-shell[data-brand="temark"] .checkout-brand-footer span,
+html[data-product-brand="temark"] .checkout-shell .checkout-brand-footer span {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tm-muted);
+  font-weight: 600;
+}
+
+.checkout-shell[data-brand="temark"] .checkout-brand-wordmark,
+html[data-product-brand="temark"] .checkout-shell .checkout-brand-wordmark {
+  display: block;
+  width: 7.5rem;
+  opacity: 0.92;
+}
+
+.checkout-shell[data-brand="temark"] .input-field:focus,
+html[data-product-brand="temark"] .checkout-shell .input-field:focus {
+  outline: 2px solid var(--yellow);
+  outline-offset: 1px;
+  border-color: #e2ded6;
+  box-shadow: none;
+}
+
+.checkout-shell[data-brand="temark"] .btn-primary,
+html[data-product-brand="temark"] .checkout-shell .btn-primary {
+  background: var(--yellow);
+  color: var(--ink);
+  border-radius: 28px;
+  font-weight: 600;
+}
+
+.checkout-shell[data-brand="temark"] .btn-primary:hover,
+html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
+  background: #ffd15c;
+}
+
 .dot-grid-soft {
   background-color: #fafafa;
   background-image: radial-gradient(#e5e7eb 1px, transparent 1px);

@@ -73,12 +73,6 @@ const NAV_SECTIONS: NavSection[] = [
         icon: NavIconCalendar,
         match: (p) => p.startsWith("/app/agenda/calendario"),
       },
-      {
-        href: "/app/agenda/listagem",
-        label: "Lista",
-        icon: NavIconBookings,
-        match: (p) => p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
-      },
     ],
   },
   {
@@ -249,13 +243,6 @@ function navForRole(
             icon: NavIconCalendar,
             match: (p) => p.startsWith("/app/agenda/calendario"),
           },
-          {
-            href: "/app/agenda/listagem",
-            label: "Lista",
-            icon: NavIconBookings,
-            match: (p) =>
-              p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
-          },
         ],
       },
       {
@@ -298,21 +285,12 @@ function navForRole(
       match: (p) => p.startsWith("/app/salao"),
     });
   }
-  agenda.push(
-    {
-      href: "/app/agenda/calendario",
-      label: "Calendário",
-      icon: NavIconCalendar,
-      match: (p) => p.startsWith("/app/agenda/calendario"),
-    },
-    {
-      href: "/app/agenda/listagem",
-      label: "Lista",
-      icon: NavIconBookings,
-      match: (p) =>
-        p.startsWith("/app/agenda/listagem") || p === "/app/bookings",
-    },
-  );
+  agenda.push({
+    href: "/app/agenda/calendario",
+    label: "Calendário",
+    icon: NavIconCalendar,
+    match: (p) => p.startsWith("/app/agenda/calendario"),
+  });
 
   const negocio: NavItem[] = [
     {

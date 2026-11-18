@@ -18,6 +18,7 @@ import {
   trackPurchase,
   type PublicTrackingConfig,
 } from "@/lib/tracking/client";
+import { useHostProductBrand } from "@/hooks/useProductBrand";
 
 function formatCardNumber(value: string) {
   const d = value.replace(/\D/g, "").slice(0, 16);
@@ -54,6 +55,8 @@ function isFormReady(
 }
 
 export function InstantCheckout({ slug }: { slug: string }) {
+  const brand = useHostProductBrand();
+  const isTemark = brand.id === "temark";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [displayTitle, setDisplayTitle] = useState("");
@@ -595,9 +598,22 @@ export function InstantCheckout({ slug }: { slug: string }) {
     }
   }
 
+  const shellAccent =
+    isTemark && (!accentColor || accentColor === "#0a0a0a")
+      ? "#101820"
+      : accentColor;
+  const shellClass = `checkout-shell min-h-screen ${isTemark ? "" : "dot-grid"}`;
+  const shellStyle = { "--accent": shellAccent } as React.CSSProperties;
+  const cardClass =
+    "checkout-card rounded-2xl border border-border bg-white p-6 shadow-sm";
+
   if (loading) {
     return (
-      <div className="dot-grid flex min-h-screen items-center justify-center">
+      <div
+        className={`${shellClass} flex items-center justify-center`}
+        data-brand={brand.id}
+        style={shellStyle}
+      >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-foreground" />
       </div>
     );
@@ -605,14 +621,18 @@ export function InstantCheckout({ slug }: { slug: string }) {
 
   if (error && !displayTitle) {
     return (
-      <div className="dot-grid flex min-h-screen items-center justify-center text-sm text-danger">
+      <div
+        className={`${shellClass} flex items-center justify-center text-sm text-danger`}
+        data-brand={brand.id}
+        style={shellStyle}
+      >
         {error}
       </div>
     );
   }
 
   return (
-    <div className="dot-grid min-h-screen" style={{ "--accent": accentColor } as React.CSSProperties}>
+    <div className={shellClass} data-brand={brand.id} style={shellStyle}>
       <PublicTracking config={tracking} />
       <div className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-8">
         <header className="mb-8 text-center">
@@ -625,8 +645,8 @@ export function InstantCheckout({ slug }: { slug: string }) {
             />
           ) : (
             <div
-              className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-sm font-bold text-white"
-              style={{ background: accentColor }}
+              className="checkout-logo-fallback mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-sm font-bold text-white"
+              style={isTemark ? undefined : { background: shellAccent }}
             >
               {(businessName || displayTitle || "BS").slice(0, 2).toUpperCase()}
             </div>
@@ -642,7 +662,10 @@ export function InstantCheckout({ slug }: { slug: string }) {
               {displayDescription}
             </p>
           )}
-          <p className="mt-4 text-3xl font-bold tracking-tight" style={{ color: accentColor }}>
+          <p
+            className="checkout-price mt-4 text-3xl font-bold tracking-tight"
+            style={isTemark ? undefined : { color: shellAccent }}
+          >
             {formatBRL(priceCents)}
           </p>
           {isIntake && <IntakePriceIncludes className="mt-4 text-left" />}
@@ -656,7 +679,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
           )}
 
           {paid ? (
-            <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+            <div className={cardClass}>
               <SuccessStep
                 customerName={isIntake ? intakeCustomerName : details.customerName}
                 customerEmail={isIntake ? intakeCustomerEmail : details.customerEmail}
@@ -666,15 +689,15 @@ export function InstantCheckout({ slug }: { slug: string }) {
             </div>
           ) : isIntake ? (
             <>
-              <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+              <section className={cardClass}>
                 <IntakeWizard
                   checkoutSlug={slug}
-                  accentColor={accentColor}
+                  accentColor={shellAccent}
                   onReadyForPayment={(id) => void handleIntakeReady(id)}
                 />
               </section>
               {intakePaymentReady && orderId && (
-                <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+                <section className={cardClass}>
                   <PaymentStep
                     priceCents={priceCents}
                     productTitle={productTitle}
@@ -729,7 +752,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
             </>
           ) : (
             <>
-              <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+              <section className={cardClass}>
                 <h2 className="text-lg font-semibold">Seus dados</h2>
                 <div className="mt-4 space-y-4">
                   <FunnelFormFields
@@ -742,7 +765,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-border bg-white p-6 shadow-sm">
+              <section className={cardClass}>
                 {!formReady ? (
                   <div className="space-y-2">
                     <h2 className="text-lg font-semibold text-muted">Pagamento</h2>
@@ -823,6 +846,22 @@ export function InstantCheckout({ slug }: { slug: string }) {
             </>
           )}
         </main>
+
+        {isTemark && brand.wordmarkSrc && (
+          <footer className="checkout-brand-footer">
+            <span>Pagamento seguro com</span>
+            <a
+              href={brand.homeHref}
+              className="checkout-brand-wordmark"
+              aria-label={brand.name}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={brand.wordmarkSrc} alt={brand.name} className="h-auto w-full" />
+            </a>
+          </footer>
+        )}
       </div>
     </div>
   );
