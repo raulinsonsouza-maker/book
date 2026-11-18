@@ -624,7 +624,7 @@ export function AppShell({
           <header
             className={
               isTemark
-                ? "temark-topbar admin-topbar flex items-end justify-between gap-3 px-5 md:px-8 lg:px-[34px]"
+                ? "temark-topbar admin-topbar flex items-end justify-between gap-3"
                 : "admin-topbar sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-white/90 px-4 backdrop-blur md:px-6 lg:px-8"
             }
           >

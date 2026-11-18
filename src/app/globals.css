@@ -5441,23 +5441,24 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
   height: 119px;
   min-height: 119px;
   justify-content: center;
+  align-items: center;
   overflow: hidden;
   border-bottom: none;
   background: transparent;
-  padding: 31px 32px;
+  padding: 28px 24px;
 }
 
 .admin-shell[data-brand="temark"] .temark-sidebar-brand::before {
   content: "";
   position: absolute;
-  width: 200px;
-  height: 100px;
+  width: 168px;
+  height: 168px;
   left: 50%;
-  top: 0;
+  top: 52%;
   z-index: -1;
   background: linear-gradient(180deg, #ffde78, #ffca3e);
-  border-radius: 0 0 100px 100px;
-  transform: translateX(-50%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
@@ -5483,7 +5484,7 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 }
 
 .admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .temark-sidebar-brand {
-  padding: 34px 15px;
+  padding: 28px 12px;
   height: 109px;
   min-height: 109px;
 }
@@ -5493,8 +5494,9 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 }
 
 .admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .temark-sidebar-brand::before {
-  width: 140px;
-  height: 70px;
+  width: 92px;
+  height: 92px;
+  top: 50%;
 }
 
 .admin-shell[data-brand="temark"] .temark-nav {
@@ -5698,12 +5700,17 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
   width: 108px;
 }
 
+.admin-shell[data-brand="temark"] {
+  --tm-page-pad-x: clamp(1.75rem, 3.2vw, 3rem);
+  --tm-page-max: 72rem;
+}
+
 .admin-shell[data-brand="temark"] .temark-topbar {
   background: transparent;
   border-bottom: 1px solid var(--line);
   min-height: 110px;
   height: auto;
-  padding: 28px 0 18px;
+  padding: 28px var(--tm-page-pad-x) 18px;
 }
 
 .admin-shell[data-brand="temark"] .temark-topbar h1 {
@@ -5711,6 +5718,7 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
   font-weight: 650;
   letter-spacing: -0.035em;
   line-height: 1.15;
+  padding-left: 0.15rem;
 }
 
 .admin-shell[data-brand="temark"] .admin-main {
@@ -5720,7 +5728,13 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 }
 
 .admin-shell[data-brand="temark"] .admin-main.temark-main {
-  padding: 18px 34px 28px;
+  padding: 18px var(--tm-page-pad-x) 28px;
+}
+
+.admin-shell[data-brand="temark"] .admin-main.temark-main:not(.temark-main-home) > * {
+  width: 100%;
+  max-width: var(--tm-page-max);
+  margin-inline: auto;
 }
 
 .admin-shell[data-brand="temark"] .admin-main.temark-main-home {
@@ -6413,8 +6427,12 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 }
 
 @media (max-width: 900px) {
+  .admin-shell[data-brand="temark"] {
+    --tm-page-pad-x: 1.25rem;
+  }
+
   .admin-shell[data-brand="temark"] .admin-main.temark-main {
-    padding: 0 20px 26px;
+    padding: 0 var(--tm-page-pad-x) 26px;
   }
 
   .admin-shell[data-brand="temark"] .temark-mobile-bar {

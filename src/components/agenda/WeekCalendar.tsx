@@ -124,7 +124,6 @@ export function WeekCalendar({
   const [googleEvents, setGoogleEvents] = useState<GoogleEventItem[]>([]);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [showGoogle, setShowGoogle] = useState(true);
-  const [showSlots, setShowSlots] = useState(true);
   const [loadingCal, setLoadingCal] = useState(false);
   const [calError, setCalError] = useState("");
   const [setupHint, setSetupHint] = useState<SetupHint>(null);
@@ -420,8 +419,7 @@ export function WeekCalendar({
                       );
                     })}
 
-                {showSlots &&
-                  slots
+                {slots
                     .filter((s) => s.date === dayKey)
                     .map((s, i) => {
                       const proName =
@@ -722,19 +720,8 @@ export function WeekCalendar({
               ))}
             </select>
           )}
-          <div className="agenda-toggles">
-            {view !== "month" && (
-              <button
-                type="button"
-                className={`agenda-chip ${showSlots ? "is-on is-slots" : ""}`}
-                aria-pressed={showSlots}
-                onClick={() => setShowSlots((v) => !v)}
-                title="Mostrar horários livres"
-              >
-                Livres
-              </button>
-            )}
-            {googleConnected ? (
+          {googleConnected && (
+            <div className="agenda-toggles">
               <button
                 type="button"
                 className={`agenda-chip ${showGoogle ? "is-on is-google" : ""}`}
@@ -744,16 +731,8 @@ export function WeekCalendar({
               >
                 Google
               </button>
-            ) : !isProfessionalView ? (
-              <a
-                href="/app/configuracoes?tab=integracoes"
-                className="agenda-chip agenda-chip-connect"
-                title="Conectar Google Calendar para ver compromissos externos"
-              >
-                Conectar Google
-              </a>
-            ) : null}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

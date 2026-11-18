@@ -212,7 +212,7 @@ function ServicesAdminInner() {
   if (loading) return <p className="text-sm text-muted">Carregando…</p>;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <AdminPageIntro link={{ href: "/app/agendador", label: "Páginas →" }}>
         Catálogo da conta — os mesmos serviços ficam disponíveis em todas as
         páginas de agendamento. A imagem aparece no link público quando o
