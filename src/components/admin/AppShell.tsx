@@ -534,23 +534,25 @@ export function AppShell({
               </div>
             </div>
           ))}
-
-          {showCollapseToggle && (
-            <div className="sidebar-nav-end">
-              <button
-                type="button"
-                className="sidebar-collapse-btn"
-                onClick={toggleCollapsed}
-                aria-label={isCollapsed ? "Expandir menu" : "Minimizar menu"}
-                aria-expanded={!isCollapsed}
-                title={isCollapsed ? "Expandir" : "Minimizar"}
-              >
-                <span aria-hidden>{isCollapsed ? "›" : "‹"}</span>
-                {!isCollapsed && <span>Minimizar</span>}
-              </button>
-            </div>
-          )}
         </nav>
+
+        {showCollapseToggle && (
+          <div className={`sidebar-nav-end ${isTemark ? "temark-nav-end" : ""}`}>
+            <button
+              type="button"
+              className="sidebar-collapse-btn"
+              onClick={toggleCollapsed}
+              aria-label={isCollapsed ? "Expandir menu" : "Minimizar menu"}
+              aria-expanded={!isCollapsed}
+              title={isCollapsed ? "Expandir" : "Minimizar"}
+            >
+              <span className="sidebar-collapse-chevron" aria-hidden>
+                {isCollapsed ? "›" : "‹"}
+              </span>
+              {!isCollapsed && <span>Minimizar</span>}
+            </button>
+          </div>
+        )}
 
         <div
           className={`sidebar-footer ${isCollapsed ? "is-collapsed" : ""}`}

@@ -180,12 +180,21 @@
 }
 
 .sidebar-nav-end {
-  margin-top: auto;
-  padding-top: 0.75rem;
+  flex-shrink: 0;
+  padding: 0.55rem 0.9rem 0.35rem;
 }
 
 .sidebar-nav-end .sidebar-collapse-btn {
   width: 100%;
+}
+
+.sidebar-collapse-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  line-height: 1;
+  font-weight: 600;
 }
 
 .sidebar-user-avatar {
@@ -297,14 +306,17 @@
 .admin-sidebar.is-collapsed .sidebar-nav-end {
   display: flex;
   justify-content: center;
-  padding-inline: 0.35rem;
+  padding-inline: 0.55rem;
+  padding-bottom: 0.45rem;
 }
 
 .admin-sidebar.is-collapsed .sidebar-nav-end .sidebar-collapse-btn {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
   padding: 0;
   flex: 0;
+  border-radius: 0.85rem;
 }
 
 .admin-header {
@@ -5191,7 +5203,7 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
   --cream: #fbf9f5;
   --line: #eeece8;
   --tm-muted: #75808f;
-  --tm-sidebar: clamp(240px, 17.15vw, 290px);
+  --tm-sidebar: clamp(268px, 18vw, 300px);
   --background: var(--cream);
   --foreground: var(--ink);
   --card: #fffefd;
@@ -5298,19 +5310,21 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
 }
 
 .admin-shell[data-brand="temark"] .temark-nav {
-  padding: 0 24px 12px;
+  padding: 0 16px 8px;
 }
 
+.admin-shell[data-brand="temark"] .temark-nav-end,
 .admin-shell[data-brand="temark"] .sidebar-nav-end {
-  margin-top: 1rem;
-  padding-top: 0.5rem;
+  margin-top: 0;
+  padding: 0.35rem 16px 0.55rem;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-link-label {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
+  min-width: 0;
+  flex: 1;
+  white-space: normal;
+  overflow-wrap: anywhere;
   line-height: 1.25;
   font-size: 0.9375rem;
   font-weight: 500;
@@ -5329,12 +5343,12 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
   min-height: 53px;
   margin-bottom: 5px;
   padding: 5px 8px;
-  gap: 16px;
+  gap: 12px;
   border-radius: 18px;
   color: var(--ink);
   font-size: 16px;
   font-weight: 450;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-link:hover {
@@ -5437,6 +5451,23 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
   background: #e5e2dc;
   color: var(--ink);
   border: none;
+}
+
+.admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .sidebar-nav-end {
+  padding-inline: 16px;
+}
+
+.admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .sidebar-collapse-btn {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  border-radius: 14px;
+  background: #eeece8;
+  color: var(--ink);
+}
+
+.admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .sidebar-collapse-chevron {
+  font-size: 1.25rem;
 }
 
 .admin-shell[data-brand="temark"] .sidebar-signout-btn {
