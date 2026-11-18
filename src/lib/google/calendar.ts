@@ -24,11 +24,29 @@ export function googleConfigured() {
   );
 }
 
-/** Always the URI registered in Google Cloud (Book). Host brands must not override it. */
-export function googleOAuthRedirectUri() {
-  const configured = process.env.GOOGLE_REDIRECT_URI?.trim();
-  if (configured) return configured.replace(/\/$/, "");
-  return `${defaultAppOrigin()}/api/google/callback`;
+function normalizeCallbackUri(raw: string) {
+  return raw.trim().replace(/\/$/, "");
+}
+
+/** Callbacks that can be used if also registered in Google Cloud Console. */
+export function googleOAuthAllowedRedirectUris(): string[] {
+  const book =
+    process.env.GOOGLE_REDIRECT_URI?.trim() ||
+    `${defaultAppOrigin()}/api/google/callback`;
+  const list = [
+    normalizeCallbackUri(book),
+    "https://book.symbius.com.br/api/google/callback",
+    "https://app.temark.com.br/api/google/callback",
+  ];
+  return [...new Set(list.filter(Boolean))];
+}
+
+/**
+ * Prefer the canonical Book callback (must be in Google Cloud).
+ * Host brands must not invent ad-hoc URIs.
+ */
+export function googleOAuthRedirectUri(_requestOrigin?: string) {
+  return googleOAuthAllowedRedirectUris()[0]!;
 }
 
 function stateSecret() {

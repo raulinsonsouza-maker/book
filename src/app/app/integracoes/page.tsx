@@ -338,9 +338,19 @@ export default function IntegrationsPage() {
                 </button>
               </div>
             ) : google?.configured ? (
-              <a href="/api/google/connect" className="btn-primary w-full">
-                Conectar
-              </a>
+              <div className="space-y-2">
+                <a href="/api/google/connect" className="btn-primary w-full">
+                  Conectar
+                </a>
+                <p className="text-[11px] leading-snug text-muted">
+                  Se o Google mostrar <strong>redirect_uri_mismatch</strong>, no
+                  Cloud Console deste cliente OAuth inclua exatamente:
+                  <br />
+                  <code className="break-all text-[10px]">
+                    https://book.symbius.com.br/api/google/callback
+                  </code>
+                </p>
+              </div>
             ) : (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                 Conexão com Google temporariamente indisponível.
