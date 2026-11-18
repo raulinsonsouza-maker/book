@@ -45,6 +45,42 @@ type Org = {
   whatsappUsage?: { used: number; quota: number; remaining: number };
 };
 
+const PROFILE_VISUAL: Record<
+  BusinessProfileId,
+  { mark: string; blurb: string }
+> = {
+  SALON: { mark: "Sa", blurb: "Salão, beleza e estética" },
+  BARBER: { mark: "Ba", blurb: "Barbearia e grooming" },
+  CLINIC: { mark: "Cl", blurb: "Consultório e clínica" },
+  STUDIO: { mark: "Es", blurb: "Estúdio e bem-estar" },
+};
+
+function ToggleRow({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="settings-toggle-row">
+      <span>{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        className={`settings-switch ${checked ? "is-on" : ""}`}
+        onClick={() => onChange(!checked)}
+      >
+        <span className="settings-switch-knob" />
+      </button>
+    </label>
+  );
+}
+
 function ContaSettingsBody() {
   const tab = useSettingsTab();
   const brand = useHostProductBrand();
@@ -163,12 +199,11 @@ function ContaSettingsBody() {
     }
     setBusinessMode(data.businessMode);
     setOrg(data);
-    setSavingMode(false);
-    // Recarrega o shell (sidebar muda entre Individual/Equipe)
     window.location.assign(
       data.businessMode === "SALON" ? "/app/profissionais" : "/app",
     );
   }
+
   function onLogoFile(file: File | null) {
     setError("");
     readLogoFile(file, setLogoUrl, setError);
@@ -218,428 +253,508 @@ function ContaSettingsBody() {
     setTimeout(() => setMsg(""), 2000);
   }
 
-  if (!org) return <p className="text-sm text-muted">Carregando…</p>;
+  if (!org) {
+    return <p className="text-sm text-muted">Carregando…</p>;
+  }
 
   const previewName = name.trim() || "Sua empresa";
   const previewDesc = description.trim().slice(0, DESCRIPTION_MAX);
+  const wa = org.whatsappUsage;
+  const waPct =
+    wa && wa.quota > 0
+      ? Math.min(100, Math.round((wa.used / wa.quota) * 100))
+      : 0;
 
   return (
-    <div className="settings-page mx-auto w-full max-w-3xl space-y-6">
+    <div className="settings-page settings-page-visual mx-auto w-full max-w-4xl space-y-6">
+      <header className="settings-hero">
+        <div className="settings-hero-copy">
+          <p className="settings-eyebrow">Configurações</p>
+          <h1>Conta e preferências</h1>
+          <p>
+            Identidade, perfil do negócio e comunicação — usados no painel, no
+            checkout e no agendamento.
+          </p>
+        </div>
+        <div className="settings-hero-brand">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="" className="settings-hero-logo" />
+          ) : (
+            <span className="settings-hero-logo-fallback" aria-hidden>
+              {(previewName[0] || "E").toUpperCase()}
+            </span>
+          )}
+          <div>
+            <p className="settings-hero-name">{previewName}</p>
+            <p className="settings-hero-meta">
+              {businessMode === "SALON" ? "Equipe" : "Individual"}
+              {" · "}
+              {profileOptions().find((p) => p.id === businessProfile)?.label ||
+                "Negócio"}
+            </p>
+          </div>
+        </div>
+      </header>
+
       <SettingsTabs active={tab} />
 
       {tab === "equipe" ? (
         <EquipePanel />
       ) : (
-        <div className="settings-account-stack mx-auto w-full max-w-xl space-y-6">
-      {msg && (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
-          {msg}
-        </p>
-      )}
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
-          {error}
-        </p>
-      )}
+        <div className="settings-account-stack space-y-5">
+          {msg ? <p className="settings-flash is-ok">{msg}</p> : null}
+          {error ? <p className="settings-flash is-err">{error}</p> : null}
 
-      <p className="text-sm text-muted">
-        Identidade da empresa usada no painel, no checkout e no agendamento. Integrações em{" "}
-        <Link href="/app/integracoes" className="font-medium text-foreground underline-offset-2 hover:underline">
-          Integrações
-        </Link>
-        .
-      </p>
-
-      {billing?.billingEnabled && (
-        <section className="surface space-y-4 p-6">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight">Assinatura {brand.name}</h2>
-            <p className="mt-1 text-xs text-muted">
-              Plano da plataforma (separado do Mercado Pago da sua empresa).
-            </p>
-          </div>
-          <dl className="grid gap-2 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-muted">Status</dt>
-              <dd className="font-medium">{billing.status ?? "—"}</dd>
-            </div>
-            {billing.plan && (
-              <div>
-                <dt className="text-muted">Plano</dt>
-                <dd className="font-medium">
-                  {billing.plan.name} — R$ {(billing.plan.priceCents / 100).toFixed(2)}/mês
-                </dd>
-              </div>
-            )}
-            {billing.trialEndsAt && (
-              <div>
-                <dt className="text-muted">Fim do trial</dt>
-                <dd className="font-medium">
-                  {new Date(billing.trialEndsAt).toLocaleDateString("pt-BR")}
-                </dd>
-              </div>
-            )}
-            {billing.currentPeriodEnd && (
-              <div>
-                <dt className="text-muted">Próximo ciclo</dt>
-                <dd className="font-medium">
-                  {new Date(billing.currentPeriodEnd).toLocaleDateString("pt-BR")}
-                </dd>
-              </div>
-            )}
-          </dl>
-          {billing.status !== "ACTIVE" && billing.mpConfigured && (
-            <SubscriptionSubscribeButton />
-          )}
-          {billing.status !== "ACTIVE" && !billing.mpConfigured && (
-            <p className="text-sm text-muted">
-              Assinatura online em breve. Entre em contato com o suporte.
-            </p>
-          )}
-        </section>
-      )}
-
-      {org?.whatsappUsage && (
-        <section className="surface space-y-3 p-6">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight">WhatsApp (plataforma)</h2>
-            <p className="mt-1 text-xs text-muted">
-              OTP e lembretes enviados pelo canal {brand.name}. Franquia do seu plano.
-            </p>
-          </div>
-          <p className="text-2xl font-semibold tabular-nums">
-            {org.whatsappUsage.used}{" "}
-            <span className="text-base font-normal text-muted">
-              / {org.whatsappUsage.quota} este mês
-            </span>
-          </p>
-          {!org.whatsappPlatformReady && (
-            <p className="text-xs text-muted">
-              Canal ainda não ativado pela plataforma — lembretes seguem por e-mail.
-            </p>
-          )}
-          {org.whatsappUsage.remaining <= 0 && (
-            <p className="text-sm text-danger">
-              Franquia esgotada. Novos envios caem para e-mail até o próximo ciclo.
-            </p>
-          )}
-        </section>
-      )}
-
-      <section className="surface space-y-4 p-6">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">Meu negócio é</h2>
-          <p className="mt-1 text-xs text-muted">
-            Define nomenclatura (cliente/paciente) e módulos como prontuário e
-            prescrições. Não apaga dados ao trocar.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {profileOptions().map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              disabled={savingProfile || businessProfile === opt.id}
-              onClick={() => void saveProfile(opt.id)}
-              className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-                businessProfile === opt.id
-                  ? "border-foreground bg-foreground text-white"
-                  : "border-border bg-white hover:bg-muted-bg"
-              }`}
-            >
-              <p className="font-semibold">{opt.label}</p>
-              <p
-                className={`mt-1 text-xs ${
-                  businessProfile === opt.id ? "text-white/80" : "text-muted"
-                }`}
-              >
-                Lista de {opt.clientNounPlural.toLowerCase()}
-              </p>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="surface space-y-4 p-6">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">Modo de operação</h2>
-          <p className="mt-1 text-xs text-muted">
-            Individual = um calendário por página de serviços. Equipe = vários profissionais com
-            login e páginas próprias.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            disabled={savingMode || businessMode === "SOLO"}
-            onClick={() => saveMode("SOLO")}
-            className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-              businessMode === "SOLO"
-                ? "border-foreground bg-foreground text-white"
-                : "border-border bg-white hover:bg-muted-bg"
-            }`}
-          >
-            <p className="font-semibold">Individual</p>
-            <p className={`mt-1 text-xs ${businessMode === "SOLO" ? "text-white/80" : "text-muted"}`}>
-              Consultoria / profissional único
-            </p>
-          </button>
-          <button
-            type="button"
-            disabled={savingMode || businessMode === "SALON"}
-            onClick={() => saveMode("SALON")}
-            className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-              businessMode === "SALON"
-                ? "border-foreground bg-foreground text-white"
-                : "border-border bg-white hover:bg-muted-bg"
-            }`}
-          >
-            <p className="font-semibold">Equipe</p>
-            <p className={`mt-1 text-xs ${businessMode === "SALON" ? "text-white/80" : "text-muted"}`}>
-              Equipe, serviços cruzados, funil com escolha de profissional
-            </p>
-          </button>
-        </div>
-        {businessMode === "SALON" && (
-          <p className="text-xs text-muted">
-            Em seguida, cadastre a equipe em{" "}
-            <Link href="/app/profissionais" className="font-medium text-foreground underline">
-              Profissionais
+          <div className="settings-quick-links">
+            <Link href="/app/integracoes" className="settings-quick-link">
+              <span className="settings-quick-icon" aria-hidden>
+                In
+              </span>
+              <span>
+                <strong>Integrações</strong>
+                <em>Mercado Pago, Asaas e Google Agenda</em>
+              </span>
             </Link>
-            .
-          </p>
-        )}
-      </section>
-
-      <form onSubmit={saveInstallments} className="surface space-y-4 p-6">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">
-            Parcelas no cartão
-          </h2>
-          <p className="mt-1 text-xs text-muted">
-            Limite que o cliente vê no funil e no checkout (Mercado Pago e Asaas).
-            Juros e regras finas continuam na conta do provedor.
-          </p>
-        </div>
-        <label className="block text-sm">
-          <span className="mb-1.5 block font-medium">Máximo de parcelas</span>
-          <select
-            className="input-field max-w-xs"
-            value={cardMaxInstallments}
-            onChange={(e) =>
-              setCardMaxInstallments(Number(e.target.value) || 1)
-            }
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {n === 1 ? "1x — só à vista" : `Até ${n}x`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="submit"
-          disabled={savingInstallments}
-          className="btn-primary"
-        >
-          {savingInstallments ? "Salvando…" : "Salvar parcelas"}
-        </button>
-      </form>
-
-      <form onSubmit={saveOrg} className="surface space-y-5 p-6">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">Identidade visual</h2>
-          <p className="mt-1 text-xs text-muted">
-            Uma vez configurada, o sistema herda logo, nome e cor automaticamente.
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-border bg-[#f7f5f2] p-4">
-          <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted">
-            Prévia no checkout
-          </p>
-          <div className="rounded-2xl border border-border bg-white px-5 py-6 text-center shadow-sm">
-            {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt="" className="mx-auto mb-3 h-12 object-contain" />
-            ) : (
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-black/5 text-xs text-muted">
-                Logo
-              </div>
-            )}
-            <p className="text-lg font-semibold tracking-tight">{previewName}</p>
-            {previewDesc && <p className="mt-1 text-sm text-muted">{previewDesc}</p>}
-            <button
-              type="button"
-              className="mt-4 rounded-lg px-4 py-2 text-sm font-semibold text-white"
-              style={{ background: accentColor }}
-            >
-              Continuar
-            </button>
+            <Link href="/app/clientes" className="settings-quick-link">
+              <span className="settings-quick-icon" aria-hidden>
+                Pr
+              </span>
+              <span>
+                <strong>Prontuário</strong>
+                <em>Clientes e histórico de atendimentos</em>
+              </span>
+            </Link>
           </div>
-        </div>
 
-        <label className="block text-sm">
-          <span className="mb-1.5 block font-medium">Nome da empresa</span>
-          <input
-            className="input-field"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            minLength={2}
-          />
-        </label>
+          {billing?.billingEnabled ? (
+            <section className="settings-card settings-card-billing">
+              <div className="settings-card-head">
+                <div>
+                  <p className="settings-card-kicker">Assinatura</p>
+                  <h2>{brand.name}</h2>
+                </div>
+                <span
+                  className={`settings-status-pill ${
+                    billing.status === "ACTIVE" ? "is-active" : "is-muted"
+                  }`}
+                >
+                  {billing.status ?? "—"}
+                </span>
+              </div>
+              <div className="settings-stat-row">
+                {billing.plan ? (
+                  <div>
+                    <p className="settings-stat-label">Plano</p>
+                    <p className="settings-stat-value">
+                      {billing.plan.name}
+                      <span>
+                        {" "}
+                        · R$ {(billing.plan.priceCents / 100).toFixed(2)}/mês
+                      </span>
+                    </p>
+                  </div>
+                ) : null}
+                {billing.trialEndsAt ? (
+                  <div>
+                    <p className="settings-stat-label">Fim do trial</p>
+                    <p className="settings-stat-value">
+                      {new Date(billing.trialEndsAt).toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+                ) : null}
+                {billing.currentPeriodEnd ? (
+                  <div>
+                    <p className="settings-stat-label">Próximo ciclo</p>
+                    <p className="settings-stat-value">
+                      {new Date(billing.currentPeriodEnd).toLocaleDateString(
+                        "pt-BR",
+                      )}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+              {billing.status !== "ACTIVE" && billing.mpConfigured ? (
+                <SubscriptionSubscribeButton />
+              ) : null}
+              {billing.status !== "ACTIVE" && !billing.mpConfigured ? (
+                <p className="settings-card-note">
+                  Assinatura online em breve. Entre em contato com o suporte.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
-        <label className="block text-sm">
-          <span className="mb-1.5 flex items-center justify-between font-medium">
-            Descrição curta
-            <span className="text-xs font-normal text-muted">
-              {description.length}/{DESCRIPTION_MAX}
-            </span>
-          </span>
-          <textarea
-            className="input-field min-h-[88px] resize-y"
-            value={description}
-            maxLength={DESCRIPTION_MAX}
-            placeholder="Ex.: Consultoria jurídica para abertura de empresas"
-            onChange={(e) => setDescription(e.target.value.slice(0, DESCRIPTION_MAX))}
-          />
-        </label>
+          {wa ? (
+            <section className="settings-card">
+              <div className="settings-card-head">
+                <div>
+                  <p className="settings-card-kicker">WhatsApp</p>
+                  <h2>Franquia do mês</h2>
+                </div>
+                <p className="settings-wa-count">
+                  <strong>{wa.used}</strong>
+                  <span>/{wa.quota}</span>
+                </p>
+              </div>
+              <div className="settings-meter" aria-hidden>
+                <span style={{ width: `${waPct}%` }} />
+              </div>
+              <p className="settings-card-note">
+                {!org.whatsappPlatformReady
+                  ? "Canal ainda não ativado pela plataforma — lembretes seguem por e-mail."
+                  : wa.remaining <= 0
+                    ? "Franquia esgotada. Novos envios caem para e-mail até o próximo ciclo."
+                    : "OTP e lembretes pelo canal da plataforma."}
+              </p>
+            </section>
+          ) : null}
 
-        <div className="space-y-2">
-          <span className="block text-sm font-medium">Logo</span>
-          <div className="flex flex-wrap items-center gap-3">
-            {logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoUrl}
-                alt=""
-                className="h-12 w-12 rounded-lg border border-border bg-white object-contain p-1"
-              />
-            )}
-            <label className="btn-secondary cursor-pointer !py-2 text-sm">
-              Enviar arquivo
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                className="hidden"
-                onChange={(e) => onLogoFile(e.target.files?.[0] || null)}
-              />
-            </label>
-            {logoUrl && (
+          <section className="settings-card">
+            <div className="settings-card-head">
+              <div>
+                <p className="settings-card-kicker">Segmento</p>
+                <h2>Meu negócio é</h2>
+              </div>
+            </div>
+            <p className="settings-card-lead">
+              Define nomenclatura (cliente/paciente) e módulos como prontuário e
+              prescrições. Trocar não apaga dados.
+            </p>
+            <div className="settings-choice-grid">
+              {profileOptions().map((opt) => {
+                const visual = PROFILE_VISUAL[opt.id];
+                const selected = businessProfile === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    disabled={savingProfile || selected}
+                    onClick={() => void saveProfile(opt.id)}
+                    className={`settings-choice ${selected ? "is-selected" : ""}`}
+                  >
+                    <span className="settings-choice-glyph" aria-hidden>
+                      {visual.mark}
+                    </span>
+                    <span className="settings-choice-copy">
+                      <strong>{opt.label}</strong>
+                      <em>{visual.blurb}</em>
+                      <small>Lista de {opt.clientNounPlural.toLowerCase()}</small>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="settings-card">
+            <div className="settings-card-head">
+              <div>
+                <p className="settings-card-kicker">Operação</p>
+                <h2>Modo de operação</h2>
+              </div>
+            </div>
+            <p className="settings-card-lead">
+              Individual = um calendário. Equipe = vários profissionais com login
+              e páginas próprias.
+            </p>
+            <div className="settings-choice-grid settings-choice-grid-2">
               <button
                 type="button"
-                className="text-sm text-danger"
-                onClick={() => setLogoUrl("")}
+                disabled={savingMode || businessMode === "SOLO"}
+                onClick={() => void saveMode("SOLO")}
+                className={`settings-choice ${
+                  businessMode === "SOLO" ? "is-selected" : ""
+                }`}
               >
-                Remover
+                <span className="settings-choice-glyph" aria-hidden>
+                  1
+                </span>
+                <span className="settings-choice-copy">
+                  <strong>Individual</strong>
+                  <em>Consultoria / profissional único</em>
+                </span>
               </button>
-            )}
-          </div>
-          <p className="text-xs text-muted">
-            PNG, JPG ou WebP até 5 MB — otimizamos automaticamente.
-          </p>
-        </div>
+              <button
+                type="button"
+                disabled={savingMode || businessMode === "SALON"}
+                onClick={() => void saveMode("SALON")}
+                className={`settings-choice ${
+                  businessMode === "SALON" ? "is-selected" : ""
+                }`}
+              >
+                <span className="settings-choice-glyph" aria-hidden>
+                  N
+                </span>
+                <span className="settings-choice-copy">
+                  <strong>Equipe</strong>
+                  <em>Serviços cruzados e escolha de profissional</em>
+                </span>
+              </button>
+            </div>
+            {businessMode === "SALON" ? (
+              <p className="settings-card-note">
+                Cadastre a equipe em{" "}
+                <Link href="/app/profissionais">Profissionais</Link>.
+              </p>
+            ) : null}
+          </section>
 
-        <label className="block text-sm">
-          <span className="mb-1.5 block font-medium">Cor principal</span>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={accentColor}
-              onChange={(e) => setAccentColor(e.target.value)}
-              className="h-10 w-14 cursor-pointer rounded border border-border bg-white p-1"
-            />
-            <input
-              className="input-field font-mono text-sm uppercase"
-              value={accentColor}
-              onChange={(e) => setAccentColor(e.target.value)}
-              pattern="^#[0-9A-Fa-f]{6}$"
-            />
-          </div>
-          <p className="mt-1 text-xs text-muted">
-            Usada em botões e destaques do checkout e do agendamento.
-          </p>
-        </label>
-
-        <button type="submit" disabled={saving} className="btn-primary">
-          {saving ? "Salvando…" : "Salvar identidade"}
-        </button>
-      </form>
-
-      <form onSubmit={saveComms} className="surface space-y-5 p-6">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">Comunicação do Agendamento</h2>
-          <p className="mt-1 text-xs text-muted">
-            E-mails com identidade {brand.name}. O Google Calendar cuida dos lembretes do profissional.
-          </p>
-        </div>
-
-        <fieldset className="space-y-3">
-          <legend className="text-xs font-semibold uppercase tracking-wide text-muted">Cliente</legend>
-          {(
-            [
-              ["notifyClientConfirmation", "Enviar confirmação de agendamento"],
-              ["notifyClientReminder", "Enviar lembrete antes do agendamento"],
-              ["notifyClientFeedback", "Solicitar avaliação após atendimento"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={comms[key]}
-                onChange={(e) => setComms((c) => ({ ...c, [key]: e.target.checked }))}
-              />
-              {label}
-            </label>
-          ))}
-        </fieldset>
-
-        <fieldset className="space-y-3">
-          <legend className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Profissional
-          </legend>
-          {(
-            [
-              ["notifyProNewBooking", "Notificar novo agendamento confirmado"],
-              ["notifyProCancellation", "Notificar cancelamento"],
-              ["notifyProReschedule", "Notificar reagendamento"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={comms[key]}
-                onChange={(e) => setComms((c) => ({ ...c, [key]: e.target.checked }))}
-              />
-              {label}
-            </label>
-          ))}
-        </fieldset>
-
-        <label className="block text-sm">
-          <span className="mb-1.5 block font-medium">Lembrete antes do atendimento</span>
-          <select
-            className="input-field"
-            value={comms.reminderHoursBefore}
-            onChange={(e) =>
-              setComms((c) => ({
-                ...c,
-                reminderHoursBefore: Number(e.target.value),
-              }))
-            }
+          <form
+            onSubmit={saveInstallments}
+            className="settings-card settings-card-form"
           >
-            <option value={24}>24 horas</option>
-            <option value={12}>12 horas</option>
-            <option value={2}>2 horas</option>
-            <option value={0}>Não enviar</option>
-          </select>
-        </label>
+            <div className="settings-card-head">
+              <div>
+                <p className="settings-card-kicker">Pagamentos</p>
+                <h2>Parcelas no cartão</h2>
+              </div>
+            </div>
+            <p className="settings-card-lead">
+              Limite que o cliente vê no funil e no checkout. Juros finos ficam na
+              conta do provedor.
+            </p>
+            <label className="settings-field">
+              <span>Máximo de parcelas</span>
+              <select
+                className="input-field max-w-xs"
+                value={cardMaxInstallments}
+                onChange={(e) =>
+                  setCardMaxInstallments(Number(e.target.value) || 1)
+                }
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n === 1 ? "1x — só à vista" : `Até ${n}x`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              disabled={savingInstallments}
+              className="btn-primary"
+            >
+              {savingInstallments ? "Salvando…" : "Salvar parcelas"}
+            </button>
+          </form>
 
-        <button type="submit" disabled={savingComms} className="btn-primary">
-          {savingComms ? "Salvando…" : "Salvar comunicação"}
-        </button>
-      </form>
+          <form onSubmit={saveOrg} className="settings-card settings-card-form">
+            <div className="settings-card-head">
+              <div>
+                <p className="settings-card-kicker">Marca</p>
+                <h2>Identidade visual</h2>
+              </div>
+            </div>
+            <p className="settings-card-lead">
+              Logo, nome e cor herdados no checkout e no agendamento.
+            </p>
+
+            <div className="settings-identity-grid">
+              <div className="settings-preview-panel">
+                <p className="settings-preview-label">Prévia no checkout</p>
+                <div className="settings-preview-card">
+                  {logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={logoUrl} alt="" />
+                  ) : (
+                    <div className="settings-preview-logo-fallback">Logo</div>
+                  )}
+                  <p className="settings-preview-name">{previewName}</p>
+                  {previewDesc ? (
+                    <p className="settings-preview-desc">{previewDesc}</p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="settings-preview-cta"
+                    style={{ background: accentColor }}
+                  >
+                    Continuar
+                  </button>
+                </div>
+              </div>
+
+              <div className="settings-identity-fields">
+                <label className="settings-field">
+                  <span>Nome da empresa</span>
+                  <input
+                    className="input-field"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    minLength={2}
+                  />
+                </label>
+
+                <label className="settings-field">
+                  <span className="settings-field-row">
+                    Descrição curta
+                    <em>
+                      {description.length}/{DESCRIPTION_MAX}
+                    </em>
+                  </span>
+                  <textarea
+                    className="input-field min-h-[88px] resize-y"
+                    value={description}
+                    maxLength={DESCRIPTION_MAX}
+                    placeholder="Ex.: Clínica de estética e bem-estar"
+                    onChange={(e) =>
+                      setDescription(e.target.value.slice(0, DESCRIPTION_MAX))
+                    }
+                  />
+                </label>
+
+                <div className="settings-field">
+                  <span>Logo</span>
+                  <div className="settings-logo-row">
+                    {logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={logoUrl} alt="" />
+                    ) : null}
+                    <label className="btn-secondary cursor-pointer !py-2 text-sm">
+                      Enviar arquivo
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        className="hidden"
+                        onChange={(e) =>
+                          onLogoFile(e.target.files?.[0] || null)
+                        }
+                      />
+                    </label>
+                    {logoUrl ? (
+                      <button
+                        type="button"
+                        className="text-sm text-danger"
+                        onClick={() => setLogoUrl("")}
+                      >
+                        Remover
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="settings-field-hint">
+                    PNG, JPG ou WebP até 5 MB — otimizamos automaticamente.
+                  </p>
+                </div>
+
+                <label className="settings-field">
+                  <span>Cor principal</span>
+                  <div className="settings-color-row">
+                    <input
+                      type="color"
+                      value={accentColor}
+                      onChange={(e) => setAccentColor(e.target.value)}
+                      className="settings-color-swatch"
+                    />
+                    <input
+                      className="input-field font-mono text-sm uppercase"
+                      value={accentColor}
+                      onChange={(e) => setAccentColor(e.target.value)}
+                      pattern="^#[0-9A-Fa-f]{6}$"
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? "Salvando…" : "Salvar identidade"}
+            </button>
+          </form>
+
+          <form
+            onSubmit={saveComms}
+            className="settings-card settings-card-form"
+          >
+            <div className="settings-card-head">
+              <div>
+                <p className="settings-card-kicker">Mensagens</p>
+                <h2>Comunicação do agendamento</h2>
+              </div>
+            </div>
+            <p className="settings-card-lead">
+              E-mails com identidade {brand.name}. Lembretes do profissional
+              também podem vir do Google Calendar.
+            </p>
+
+            <div className="settings-comms-grid">
+              <div className="settings-comms-col">
+                <p className="settings-comms-title">Cliente</p>
+                <ToggleRow
+                  label="Confirmação de agendamento"
+                  checked={comms.notifyClientConfirmation}
+                  onChange={(v) =>
+                    setComms((c) => ({ ...c, notifyClientConfirmation: v }))
+                  }
+                />
+                <ToggleRow
+                  label="Lembrete antes do atendimento"
+                  checked={comms.notifyClientReminder}
+                  onChange={(v) =>
+                    setComms((c) => ({ ...c, notifyClientReminder: v }))
+                  }
+                />
+                <ToggleRow
+                  label="Pedido de avaliação depois"
+                  checked={comms.notifyClientFeedback}
+                  onChange={(v) =>
+                    setComms((c) => ({ ...c, notifyClientFeedback: v }))
+                  }
+                />
+              </div>
+              <div className="settings-comms-col">
+                <p className="settings-comms-title">Profissional</p>
+                <ToggleRow
+                  label="Novo agendamento confirmado"
+                  checked={comms.notifyProNewBooking}
+                  onChange={(v) =>
+                    setComms((c) => ({ ...c, notifyProNewBooking: v }))
+                  }
+                />
+                <ToggleRow
+                  label="Cancelamento"
+                  checked={comms.notifyProCancellation}
+                  onChange={(v) =>
+                    setComms((c) => ({ ...c, notifyProCancellation: v }))
+                  }
+                />
+                <ToggleRow
+                  label="Reagendamento"
+                  checked={comms.notifyProReschedule}
+                  onChange={(v) =>
+                    setComms((c) => ({ ...c, notifyProReschedule: v }))
+                  }
+                />
+              </div>
+            </div>
+
+            <label className="settings-field">
+              <span>Lembrete antes do atendimento</span>
+              <select
+                className="input-field max-w-xs"
+                value={comms.reminderHoursBefore}
+                onChange={(e) =>
+                  setComms((c) => ({
+                    ...c,
+                    reminderHoursBefore: Number(e.target.value),
+                  }))
+                }
+              >
+                <option value={24}>24 horas</option>
+                <option value={12}>12 horas</option>
+                <option value={2}>2 horas</option>
+                <option value={0}>Não enviar</option>
+              </select>
+            </label>
+
+            <button
+              type="submit"
+              disabled={savingComms}
+              className="btn-primary"
+            >
+              {savingComms ? "Salvando…" : "Salvar comunicação"}
+            </button>
+          </form>
         </div>
       )}
     </div>
