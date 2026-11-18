@@ -17,7 +17,10 @@ export async function GET() {
 
   if (!googleConfigured()) {
     return NextResponse.redirect(
-      new URL("/app/integracoes?google=missing_env", returnOrigin),
+      new URL(
+        "/app/configuracoes?tab=integracoes&google=missing_env",
+        returnOrigin,
+      ),
     );
   }
 

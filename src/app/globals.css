@@ -216,6 +216,39 @@
   letter-spacing: 0.02em;
 }
 
+.sidebar-settings-btn {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.sidebar-settings-btn:hover {
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--foreground) 20%, var(--border));
+}
+
+.sidebar-settings-btn.is-active {
+  background: var(--foreground);
+  border-color: var(--foreground);
+  color: #fff;
+}
+
+.sidebar-settings-btn svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 .admin-header {
   background: #ffffff;
 }
@@ -858,6 +891,127 @@ html[data-product-brand="temark"] .auth-shell .input-field:focus {
   border-radius: 16px;
   border: 1px solid #ebe4d8;
   background: #f5f2ed;
+}
+
+.settings-hub {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+}
+
+.settings-hub-header {
+  margin-bottom: 1.25rem;
+}
+
+.settings-hub-header h1 {
+  margin: 0.15rem 0 0.35rem;
+  font-size: clamp(1.5rem, 2vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--foreground);
+}
+
+.settings-hub-header p {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+
+.settings-hub-layout {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.settings-hub-rail {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.settings-hub-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.7rem;
+  text-decoration: none;
+  color: var(--muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.settings-hub-tab:hover {
+  color: var(--foreground);
+  background: rgba(12, 18, 34, 0.04);
+}
+
+.settings-hub-tab.is-active {
+  background: var(--foreground);
+  color: #fff;
+}
+
+.settings-hub-tab-label {
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.settings-hub-tab-hint {
+  font-size: 0.6875rem;
+  opacity: 0.78;
+}
+
+.settings-hub-panel {
+  min-width: 0;
+}
+
+.admin-shell[data-brand="temark"] .settings-hub-rail {
+  background: #fffefd;
+  border-color: var(--line);
+}
+
+.admin-shell[data-brand="temark"] .settings-hub-tab.is-active {
+  background: var(--ink);
+  color: #fff;
+}
+
+.admin-shell[data-brand="temark"] .sidebar-settings-btn.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .settings-hub-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-hub-rail {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0.35rem;
+    padding: 0.35rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .settings-hub-tab {
+    flex: 0 0 auto;
+    min-width: 8.5rem;
+  }
+
+  .settings-hub-rail[aria-orientation="vertical"] {
+    /* mobile becomes horizontal scroll tabs */
+  }
 }
 
 .settings-tab-visual {

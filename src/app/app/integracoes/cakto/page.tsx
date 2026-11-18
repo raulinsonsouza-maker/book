@@ -27,7 +27,7 @@ export default function CaktoIntegrationPage() {
 
   useEffect(() => {
     if (!CAKTO_ENABLED) {
-      router.replace("/app/integracoes");
+      router.replace("/app/configuracoes?tab=integracoes");
       return;
     }
     fetch("/api/organization")
@@ -101,7 +101,7 @@ export default function CaktoIntegrationPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <Link href="/app/integracoes" className="text-sm text-muted hover:text-foreground">
+      <Link href="/app/configuracoes?tab=integracoes" className="text-sm text-muted hover:text-foreground">
         ← Integrações
       </Link>
 

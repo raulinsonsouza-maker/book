@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function IntegrationsRedirectPage() {
-  redirect("/app/integracoes");
+export default function IntegrationsEnRedirectPage() {
+  redirect("/app/configuracoes?tab=integracoes");
 }

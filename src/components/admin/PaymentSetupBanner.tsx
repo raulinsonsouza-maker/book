@@ -18,7 +18,7 @@ export function PaymentSetupBanner({ organizationId: _organizationId }: Props) {
         </span>
       </p>
       <Link
-        href="/app/integracoes"
+        href="/app/configuracoes?tab=integracoes"
         className="btn-primary shrink-0 !px-3 !py-1.5 !text-xs"
       >
         Configurar

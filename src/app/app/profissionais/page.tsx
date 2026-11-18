@@ -395,7 +395,7 @@ export default function ProfessionalsAdminPage() {
               a agenda de cada um.
             </p>
           </div>
-          <Link href="/app/conta" className="btn-primary inline-flex">
+          <Link href="/app/configuracoes?tab=equipe" className="btn-primary inline-flex">
             Ativar modo equipe
           </Link>
         </div>

@@ -33,7 +33,7 @@ export async function GET(req: Request) {
 
   if (error || !code || !parsed) {
     return NextResponse.redirect(
-      new URL("/app/integracoes?google=error", returnOrigin),
+      new URL("/app/configuracoes?tab=integracoes&google=error", returnOrigin),
     );
   }
 
@@ -43,7 +43,10 @@ export async function GET(req: Request) {
     session.user.organizationId !== parsed.organizationId
   ) {
     return NextResponse.redirect(
-      new URL("/app/integracoes?google=forbidden", returnOrigin),
+      new URL(
+        "/app/configuracoes?tab=integracoes&google=forbidden",
+        returnOrigin,
+      ),
     );
   }
 
@@ -55,7 +58,7 @@ export async function GET(req: Request) {
     });
     if (!existing) {
       return NextResponse.redirect(
-        new URL("/app/integracoes?google=error", returnOrigin),
+        new URL("/app/configuracoes?tab=integracoes&google=error", returnOrigin),
       );
     }
 
@@ -72,12 +75,15 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.redirect(
-      new URL("/app/integracoes?google=connected", returnOrigin),
+      new URL(
+        "/app/configuracoes?tab=integracoes&google=connected",
+        returnOrigin,
+      ),
     );
   } catch (e) {
     console.error("[google:callback]", e);
     return NextResponse.redirect(
-      new URL("/app/integracoes?google=error", returnOrigin),
+      new URL("/app/configuracoes?tab=integracoes&google=error", returnOrigin),
     );
   }
 }

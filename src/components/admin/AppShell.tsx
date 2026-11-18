@@ -21,7 +21,6 @@ import {
   NavIconDocument,
   NavIconFinance,
   NavIconHome,
-  NavIconIntegrations,
   NavIconMenu,
   NavIconPages,
   NavIconServices,
@@ -35,6 +34,7 @@ const PRO_BLOCKED_PREFIXES = [
   "/app/checkout",
   "/app/integracoes",
   "/app/integrations",
+  "/app/configuracoes",
   "/app/profissionais",
   "/app/professionals",
   "/app/conta",
@@ -110,27 +110,6 @@ const NAV_SECTIONS: NavSection[] = [
       },
     ],
   },
-  {
-    title: "Ajustes",
-    items: [
-      {
-        href: "/app/integracoes",
-        label: "Integrações",
-        icon: NavIconIntegrations,
-        match: (p) =>
-          p.startsWith("/app/integracoes") || p.startsWith("/app/integrations"),
-      },
-      {
-        href: "/app/conta",
-        label: "Configurações",
-        icon: NavIconSettings,
-        match: (p) =>
-          p.startsWith("/app/conta") ||
-          p.startsWith("/app/settings") ||
-          p.startsWith("/app/equipe"),
-      },
-    ],
-  },
 ];
 
 const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
@@ -164,11 +143,9 @@ const PAGE_TITLES: { match: (p: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith("/app/declaracoes"), title: "Declarações" },
   {
     match: (p) =>
-      p.startsWith("/app/integracoes") || p.startsWith("/app/integrations"),
-    title: "Integrações",
-  },
-  {
-    match: (p) =>
+      p.startsWith("/app/configuracoes") ||
+      p.startsWith("/app/integracoes") ||
+      p.startsWith("/app/integrations") ||
       p.startsWith("/app/conta") ||
       p.startsWith("/app/settings") ||
       p.startsWith("/app/equipe"),
@@ -300,18 +277,6 @@ function navForRole(
           },
         ],
       },
-      {
-        title: "Ajustes",
-        items: [
-          {
-            href: "/app/perfil",
-            label: "Meu perfil",
-            icon: NavIconAccount,
-            match: (p) =>
-              p.startsWith("/app/perfil") || p.startsWith("/app/profile"),
-          },
-        ],
-      },
     ];
   }
 
@@ -406,7 +371,6 @@ function navForRole(
   return [
     { title: "Agenda", items: agenda },
     { title: "Negócio", items: negocio },
-    { title: "Ajustes", items: [...NAV_SECTIONS[2].items] },
   ];
 }
 
@@ -491,6 +455,18 @@ export function AppShell({
     });
   }
 
+  const settingsHref =
+    role === "PROFESSIONAL" ? "/app/perfil" : "/app/configuracoes";
+  const settingsActive =
+    role === "PROFESSIONAL"
+      ? pathname.startsWith("/app/perfil") || pathname.startsWith("/app/profile")
+      : pathname.startsWith("/app/configuracoes") ||
+        pathname.startsWith("/app/conta") ||
+        pathname.startsWith("/app/settings") ||
+        pathname.startsWith("/app/equipe") ||
+        pathname.startsWith("/app/integracoes") ||
+        pathname.startsWith("/app/integrations");
+
   function renderSidebar(opts: {
     collapsed: boolean;
     showCollapseToggle: boolean;
@@ -559,25 +535,42 @@ export function AppShell({
         </nav>
 
         <div className="sidebar-footer">
-          <Link
-            href="/app/conta"
-            onClick={onNavigate}
-            className={`flex min-w-0 items-center gap-3 ${
-              isCollapsed ? "justify-center" : ""
+          <div
+            className={`flex min-w-0 items-center gap-2 ${
+              isCollapsed ? "flex-col" : ""
             }`}
           >
-            <span className="sidebar-user-avatar" title={accountName}>
-              {initials(accountName)}
-            </span>
-            {!isCollapsed && (
-              <div className="sidebar-user-meta min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {accountName}
-                </p>
-                <p className="text-[11px] text-muted">{roleLabel}</p>
-              </div>
-            )}
-          </Link>
+            <Link
+              href={settingsHref}
+              onClick={onNavigate}
+              className={`flex min-w-0 flex-1 items-center gap-3 ${
+                isCollapsed ? "justify-center" : ""
+              }`}
+            >
+              <span className="sidebar-user-avatar" title={accountName}>
+                {initials(accountName)}
+              </span>
+              {!isCollapsed && (
+                <div className="sidebar-user-meta min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {accountName}
+                  </p>
+                  <p className="text-[11px] text-muted">{roleLabel}</p>
+                </div>
+              )}
+            </Link>
+            <Link
+              href={settingsHref}
+              onClick={onNavigate}
+              className={`sidebar-settings-btn ${
+                settingsActive ? "is-active" : ""
+              }`}
+              aria-label="Configurações"
+              title="Configurações"
+            >
+              <NavIconSettings />
+            </Link>
+          </div>
           {showCollapseToggle && (
             <button
               type="button"
@@ -661,7 +654,14 @@ export function AppShell({
             ) : (
               <span className="text-sm font-semibold">{brand.name}</span>
             )}
-            <span className="sidebar-user-avatar">{initials(accountName)}</span>
+            <Link
+              href={settingsHref}
+              className="sidebar-user-avatar"
+              aria-label="Configurações"
+              title="Configurações"
+            >
+              {initials(accountName)}
+            </Link>
           </div>
         )}
 

@@ -72,7 +72,7 @@ export default function OnboardingAguardandoPage() {
             <Link href="/app" className="btn-primary">
               Ir para o painel
             </Link>
-            <Link href="/app/conta" className="btn-secondary">
+            <Link href="/app/configuracoes?tab=negocio" className="btn-secondary">
               Ver assinatura
             </Link>
           </div>

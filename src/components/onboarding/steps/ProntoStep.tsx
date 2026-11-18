@@ -57,7 +57,7 @@ export function ProntoStep({
           Entrar na plataforma
         </Link>
         {!mpConnected && !asaasConnected && (
-          <Link href="/app/integracoes" className="btn-secondary">
+          <Link href="/app/configuracoes?tab=integracoes" className="btn-secondary">
             Conectar pagamento
           </Link>
         )}

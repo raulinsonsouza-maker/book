@@ -363,7 +363,7 @@ export function AgendadorWelcomeEditor({
           <>
             Pagamento online em{" "}
             <Link
-              href="/app/conta"
+              href="/app/configuracoes?tab=negocio"
               className="font-medium text-foreground underline-offset-2 hover:underline"
             >
               Conta

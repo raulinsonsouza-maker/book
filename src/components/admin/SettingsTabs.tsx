@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+/** @deprecated Prefer SettingsHubNav — mantido para compat. */
 const TABS = [
   {
     id: "conta",
     label: "Conta",
-    href: "/app/conta",
+    href: "/app/configuracoes?tab=negocio",
     hint: "Marca e preferências",
   },
   {
     id: "equipe",
     label: "Equipe",
-    href: "/app/conta?tab=equipe",
+    href: "/app/configuracoes?tab=equipe",
     hint: "Acessos e permissões",
   },
 ] as const;
