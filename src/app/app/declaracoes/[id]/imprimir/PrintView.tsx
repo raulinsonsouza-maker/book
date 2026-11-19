@@ -53,6 +53,8 @@ export function PrintView({ certificate }: { certificate: AttendanceCertificateD
             kind: certificate.kind,
             title: certificate.title,
             bodyText: certificate.bodyText,
+            footerLeft: certificate.footerLeft,
+            footerRight: certificate.footerRight,
           }}
         />
       </div>

@@ -64,6 +64,8 @@ const atestadoSchema = z.object({
     .trim()
     .min(20, "Informe o texto do atestado")
     .max(8000),
+  footerLeft: z.string().trim().max(240).optional(),
+  footerRight: z.string().trim().max(120).optional(),
   visitDate: z.string().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
@@ -111,6 +113,8 @@ export async function POST(req: Request) {
         issueCity: (data.issueCity || header.city || "Piracicaba-SP").trim(),
         title: (data.title || ATESTADO_DEFAULT_TITLE).trim(),
         bodyText: data.bodyText,
+        footerLeft: (data.footerLeft || "").trim() || null,
+        footerRight: (data.footerRight || "").trim() || null,
         headerSnapshot: JSON.stringify({ kind: ATESTADO_KIND }),
         createdByUserId: ctx.userId,
       },

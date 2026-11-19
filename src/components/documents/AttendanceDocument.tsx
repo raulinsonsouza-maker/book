@@ -23,6 +23,8 @@ type Props = {
     kind?: AttendanceKind | string;
     title?: string | null;
     bodyText?: string | null;
+    footerLeft?: string | null;
+    footerRight?: string | null;
   };
 };
 
@@ -92,6 +94,8 @@ function AtestadoDocument({
   data: AttendanceDocumentData & {
     title?: string | null;
     bodyText?: string | null;
+    footerLeft?: string | null;
+    footerRight?: string | null;
   };
 }) {
   const title = (data.title || ATESTADO_DEFAULT_TITLE).trim() || ATESTADO_DEFAULT_TITLE;
@@ -99,6 +103,8 @@ function AtestadoDocument({
     .split(/\n+/)
     .map((p) => p.trim())
     .filter(Boolean);
+  const footerLeft = (data.footerLeft || "").trim();
+  const footerRight = (data.footerRight || "").trim();
 
   return (
     <article className="attendance-sheet attendance-sheet--atestado">
@@ -129,14 +135,21 @@ function AtestadoDocument({
         })}
       </p>
 
-      <footer className="atestado-signature">
+      <div className="atestado-signature">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={ATESTADO_SIGNATURE_SRC}
           alt="Assinatura do profissional"
           className="atestado-signature-img"
         />
-      </footer>
+      </div>
+
+      {(footerLeft || footerRight) && (
+        <footer className="atestado-page-footer">
+          <span className="atestado-page-footer-left">{footerLeft}</span>
+          <span className="atestado-page-footer-right">{footerRight}</span>
+        </footer>
+      )}
     </article>
   );
 }

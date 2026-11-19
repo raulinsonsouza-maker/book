@@ -8770,9 +8770,9 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 }
 
 .atestado-signature {
-  margin-top: auto;
-  margin-bottom: 18mm;
-  padding-top: 10mm;
+  margin-top: 8mm;
+  margin-bottom: 10mm;
+  padding-top: 6mm;
   text-align: center;
 }
 
@@ -8783,6 +8783,30 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
   max-height: 42mm;
   margin: 0 auto;
   object-fit: contain;
+}
+
+.atestado-page-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-top: auto;
+  padding-top: 4mm;
+  font-size: 7.5pt;
+  line-height: 1.3;
+  color: #666;
+}
+
+.atestado-page-footer-left {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.atestado-page-footer-right {
+  flex-shrink: 0;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .attendance-preview,

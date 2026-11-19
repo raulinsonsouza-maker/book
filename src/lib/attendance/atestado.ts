@@ -1,4 +1,8 @@
-import { formatShortDate, todayIsoDate } from "@/lib/attendance/format";
+import {
+  ATTENDANCE_TIMEZONE,
+  formatShortDate,
+  todayIsoDate,
+} from "@/lib/attendance/format";
 
 export const ATESTADO_KIND = "ATESTADO" as const;
 export const COMPARECIMENTO_KIND = "COMPARECIMENTO" as const;
@@ -12,8 +16,43 @@ export const ATESTADO_DEFAULT_TITLE = "ATESTADO MÉDICO";
 export const ATESTADO_HEADER_SRC = "/attendance/atestado-header.png";
 export const ATESTADO_SIGNATURE_SRC = "/attendance/atestado-signature.png";
 
+export const ATESTADO_FOOTER_REPORT =
+  "Relatorio Atestado Mediico Paciente.rpt";
+
 export function isAtestadoKind(kind: string | null | undefined): boolean {
   return kind === ATESTADO_KIND;
+}
+
+/** HH:mm:ss no fuso da clínica. */
+export function nowTimeHms(now = new Date(), timeZone = ATTENDANCE_TIMEZONE) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  return `${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
+/** Pré-preenche o rodapé esquerdo com data + intervalo de horário. */
+export function defaultAtestadoFooterLeft(params?: {
+  issueDate?: string;
+  startHms?: string;
+  endHms?: string;
+}) {
+  const date = params?.issueDate
+    ? formatShortDate(params.issueDate)
+    : formatShortDate(todayIsoDate());
+  const start = params?.startHms || nowTimeHms();
+  const end = params?.endHms || start;
+  return `${ATESTADO_FOOTER_REPORT} ${date} ${start} às ${end}`;
+}
+
+export function defaultAtestadoFooterRight(userName?: string) {
+  const name = (userName || "").trim().toUpperCase() || "_______________";
+  return `Usuario: ${name}`;
 }
 
 export function defaultAtestadoBody(params?: {

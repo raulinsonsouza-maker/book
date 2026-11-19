@@ -273,6 +273,8 @@ export async function buildAtestadoPdf(params: {
   bodyText?: string | null;
   issueDate: string;
   issueCity?: string;
+  footerLeft?: string | null;
+  footerRight?: string | null;
 }): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const title =
@@ -363,6 +365,32 @@ export async function buildAtestadoPdf(params: {
     });
   }
 
+  const footerLeft = clean((params.footerLeft || "").trim());
+  const footerRight = clean((params.footerRight || "").trim());
+  if (footerLeft || footerRight) {
+    const footerY = 28;
+    const footerSize = 7.5;
+    if (footerLeft) {
+      page.drawText(footerLeft, {
+        x: MARGIN_X,
+        y: footerY,
+        size: footerSize,
+        font: fonts.regular,
+        color: MUTED,
+      });
+    }
+    if (footerRight) {
+      const rw = fonts.regular.widthOfTextAtSize(footerRight, footerSize);
+      page.drawText(footerRight, {
+        x: PAGE_W - MARGIN_X - rw,
+        y: footerY,
+        size: footerSize,
+        font: fonts.regular,
+        color: MUTED,
+      });
+    }
+  }
+
   return doc.save();
 }
 
@@ -372,6 +400,8 @@ export async function buildCertificatePdf(params: {
   data: AttendanceDocumentData & {
     title?: string | null;
     bodyText?: string | null;
+    footerLeft?: string | null;
+    footerRight?: string | null;
     patientName: string;
   };
 }) {
@@ -382,6 +412,8 @@ export async function buildCertificatePdf(params: {
       bodyText: params.data.bodyText,
       issueDate: params.data.issueDate,
       issueCity: params.data.issueCity,
+      footerLeft: params.data.footerLeft,
+      footerRight: params.data.footerRight,
     });
   }
   return buildAttendancePdf(params.header, params.data);

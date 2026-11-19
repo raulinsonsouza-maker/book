@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { requireAttendancePage } from "@/lib/attendance/server";
 import { serializeCertificate } from "@/lib/attendance/serialize";
+import { getAuthContext } from "@/lib/rbac";
 import { DeclaracoesView } from "./DeclaracoesView";
 
 export default async function DeclaracoesPage() {
   const { organizationId, header } = await requireAttendancePage();
+  const ctx = await getAuthContext();
   const rows = await prisma.attendanceCertificate.findMany({
     where: { organizationId },
     orderBy: { createdAt: "desc" },
@@ -15,6 +17,7 @@ export default async function DeclaracoesPage() {
     <DeclaracoesView
       initialHeader={header}
       initialItems={rows.map(serializeCertificate)}
+      currentUserName={ctx?.name || ""}
     />
   );
 }

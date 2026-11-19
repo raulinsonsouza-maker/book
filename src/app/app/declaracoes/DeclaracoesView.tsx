@@ -7,6 +7,8 @@ import {
   ATESTADO_KIND,
   COMPARECIMENTO_KIND,
   defaultAtestadoBody,
+  defaultAtestadoFooterLeft,
+  defaultAtestadoFooterRight,
   isAtestadoKind,
   type AttendanceKind,
 } from "@/lib/attendance/atestado";
@@ -21,6 +23,7 @@ import type { AttendanceCertificateDTO } from "@/lib/attendance/serialize";
 type Props = {
   initialHeader: AttendanceHeader;
   initialItems: AttendanceCertificateDTO[];
+  currentUserName?: string;
 };
 
 type FormState = {
@@ -33,6 +36,8 @@ type FormState = {
   issueCity: string;
   title: string;
   bodyText: string;
+  footerLeft: string;
+  footerRight: string;
 };
 
 const HEADER_FIELDS: {
@@ -59,7 +64,7 @@ const HEADER_FIELDS: {
   },
 ];
 
-function emptyForm(headerCity = ""): FormState {
+function emptyForm(headerCity = "", userName = ""): FormState {
   const today = todayIsoDate();
   return {
     kind: COMPARECIMENTO_KIND,
@@ -71,6 +76,8 @@ function emptyForm(headerCity = ""): FormState {
     issueCity: headerCity || "Piracicaba-SP",
     title: ATESTADO_DEFAULT_TITLE,
     bodyText: defaultAtestadoBody({ visitDate: today }),
+    footerLeft: defaultAtestadoFooterLeft({ issueDate: today }),
+    footerRight: defaultAtestadoFooterRight(userName),
   };
 }
 
@@ -91,14 +98,20 @@ function triggerDownload(url: string) {
   a.remove();
 }
 
-export function DeclaracoesView({ initialHeader, initialItems }: Props) {
+export function DeclaracoesView({
+  initialHeader,
+  initialItems,
+  currentUserName = "",
+}: Props) {
   const [header, setHeader] = useState(initialHeader);
   const [headerDraft, setHeaderDraft] = useState(initialHeader);
   const [headerOpen, setHeaderOpen] = useState(false);
   const [headerSaving, setHeaderSaving] = useState(false);
   const [headerMsg, setHeaderMsg] = useState("");
 
-  const [form, setForm] = useState<FormState>(() => emptyForm(initialHeader.city));
+  const [form, setForm] = useState<FormState>(() =>
+    emptyForm(initialHeader.city, currentUserName),
+  );
   const [saving, setSaving] = useState<"pdf" | "print" | null>(null);
   const [error, setError] = useState("");
   const [lastCreated, setLastCreated] = useState<AttendanceCertificateDTO | null>(null);
@@ -122,6 +135,8 @@ export function DeclaracoesView({ initialHeader, initialItems }: Props) {
         : previewHeader.city,
       title: form.title,
       bodyText: form.bodyText,
+      footerLeft: form.footerLeft,
+      footerRight: form.footerRight,
     }),
     [form, isAtestado, previewHeader.city],
   );
@@ -156,6 +171,15 @@ export function DeclaracoesView({ initialHeader, initialItems }: Props) {
             key === "issueDate" ? String(value) : f.issueDate || f.visitDate,
         });
       }
+      if (
+        f.kind === ATESTADO_KIND &&
+        key === "issueDate" &&
+        f.footerLeft.includes("Relatorio Atestado Mediico Paciente.rpt")
+      ) {
+        next.footerLeft = defaultAtestadoFooterLeft({
+          issueDate: String(value),
+        });
+      }
       return next;
     });
     setError("");
@@ -173,6 +197,14 @@ export function DeclaracoesView({ initialHeader, initialItems }: Props) {
             })
           : f.bodyText,
       title: f.title || ATESTADO_DEFAULT_TITLE,
+      footerLeft:
+        kind === ATESTADO_KIND
+          ? defaultAtestadoFooterLeft({ issueDate: f.issueDate })
+          : f.footerLeft,
+      footerRight:
+        kind === ATESTADO_KIND
+          ? defaultAtestadoFooterRight(currentUserName)
+          : f.footerRight,
     }));
     setError("");
     setLastCreated(null);
@@ -210,6 +242,8 @@ export function DeclaracoesView({ initialHeader, initialItems }: Props) {
           issueCity: form.issueCity || header.city,
           title: form.title,
           bodyText: form.bodyText,
+          footerLeft: form.footerLeft,
+          footerRight: form.footerRight,
           visitDate: form.issueDate,
         }
       : {
@@ -237,7 +271,7 @@ export function DeclaracoesView({ initialHeader, initialItems }: Props) {
     setItems((prev) => [item, ...prev]);
     setLastCreated(item);
     setForm((f) => ({
-      ...emptyForm(header.city),
+      ...emptyForm(header.city, currentUserName),
       kind: f.kind,
       visitDate: f.visitDate,
       issueDate: f.issueDate,
@@ -247,6 +281,14 @@ export function DeclaracoesView({ initialHeader, initialItems }: Props) {
         f.kind === ATESTADO_KIND
           ? defaultAtestadoBody({ visitDate: f.issueDate })
           : f.bodyText,
+      footerLeft:
+        f.kind === ATESTADO_KIND
+          ? defaultAtestadoFooterLeft({ issueDate: f.issueDate })
+          : f.footerLeft,
+      footerRight:
+        f.kind === ATESTADO_KIND
+          ? defaultAtestadoFooterRight(currentUserName)
+          : f.footerRight,
     }));
     if (mode === "pdf") {
       triggerDownload(pdfUrl(item.id));
@@ -259,25 +301,30 @@ export function DeclaracoesView({ initialHeader, initialItems }: Props) {
 
   function reuse(item: AttendanceCertificateDTO) {
     if (isAtestadoKind(item.kind)) {
+      const today = todayIsoDate();
       setForm({
         kind: ATESTADO_KIND,
         patientName: item.patientName,
-        visitDate: todayIsoDate(),
+        visitDate: today,
         startTime: "",
         endTime: "",
-        issueDate: todayIsoDate(),
+        issueDate: today,
         issueCity: item.issueCity || header.city || "Piracicaba-SP",
         title: item.title || ATESTADO_DEFAULT_TITLE,
         bodyText:
           item.bodyText ||
           defaultAtestadoBody({
             patientName: item.patientName,
-            visitDate: todayIsoDate(),
+            visitDate: today,
           }),
+        footerLeft:
+          item.footerLeft || defaultAtestadoFooterLeft({ issueDate: today }),
+        footerRight:
+          item.footerRight || defaultAtestadoFooterRight(currentUserName),
       });
     } else {
       setForm({
-        ...emptyForm(header.city),
+        ...emptyForm(header.city, currentUserName),
         kind: COMPARECIMENTO_KIND,
         patientName: item.patientName,
         visitDate: todayIsoDate(),
@@ -409,6 +456,30 @@ export function DeclaracoesView({ initialHeader, initialItems }: Props) {
                   <span className="mt-1 block text-xs text-muted">
                     Edite o parágrafo à vontade — a prévia e o PDF usam exatamente este texto.
                   </span>
+                </label>
+
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium">
+                    Rodapé — relatório e horário da emissão
+                  </span>
+                  <input
+                    className="input-field font-sans text-[13px]"
+                    value={form.footerLeft}
+                    onChange={(e) => update("footerLeft", e.target.value)}
+                    maxLength={240}
+                    placeholder="Relatorio Atestado Mediico Paciente.rpt …"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium">Rodapé — usuário</span>
+                  <input
+                    className="input-field font-sans text-[13px]"
+                    value={form.footerRight}
+                    onChange={(e) => update("footerRight", e.target.value)}
+                    maxLength={120}
+                    placeholder="Usuario: NOME"
+                  />
                 </label>
               </>
             ) : (

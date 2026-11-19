@@ -231,6 +231,10 @@ model AttendanceCertificate {
   title           String?
   /** Corpo livre (atestado); comparecimento gera o texto na hora. */
   bodyText        String?
+  /** Rodapé esquerdo do atestado (relatório + horário), editável. */
+  footerLeft      String?
+  /** Rodapé direito do atestado (Usuário: …), editável. */
+  footerRight     String?
   /** Cabeçalho congelado no momento da emissão (JSON). */
   headerSnapshot  String
   createdByUserId String?
