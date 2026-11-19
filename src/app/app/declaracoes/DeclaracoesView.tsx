@@ -112,7 +112,8 @@ export function DeclaracoesView({
   const [form, setForm] = useState<FormState>(() =>
     emptyForm(initialHeader.city, currentUserName),
   );
-  const [saving, setSaving] = useState<"pdf" | "print" | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState<"pdf" | "print" | "save" | null>(null);
   const [error, setError] = useState("");
   const [lastCreated, setLastCreated] = useState<AttendanceCertificateDTO | null>(null);
 
@@ -120,6 +121,7 @@ export function DeclaracoesView({
   const [search, setSearch] = useState("");
 
   const isAtestado = form.kind === ATESTADO_KIND;
+  const isEditing = Boolean(editingId);
   const previewHeader = headerOpen ? headerDraft : header;
 
   const previewData = useMemo(
@@ -186,6 +188,7 @@ export function DeclaracoesView({
   }
 
   function setKind(kind: AttendanceKind) {
+    if (isEditing) return;
     setForm((f) => ({
       ...f,
       kind,
@@ -210,6 +213,53 @@ export function DeclaracoesView({
     setLastCreated(null);
   }
 
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(emptyForm(header.city, currentUserName));
+    setError("");
+    setLastCreated(null);
+  }
+
+  function startEdit(item: AttendanceCertificateDTO) {
+    if (isAtestadoKind(item.kind)) {
+      setForm({
+        kind: ATESTADO_KIND,
+        patientName: item.patientName,
+        visitDate: item.visitDate || item.issueDate,
+        startTime: item.startTime || "",
+        endTime: item.endTime || "",
+        issueDate: item.issueDate,
+        issueCity: item.issueCity || header.city || "Piracicaba-SP",
+        title: item.title || ATESTADO_DEFAULT_TITLE,
+        bodyText:
+          item.bodyText ||
+          defaultAtestadoBody({
+            patientName: item.patientName,
+            visitDate: item.issueDate,
+          }),
+        footerLeft:
+          item.footerLeft ||
+          defaultAtestadoFooterLeft({ issueDate: item.issueDate }),
+        footerRight:
+          item.footerRight || defaultAtestadoFooterRight(currentUserName),
+      });
+    } else {
+      setForm({
+        ...emptyForm(header.city, currentUserName),
+        kind: COMPARECIMENTO_KIND,
+        patientName: item.patientName,
+        visitDate: item.visitDate,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        issueDate: item.issueDate,
+      });
+    }
+    setEditingId(item.id);
+    setLastCreated(null);
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function validate() {
     if (form.patientName.trim().length < 3) return "Informe o nome completo do paciente";
     if (!form.issueDate) return "Informe a data de emissão";
@@ -224,13 +274,14 @@ export function DeclaracoesView({
     return "";
   }
 
-  async function create(mode: "pdf" | "print") {
+  async function create(mode: "pdf" | "print" | "save") {
     const problem = validate();
     if (problem) {
       setError(problem);
       return;
     }
-    const printWindow = mode === "print" ? window.open("about:blank", "_blank") : null;
+    const printWindow =
+      mode === "print" && !isEditing ? window.open("about:blank", "_blank") : null;
     setSaving(mode);
     setError("");
 
@@ -255,47 +306,67 @@ export function DeclaracoesView({
           issueDate: form.issueDate,
         };
 
-    const res = await fetch("/api/declaracoes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await fetch(
+      isEditing ? `/api/declaracoes/${editingId}` : "/api/declaracoes",
+      {
+        method: isEditing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
     const data = await res.json().catch(() => ({}));
     setSaving(null);
     if (!res.ok || !data.item) {
       printWindow?.close();
-      setError(data.error || "Não foi possível gerar a declaração");
+      setError(
+        data.error ||
+          (isEditing
+            ? "Não foi possível salvar as alterações"
+            : "Não foi possível gerar a declaração"),
+      );
       return;
     }
     const item = data.item as AttendanceCertificateDTO;
-    setItems((prev) => [item, ...prev]);
-    setLastCreated(item);
-    setForm((f) => ({
-      ...emptyForm(header.city, currentUserName),
-      kind: f.kind,
-      visitDate: f.visitDate,
-      issueDate: f.issueDate,
-      issueCity: f.issueCity,
-      title: f.title || ATESTADO_DEFAULT_TITLE,
-      bodyText:
-        f.kind === ATESTADO_KIND
-          ? defaultAtestadoBody({ visitDate: f.issueDate })
-          : f.bodyText,
-      footerLeft:
-        f.kind === ATESTADO_KIND
-          ? defaultAtestadoFooterLeft({ issueDate: f.issueDate })
-          : f.footerLeft,
-      footerRight:
-        f.kind === ATESTADO_KIND
-          ? defaultAtestadoFooterRight(currentUserName)
-          : f.footerRight,
-    }));
+    if (isEditing) {
+      setItems((prev) => prev.map((it) => (it.id === item.id ? item : it)));
+      setLastCreated(item);
+      setEditingId(null);
+      setForm((f) => ({
+        ...emptyForm(header.city, currentUserName),
+        kind: f.kind,
+      }));
+    } else {
+      setItems((prev) => [item, ...prev]);
+      setLastCreated(item);
+      setForm((f) => ({
+        ...emptyForm(header.city, currentUserName),
+        kind: f.kind,
+        visitDate: f.visitDate,
+        issueDate: f.issueDate,
+        issueCity: f.issueCity,
+        title: f.title || ATESTADO_DEFAULT_TITLE,
+        bodyText:
+          f.kind === ATESTADO_KIND
+            ? defaultAtestadoBody({ visitDate: f.issueDate })
+            : f.bodyText,
+        footerLeft:
+          f.kind === ATESTADO_KIND
+            ? defaultAtestadoFooterLeft({ issueDate: f.issueDate })
+            : f.footerLeft,
+        footerRight:
+          f.kind === ATESTADO_KIND
+            ? defaultAtestadoFooterRight(currentUserName)
+            : f.footerRight,
+      }));
+    }
     if (mode === "pdf") {
       triggerDownload(pdfUrl(item.id));
-    } else if (printWindow) {
-      printWindow.location.href = printUrl(item.id);
-    } else {
-      window.open(printUrl(item.id), "_blank");
+    } else if (mode === "print") {
+      if (printWindow) {
+        printWindow.location.href = printUrl(item.id);
+      } else {
+        window.open(printUrl(item.id), "_blank");
+      }
     }
   }
 
@@ -373,26 +444,41 @@ export function DeclaracoesView({
             }}
           >
             <div>
-              <h2 className="font-semibold tracking-tight">Nova declaração</h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="font-semibold tracking-tight">
+                  {isEditing ? "Editar declaração" : "Nova declaração"}
+                </h2>
+                {isEditing && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted underline-offset-2 hover:underline"
+                    onClick={cancelEdit}
+                  >
+                    Cancelar edição
+                  </button>
+                )}
+              </div>
               <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/30 p-1">
                 <button
                   type="button"
+                  disabled={isEditing}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                     !isAtestado
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted hover:text-foreground"
-                  }`}
+                  } disabled:opacity-60`}
                   onClick={() => setKind(COMPARECIMENTO_KIND)}
                 >
                   Comparecimento
                 </button>
                 <button
                   type="button"
+                  disabled={isEditing}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                     isAtestado
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted hover:text-foreground"
-                  }`}
+                  } disabled:opacity-60`}
                   onClick={() => setKind(ATESTADO_KIND)}
                 >
                   Atestado médico
@@ -534,17 +620,39 @@ export function DeclaracoesView({
             )}
 
             <div className="flex flex-col gap-2 sm:flex-row">
-              <button type="submit" className="btn-primary flex-1" disabled={saving !== null}>
-                {saving === "pdf" ? "Gerando…" : "Gerar e baixar PDF"}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary flex-1"
-                disabled={saving !== null}
-                onClick={() => void create("print")}
-              >
-                {saving === "print" ? "Gerando…" : "Gerar e imprimir"}
-              </button>
+              {isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-primary flex-1"
+                    disabled={saving !== null}
+                    onClick={() => void create("save")}
+                  >
+                    {saving === "save" ? "Salvando…" : "Salvar alterações"}
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-secondary flex-1"
+                    disabled={saving !== null}
+                  >
+                    {saving === "pdf" ? "Salvando…" : "Salvar e baixar PDF"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="submit" className="btn-primary flex-1" disabled={saving !== null}>
+                    {saving === "pdf" ? "Gerando…" : "Gerar e baixar PDF"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary flex-1"
+                    disabled={saving !== null}
+                    onClick={() => void create("print")}
+                  >
+                    {saving === "print" ? "Gerando…" : "Gerar e imprimir"}
+                  </button>
+                </>
+              )}
             </div>
 
             {lastCreated && (
@@ -630,8 +738,8 @@ export function DeclaracoesView({
 
           {isAtestado && (
             <p className="px-1 text-xs text-muted">
-              O atestado usa o cabeçalho e a assinatura do modelo UPA (fixos). Edite só o título e o
-              texto do corpo.
+              O atestado usa o cabeçalho e a assinatura do modelo UPA (fixos). Título, texto e
+              rodapé são editáveis.
             </p>
           )}
         </div>
@@ -689,6 +797,14 @@ export function DeclaracoesView({
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary !py-1.5 text-xs"
+                      onClick={() => startEdit(it)}
+                      title="Editar este documento"
+                    >
+                      Editar
+                    </button>
                     <a
                       className="btn-secondary !py-1.5 text-xs"
                       href={printUrl(it.id)}
