@@ -7,6 +7,8 @@ export type MercadoPagoOAuthState = {
   organizationId?: string;
   userId: string;
   returnOrigin: string;
+  /** App OAuth usado no authorize (credenciais + redirect_uri). */
+  brand?: "book" | "temark";
   popup?: boolean;
   exp: number;
 };

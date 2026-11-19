@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getRequestAppOrigin } from "@/lib/app-origin-server";
 import {
   getMercadoPagoAuthUrl,
+  mercadoPagoBrandFromOrigin,
   mercadoPagoOAuthConfigured,
 } from "@/lib/mercadopago/oauth";
 import { createMercadoPagoOAuthState } from "@/lib/mercadopago/oauth-state";
@@ -18,13 +19,14 @@ function oauthDonePath(base: string, status: string, popup: boolean) {
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   const returnOrigin = await getRequestAppOrigin();
+  const brand = mercadoPagoBrandFromOrigin(returnOrigin);
   const popup = new URL(req.url).searchParams.get("popup") === "1";
 
   if (!session?.user?.organizationId || !session.user.id) {
     return NextResponse.redirect(new URL("/login", returnOrigin));
   }
 
-  if (!(await mercadoPagoOAuthConfigured())) {
+  if (!(await mercadoPagoOAuthConfigured(brand))) {
     return NextResponse.redirect(
       oauthDonePath(returnOrigin, "missing_env", popup),
     );
@@ -35,8 +37,9 @@ export async function GET(req: Request) {
     organizationId: session.user.organizationId,
     userId: session.user.id,
     returnOrigin,
+    brand,
     popup,
   });
 
-  return NextResponse.redirect(await getMercadoPagoAuthUrl(state));
+  return NextResponse.redirect(await getMercadoPagoAuthUrl(state, brand));
 }

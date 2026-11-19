@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { BOOK_APP_HOST, defaultAppOrigin } from "@/lib/app-origin";
 import {
   exchangeMercadoPagoCode,
+  mercadoPagoBrandFromOrigin,
   saveMercadoPagoTokens,
 } from "@/lib/mercadopago/oauth";
 import { parseMercadoPagoOAuthState } from "@/lib/mercadopago/oauth-state";
@@ -32,6 +33,8 @@ export async function GET(req: Request) {
 
   const parsed = parseMercadoPagoOAuthState(state);
   const returnOrigin = parsed?.returnOrigin || fallbackOrigin();
+  const brand =
+    parsed?.brand || mercadoPagoBrandFromOrigin(returnOrigin);
   const popup = Boolean(parsed?.popup);
   const isPlatform = parsed?.purpose === "platform";
 
@@ -79,8 +82,6 @@ export async function GET(req: Request) {
       return done("error");
     }
 
-    // State assinado basta: o callback canônico pode ser no host Book
-    // enquanto a sessão do usuário está no Temark (cookie por domínio).
     if (session?.user?.id && parsed.userId !== session.user.id) {
       return done("forbidden");
     }
@@ -91,7 +92,7 @@ export async function GET(req: Request) {
       return done("forbidden");
     }
 
-    const tokens = await exchangeMercadoPagoCode(code);
+    const tokens = await exchangeMercadoPagoCode(code, brand);
     await saveMercadoPagoTokens(parsed.organizationId, tokens);
     return done("connected");
   } catch (e) {

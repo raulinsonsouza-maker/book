@@ -8,7 +8,12 @@ import {
   isMercadoPagoReady,
   webhookUrl,
 } from "@/lib/payments/resolve-provider";
-import { mercadoPagoOAuthConfigured } from "@/lib/mercadopago/oauth";
+import {
+  getMercadoPagoRedirectUri,
+  mercadoPagoBrandFromOrigin,
+  mercadoPagoOAuthConfigured,
+} from "@/lib/mercadopago/oauth";
+import { getRequestAppOrigin } from "@/lib/app-origin-server";
 import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
 import { DESCRIPTION_MAX, normalizeAccent } from "@/lib/branding";
 import { getOrgWhatsAppUsage } from "@/lib/whatsapp/quota";
@@ -93,6 +98,7 @@ async function serializeOrg(org: OrgRow) {
   const metaPixelId = org.metaPixelId ?? null;
   const hasMetaCapiToken = Boolean(org.metaCapiAccessToken);
   const googleAdsSendTo = org.googleAdsSendTo ?? null;
+  const brand = mercadoPagoBrandFromOrigin(await getRequestAppOrigin());
   return {
     id: org.id,
     name: org.name,
@@ -119,11 +125,9 @@ async function serializeOrg(org: OrgRow) {
     mercadoPagoConnected: isMercadoPagoReady(org),
     mercadoPagoViaOAuth: Boolean(org.mercadoPagoRefreshToken),
     mercadoPagoUserId: org.mercadoPagoUserId ?? null,
-    mercadoPagoOAuthConfigured: await mercadoPagoOAuthConfigured(),
+    mercadoPagoOAuthConfigured: await mercadoPagoOAuthConfigured(brand),
     mercadoPagoWebhookUrl: webhookUrl("/api/webhooks/mercadopago"),
-    mercadoPagoRedirectUri:
-      process.env.MERCADOPAGO_REDIRECT_URI ||
-      `${(process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")}/api/mercadopago/callback`,
+    mercadoPagoRedirectUri: getMercadoPagoRedirectUri(brand),
     asaasEnabled: ASAAS_ENABLED,
     asaasConnected: isAsaasReady(org),
     asaasAccountEmail: org.asaasAccountEmail ?? null,
