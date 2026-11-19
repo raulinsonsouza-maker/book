@@ -54,8 +54,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
   }
 
-  const allPages = bookingPageId === "all";
-  const allServices = serviceId === "all";
+  const allPages = bookingPageId === "all" || bookingPageId === "__all__";
+  const allServices = serviceId === "all" || serviceId === "__all__";
 
   const organization = await prisma.organization.findFirst({
     where: { id: ctx.organizationId },

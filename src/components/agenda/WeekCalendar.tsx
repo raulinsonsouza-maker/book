@@ -66,7 +66,8 @@ const VIEW_OPTIONS: { id: AgendaView; label: string }[] = [
 /** Sentinel no select: qualquer profissional disponível para o serviço. */
 const ANYONE = "__anyone__";
 /** Sentinel: todas as páginas / todos os serviços. */
-const ALL = "__all__";
+/** Precisa bater com `/api/agenda/calendar` (`bookingPageId` / `serviceId` === "all"). */
+const ALL = "all";
 
 function topPx(iso: string) {
   const d = parseISO(iso);
