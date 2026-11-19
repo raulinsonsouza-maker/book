@@ -2,6 +2,13 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import {
+  ATESTADO_DEFAULT_TITLE,
+  ATESTADO_HEADER_SRC,
+  ATESTADO_SIGNATURE_SRC,
+  atestadoIssueLine,
+  isAtestadoKind,
+} from "@/lib/attendance/atestado";
+import {
   attendanceBody,
   attendanceContactLine,
   attendanceIssueLine,
@@ -258,4 +265,124 @@ export async function buildAttendancePdf(
   }
 
   return doc.save();
+}
+
+export async function buildAtestadoPdf(params: {
+  patientName: string;
+  title?: string | null;
+  bodyText?: string | null;
+  issueDate: string;
+  issueCity?: string;
+}): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const title =
+    (params.title || ATESTADO_DEFAULT_TITLE).trim() || ATESTADO_DEFAULT_TITLE;
+  doc.setTitle(`${title} - ${params.patientName}`);
+  doc.setCreator("Temark / Book Symbius");
+
+  const fonts: Fonts = {
+    regular: await doc.embedFont(StandardFonts.Helvetica),
+    bold: await doc.embedFont(StandardFonts.HelveticaBold),
+  };
+  const clean = makeSanitizer(fonts.regular);
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+
+  let y = PAGE_H - 36;
+  const headerImg = await embedLogo(doc, ATESTADO_HEADER_SRC);
+  if (headerImg) {
+    const maxW = CONTENT_W;
+    const scale = Math.min(1, maxW / headerImg.width);
+    const w = headerImg.width * scale;
+    const h = headerImg.height * scale;
+    page.drawImage(headerImg, {
+      x: (PAGE_W - w) / 2,
+      y: y - h,
+      width: w,
+      height: h,
+    });
+    y -= h + 28;
+  } else {
+    y -= 24;
+  }
+
+  drawCentered(page, clean(title.toUpperCase()), y, fonts.bold, 16);
+  y -= 8;
+  const titleW = Math.min(CONTENT_W * 0.55, fonts.bold.widthOfTextAtSize(clean(title), 16) + 40);
+  page.drawLine({
+    start: { x: (PAGE_W - titleW) / 2, y },
+    end: { x: (PAGE_W + titleW) / 2, y },
+    thickness: 1.4,
+    color: INK,
+  });
+
+  y -= 36;
+  const paragraphs = (params.bodyText || "")
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  for (const paragraph of paragraphs) {
+    y = drawParagraph(
+      page,
+      [{ text: paragraph }],
+      y,
+      fonts,
+      clean,
+    );
+    y -= 14;
+  }
+
+  y -= 28;
+  const issue = clean(
+    atestadoIssueLine({
+      issueCity: params.issueCity,
+      issueDate: params.issueDate,
+    }),
+  );
+  const issueW = fonts.regular.widthOfTextAtSize(issue, BODY_SIZE);
+  page.drawText(issue, {
+    x: PAGE_W - MARGIN_X - issueW,
+    y,
+    size: BODY_SIZE,
+    font: fonts.regular,
+    color: INK,
+  });
+
+  const sig = await embedLogo(doc, ATESTADO_SIGNATURE_SRC);
+  if (sig) {
+    const maxW = 220;
+    const scale = Math.min(1, maxW / sig.width);
+    const w = sig.width * scale;
+    const h = sig.height * scale;
+    const sigY = Math.min(y - 24 - h, 120);
+    page.drawImage(sig, {
+      x: (PAGE_W - w) / 2,
+      y: sigY,
+      width: w,
+      height: h,
+    });
+  }
+
+  return doc.save();
+}
+
+export async function buildCertificatePdf(params: {
+  kind?: string | null;
+  header: AttendanceHeader;
+  data: AttendanceDocumentData & {
+    title?: string | null;
+    bodyText?: string | null;
+    patientName: string;
+  };
+}) {
+  if (isAtestadoKind(params.kind)) {
+    return buildAtestadoPdf({
+      patientName: params.data.patientName,
+      title: params.data.title,
+      bodyText: params.data.bodyText,
+      issueDate: params.data.issueDate,
+      issueCity: params.data.issueCity,
+    });
+  }
+  return buildAttendancePdf(params.header, params.data);
 }

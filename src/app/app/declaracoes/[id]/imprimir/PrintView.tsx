@@ -46,7 +46,15 @@ export function PrintView({ certificate }: { certificate: AttendanceCertificateD
         </div>
       </div>
       <div className="attendance-print-stage">
-        <AttendanceDocument header={certificate.header} data={certificate} />
+        <AttendanceDocument
+          header={certificate.header}
+          data={{
+            ...certificate,
+            kind: certificate.kind,
+            title: certificate.title,
+            bodyText: certificate.bodyText,
+          }}
+        />
       </div>
     </div>
   );

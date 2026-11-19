@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiRequireAttendance } from "@/lib/attendance/server";
 import { attendanceFileName } from "@/lib/attendance/format";
-import { buildAttendancePdf } from "@/lib/attendance/pdf";
+import { atestadoFileName, isAtestadoKind } from "@/lib/attendance/atestado";
+import { buildCertificatePdf } from "@/lib/attendance/pdf";
 import { serializeCertificate } from "@/lib/attendance/serialize";
 
 export const runtime = "nodejs";
@@ -23,8 +24,14 @@ export async function GET(
   }
 
   const cert = serializeCertificate(row);
-  const bytes = await buildAttendancePdf(cert.header, cert);
-  const fileName = attendanceFileName(cert.patientName, cert.visitDate);
+  const bytes = await buildCertificatePdf({
+    kind: cert.kind,
+    header: cert.header,
+    data: cert,
+  });
+  const fileName = isAtestadoKind(cert.kind)
+    ? atestadoFileName(cert.patientName, cert.issueDate)
+    : attendanceFileName(cert.patientName, cert.visitDate);
   const inline = new URL(req.url).searchParams.get("inline") === "1";
 
   return new NextResponse(Buffer.from(bytes), {

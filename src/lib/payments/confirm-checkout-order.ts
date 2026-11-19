@@ -3,6 +3,8 @@ import { sendCheckoutConfirmation, sendIntakeAlertToTeam } from "@/lib/email";
 import { parseIntakeData } from "@/lib/intake/validation/company-opening-br";
 import { fireCheckoutPaidConversion } from "@/lib/tracking/server";
 import { settleSameChargePendings } from "@/lib/payments/settle-same-charge";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
+import type { ProductBrandId } from "@/lib/product-brand";
 
 export async function confirmCheckoutOrder(orderId: string) {
   const existing = await prisma.checkoutOrder.findUnique({
@@ -56,6 +58,13 @@ export async function confirmCheckoutOrder(orderId: string) {
     });
   }
 
+  let brandId: ProductBrandId = "book";
+  try {
+    brandId = (await getRequestProductBrand()).id;
+  } catch {
+    /* webhook / background sem headers */
+  }
+
   await sendCheckoutConfirmation({
     to: order.customerEmail,
     customerName: order.customerName,
@@ -64,6 +73,7 @@ export async function confirmCheckoutOrder(orderId: string) {
     priceCents: order.product.priceCents,
     orderId: order.id,
     intakeDocuments: Boolean(order.intakeSubmission),
+    brandId,
   });
 
   if (order.intakeSubmission && order.product.productKind === "INTAKE") {

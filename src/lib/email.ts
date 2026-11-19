@@ -1,5 +1,8 @@
 import { Resend } from "resend";
-import { emailFrom } from "@/lib/email/templates/layout";
+import {
+  emailFrom,
+  type EmailBrandId,
+} from "@/lib/email/templates/layout";
 import {
   bookingCancelledClientEmail,
   bookingCancelledProEmail,
@@ -23,13 +26,14 @@ async function send(params: {
   subject: string;
   html: string;
   tag: string;
+  brandId?: EmailBrandId;
 }) {
   if (!resend) {
     console.log(`[email:demo] ${params.tag} →`, params.to, params.subject);
     return { ok: true as const, demo: true };
   }
   const sendPromise = resend.emails.send({
-    from: emailFrom(),
+    from: emailFrom(params.brandId),
     to: params.to,
     subject: params.subject,
     html: params.html,
@@ -135,6 +139,7 @@ export async function sendCheckoutConfirmation(params: {
   priceCents: number;
   orderId: string;
   intakeDocuments?: boolean;
+  brandId?: EmailBrandId;
 }) {
   const { to, ...rest } = params;
   const tpl = checkoutConfirmationEmail(rest);

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { sendPasswordReset } from "@/lib/email";
 import { appUrl } from "@/lib/email/templates/layout";
 import { issuePasswordResetToken } from "@/lib/password-reset";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
 
 const schema = z.object({
   email: z.string().email(),
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
   try {
     const body = schema.parse(await req.json());
     const email = body.email.toLowerCase().trim();
+    const brand = await getRequestProductBrand();
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -31,11 +33,15 @@ export async function POST(req: Request) {
 
     if (user && user.passwordHash && !user.disabledAt) {
       const { raw } = await issuePasswordResetToken(user.id);
-      const resetUrl = appUrl(`/redefinir-senha?token=${encodeURIComponent(raw)}`);
+      const resetUrl = appUrl(
+        `/redefinir-senha?token=${encodeURIComponent(raw)}`,
+        brand.appOrigin,
+      );
       await sendPasswordReset({
         to: user.email,
         name: user.name,
         resetUrl,
+        brandId: brand.id,
       });
     }
 

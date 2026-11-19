@@ -20,6 +20,8 @@ import {
   toPaymentUserMessage,
 } from "@/lib/payments/user-messages";
 import { resolveCardMaxInstallments } from "@/lib/payments/installments";
+import { parseProductFormConfig } from "@/lib/product-form-config";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
 
 async function loadOrder(orderId: string, slug: string) {
   return prisma.checkoutOrder.findFirst({
@@ -35,6 +37,25 @@ async function loadOrder(orderId: string, slug: string) {
       intakeSubmission: true,
     },
   });
+}
+
+function assertPayMethodAllowed(
+  order: NonNullable<Awaited<ReturnType<typeof loadOrder>>>,
+  method: "pix" | "card",
+) {
+  const allowed = parseProductFormConfig(order.product.formConfig).payMethods;
+  if (!allowed?.includes(method)) {
+    return NextResponse.json(
+      {
+        error:
+          method === "card"
+            ? "Este produto não aceita cartão"
+            : "Este produto não aceita Pix",
+      },
+      { status: 400 },
+    );
+  }
+  return null;
 }
 
 function assertIntakePayable(
@@ -80,6 +101,8 @@ export async function POST(
   const method = url.searchParams.get("method") || "pix";
 
   try {
+    const brand = await getRequestProductBrand();
+
     if (method === "pix") {
       const body = pixSchema.parse(await req.json());
       const order = await loadOrder(body.orderId, slug);
@@ -89,6 +112,8 @@ export async function POST(
           { status: 404 },
         );
       }
+      const methodBlock = assertPayMethodAllowed(order, "pix");
+      if (methodBlock) return methodBlock;
       const intakeBlock = intakePayBlock(order);
       if (intakeBlock) return intakeBlock;
 
@@ -117,6 +142,7 @@ export async function POST(
         idempotencyKey,
         fingerprint: body.fingerprint,
         metadata: { checkoutOrderId: order.id },
+        brandId: brand.id,
       });
 
       const payment = await prisma.payment.upsert({
@@ -173,6 +199,8 @@ export async function POST(
           { status: 404 },
         );
       }
+      const methodBlock = assertPayMethodAllowed(order, "card");
+      if (methodBlock) return methodBlock;
       const intakeBlock = intakePayBlock(order);
       if (intakeBlock) return intakeBlock;
 
@@ -233,6 +261,7 @@ export async function POST(
         ),
         metadata: { checkoutOrderId: order.id },
         remoteIp,
+        brandId: brand.id,
       });
 
       const outcome = resolveCardPaymentOutcome(provider, {

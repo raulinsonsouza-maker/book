@@ -1,14 +1,33 @@
 import { defaultAppOrigin } from "@/lib/app-origin";
+import {
+  getProductBrand,
+  type ProductBrandId,
+} from "@/lib/product-brand";
 
-const APP_URL = () => defaultAppOrigin();
+export type EmailBrandId = ProductBrandId;
 
 export function appUrl(path = "", origin?: string) {
-  const base = (origin || APP_URL()).replace(/\/$/, "");
+  const base = (origin || defaultAppOrigin()).replace(/\/$/, "");
   return `${base}${path.startsWith("/") ? path : path ? `/${path}` : ""}`;
 }
 
-export function emailFrom() {
-  return process.env.EMAIL_FROM || "Book Symbius <agendamento@book.symbius.com.br>";
+export function emailBrandOrigin(brandId: EmailBrandId = "book") {
+  return getProductBrand(brandId).appOrigin;
+}
+
+export function emailFrom(brandId: EmailBrandId = "book") {
+  if (brandId === "temark" && process.env.TEMARK_EMAIL_FROM?.trim()) {
+    return process.env.TEMARK_EMAIL_FROM.trim();
+  }
+  const base =
+    process.env.EMAIL_FROM ||
+    "Book Symbius <agendamento@book.symbius.com.br>";
+  if (brandId === "temark") {
+    const addr =
+      base.match(/<([^>]+)>/)?.[1] || "agendamento@book.symbius.com.br";
+    return `Temark <${addr}>`;
+  }
+  return base;
 }
 
 type LayoutParams = {
@@ -16,14 +35,22 @@ type LayoutParams = {
   preheader?: string;
   bodyHtml: string;
   cta?: { label: string; href: string };
+  brandId?: EmailBrandId;
+  origin?: string;
 };
 
-/** Layout padronizado Book Symbius — identidade do produto, conteúdo dinâmico no body. */
+/** Layout padronizado — Book Symbius ou Temark conforme brandId. */
 export function renderEmailLayout(params: LayoutParams) {
-  const logo = appUrl("/logo.png");
-  const privacy = appUrl("/privacidade");
-  const terms = appUrl("/termos");
-  const home = appUrl("/");
+  const brandId = params.brandId === "temark" ? "temark" : "book";
+  const brand = getProductBrand(brandId);
+  const origin = (params.origin || brand.appOrigin).replace(/\/$/, "");
+  const logoSrc =
+    brandId === "temark"
+      ? appUrl(brand.wordmarkSrc || "/temark-logo.png", origin)
+      : appUrl("/logo.png", origin);
+  const privacy = appUrl("/privacidade", origin);
+  const terms = appUrl("/termos", origin);
+  const home = origin;
   const cta = params.cta
     ? `<p style="margin:28px 0 8px;text-align:center">
         <a href="${params.cta.href}" style="display:inline-block;background:#0a0a0a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 22px;border-radius:10px">${params.cta.label}</a>
@@ -45,7 +72,7 @@ export function renderEmailLayout(params: LayoutParams) {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e8e4de">
           <tr>
             <td style="padding:28px 28px 12px;text-align:center;border-bottom:1px solid #f0ece6">
-              <img src="${logo}" alt="Book Symbius" width="140" height="auto" style="display:inline-block;max-width:140px;height:auto" />
+              <img src="${logoSrc}" alt="${escapeHtml(brand.name)}" width="140" height="auto" style="display:inline-block;max-width:140px;height:auto" />
             </td>
           </tr>
           <tr>
@@ -59,7 +86,7 @@ export function renderEmailLayout(params: LayoutParams) {
           </tr>
           <tr>
             <td style="padding:18px 28px 24px;background:#faf8f5;border-top:1px solid #f0ece6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;line-height:1.5;color:#777;text-align:center">
-              Enviado por <a href="${home}" style="color:#0a0a0a;text-decoration:none;font-weight:600">Book Symbius</a><br />
+              Enviado por <a href="${home}" style="color:#0a0a0a;text-decoration:none;font-weight:600">${escapeHtml(brand.name)}</a><br />
               <a href="${privacy}" style="color:#777">Privacidade</a>
               &nbsp;·&nbsp;
               <a href="${terms}" style="color:#777">Termos</a>
@@ -96,6 +123,5 @@ export function escapeHtml(value: string) {
 }
 
 export function formatWhen(startAt: Date, endAt: Date, timezone: string) {
-  // lazy import avoided — callers pass preformatted or use date helpers in email.ts
   return { startAt, endAt, timezone };
 }

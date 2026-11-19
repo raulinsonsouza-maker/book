@@ -6,6 +6,7 @@ import { sendProfessionalWelcome } from "@/lib/email";
 import { appUrl } from "@/lib/email/templates/layout";
 import { normalizeCommissionPercent } from "@/lib/payments/commission";
 import { apiRequireAdmin } from "@/lib/rbac";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
 
 const createSchema = z.object({
   displayName: z.string().min(2),
@@ -199,6 +200,7 @@ export async function POST(req: Request) {
     }
 
     try {
+      const brand = await getRequestProductBrand();
       await sendProfessionalWelcome({
         to: email,
         displayName: body.displayName,
@@ -206,7 +208,8 @@ export async function POST(req: Request) {
         email,
         temporaryPassword,
         serviceTitles,
-        loginUrl: appUrl("/login"),
+        loginUrl: appUrl("/login", brand.appOrigin),
+        brandId: brand.id,
       });
     } catch (err) {
       console.error("[professionals] welcome email", err);

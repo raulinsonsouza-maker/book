@@ -8721,6 +8721,70 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
   color: #5c5c5c;
 }
 
+.attendance-sheet--atestado {
+  font-family: Arial, Helvetica, "Segoe UI", sans-serif;
+  padding: 12mm 18mm 18mm;
+}
+
+.atestado-head {
+  text-align: center;
+}
+
+.atestado-header-img {
+  display: block;
+  width: 100%;
+  max-height: 32mm;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
+}
+
+.atestado-title {
+  margin: 12mm 0 2mm;
+  text-align: center;
+  font-size: 16pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.atestado-title-rule {
+  width: 55%;
+  margin: 0 auto 10mm;
+  border: 0;
+  border-top: 1.6pt solid #1a1a1a;
+}
+
+.atestado-body p {
+  margin-bottom: 4mm;
+  font-size: 12pt;
+  line-height: 1.65;
+  text-align: justify;
+  white-space: pre-wrap;
+}
+
+.atestado-issue {
+  margin-top: 12mm !important;
+  text-align: right;
+  font-size: 12pt;
+}
+
+.atestado-signature {
+  margin-top: auto;
+  margin-bottom: 18mm;
+  padding-top: 10mm;
+  text-align: center;
+}
+
+.atestado-signature-img {
+  display: block;
+  width: auto;
+  max-width: 72mm;
+  max-height: 42mm;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
 .attendance-preview,
 .attendance-preview-label {
   width: 100%;

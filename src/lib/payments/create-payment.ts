@@ -20,6 +20,7 @@ import {
   createDemoCardPayment,
 } from "@/lib/payments/demo";
 import type { ResolvedPaymentProvider } from "@/lib/payments/resolve-provider";
+import type { ProductBrandId } from "@/lib/product-brand";
 
 export type PaymentCustomer = {
   id: string;
@@ -66,8 +67,18 @@ export async function createPixForProvider(params: {
   idempotencyKey: string;
   fingerprint: string;
   metadata?: Record<string, string>;
+  brandId?: ProductBrandId;
 }) {
-  const { provider, org, customer, item, idempotencyKey, fingerprint, metadata } = params;
+  const {
+    provider,
+    org,
+    customer,
+    item,
+    idempotencyKey,
+    fingerprint,
+    metadata,
+    brandId,
+  } = params;
 
   if (provider === "ASAAS" && org.asaasApiKey) {
     const result = await createAsaasPixPayment({
@@ -94,6 +105,7 @@ export async function createPixForProvider(params: {
       description: item.title,
       bookingId: customer.id,
       idempotencyKey,
+      brandId,
       payer: {
         email: customer.customerEmail,
         name: customer.customerName,
@@ -132,6 +144,7 @@ export async function createCardForProvider(params: {
   installments?: number;
   metadata?: Record<string, string>;
   remoteIp?: string;
+  brandId?: ProductBrandId;
 }) {
   const {
     provider,
@@ -144,6 +157,7 @@ export async function createCardForProvider(params: {
     installments,
     metadata,
     remoteIp,
+    brandId,
   } = params;
 
   if (cardToken.startsWith("demo_")) {
@@ -184,6 +198,7 @@ export async function createCardForProvider(params: {
       idempotencyKey,
       cardToken,
       installments: installments || 1,
+      brandId,
       payer: {
         email: customer.customerEmail,
         name: customer.customerName,

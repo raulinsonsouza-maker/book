@@ -1,5 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { isTemarkAppHost } from "@/lib/app-origin";
 
 const SEGMENTS = [
   {
@@ -136,7 +141,15 @@ function HeroVisual() {
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Defesa além do proxy.ts (Next 16): app.temark nunca serve a LP Book.
+  const h = await headers();
+  const host = h.get("x-forwarded-host") || h.get("host");
+  if (isTemarkAppHost(host)) {
+    const session = await getServerSession(authOptions);
+    redirect(session?.user ? "/app" : "/login");
+  }
+
   return (
     <div className="lp-shell min-h-screen">
       <header className="lp-nav lp-nav--over-hero sticky top-0 z-30">

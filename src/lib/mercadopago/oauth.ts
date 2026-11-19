@@ -237,7 +237,7 @@ export async function clearMercadoPagoConnection(organizationId: string) {
   });
 }
 
-/** Renova o token se estiver perto de expirar (7 dias). */
+/** Renova o token se estiver perto de expirar (7 dias). Tenta Temark e Book. */
 export async function ensureMercadoPagoAccessToken(organizationId: string) {
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
@@ -259,12 +259,37 @@ export async function ensureMercadoPagoAccessToken(organizationId: string) {
     return org.mercadoPagoAccessToken;
   }
 
-  if (!(await mercadoPagoOAuthConfigured("book")) &&
-      !(await mercadoPagoOAuthConfigured("temark"))) {
+  const brands: MercadoPagoOAuthBrand[] = ["temark", "book"];
+  const configured = (
+    await Promise.all(
+      brands.map(async (b) =>
+        (await mercadoPagoOAuthConfigured(b)) ? b : null,
+      ),
+    )
+  ).filter((b): b is MercadoPagoOAuthBrand => Boolean(b));
+
+  if (configured.length === 0) {
     return org.mercadoPagoAccessToken;
   }
 
-  const tokens = await refreshMercadoPagoToken(org.mercadoPagoRefreshToken);
-  await saveMercadoPagoTokens(organizationId, tokens);
-  return tokens.accessToken;
+  let lastError: unknown;
+  for (const brand of configured) {
+    try {
+      const tokens = await refreshMercadoPagoToken(
+        org.mercadoPagoRefreshToken,
+        brand,
+      );
+      await saveMercadoPagoTokens(organizationId, tokens);
+      return tokens.accessToken;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  console.warn(
+    "[mercadopago] refresh failed for org",
+    organizationId,
+    lastError,
+  );
+  return org.mercadoPagoAccessToken;
 }

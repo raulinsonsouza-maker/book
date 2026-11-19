@@ -2,11 +2,13 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 import { formatBRL } from "@/lib/utils";
+import { getProductBrand } from "@/lib/product-brand";
 import {
   appUrl,
   detailBox,
   escapeHtml,
   renderEmailLayout,
+  type EmailBrandId,
 } from "@/lib/email/templates/layout";
 
 function whenLabel(startAt: Date, endAt: Date, timezone: string) {
@@ -317,7 +319,10 @@ export function checkoutConfirmationEmail(params: {
   priceCents: number;
   orderId: string;
   intakeDocuments?: boolean;
+  brandId?: EmailBrandId;
 }) {
+  const brandId: EmailBrandId = params.brandId === "temark" ? "temark" : "book";
+  const brand = getProductBrand(brandId);
   const intro = params.intakeDocuments
     ? "Recebemos seus dados e documentos. Seu pagamento foi confirmado."
     : "Seu pagamento foi confirmado.";
@@ -333,10 +338,13 @@ export function checkoutConfirmationEmail(params: {
   `;
   return {
     subject: `Pagamento confirmado — ${params.productTitle}`,
+    brandId,
     html: renderEmailLayout({
       title: "Pagamento confirmado",
       bodyHtml: body,
-      cta: { label: "Abrir Book Symbius", href: appUrl("/") },
+      brandId,
+      origin: brand.appOrigin,
+      cta: { label: `Abrir ${brand.name}`, href: appUrl("/", brand.appOrigin) },
     }),
   };
 }

@@ -67,6 +67,10 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
+/**
+ * Next.js 16: este arquivo é o Proxy (antigo middleware).
+ * Matcher cobre entradas de auth/painel e a raiz (redirect Temark).
+ */
 export const config = {
   matcher: [
     "/",
@@ -80,5 +84,7 @@ export const config = {
     "/primeiro-acesso",
     "/esqueci-senha",
     "/redefinir-senha",
+    "/termos",
+    "/privacidade",
   ],
 };

@@ -2,17 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { LegalDocument } from "@/components/marketing/LegalDocument";
+import { legalBrandCopy } from "@/lib/legal-brand";
 
-export const metadata: Metadata = {
-  title: "Política de Privacidade — Book Symbius",
-  description:
-    "Como o Book Symbius coleta, usa e protege dados pessoais de empresas e clientes finais.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await legalBrandCopy();
+  return {
+    title: `Política de Privacidade — ${brand.titleSuffix}`,
+    description: `Como o ${brand.name} coleta, usa e protege dados pessoais de empresas e clientes finais.`,
+  };
+}
 
 const UPDATED = "28 de agosto de 2026";
-const CONTACT = "contato@symbius.com.br";
 
-export default function PrivacidadePage() {
+export default async function PrivacidadePage() {
+  const brand = await legalBrandCopy();
+  const { name, contact, hostLabel, homeHref } = brand;
+
   return (
     <MarketingShell>
       <LegalDocument
@@ -22,17 +27,17 @@ export default function PrivacidadePage() {
         intro={
           <>
             <p>
-              Esta Política de Privacidade descreve como o <strong>Book Symbius</strong>{" "}
+              Esta Política de Privacidade descreve como o <strong>{name}</strong>{" "}
               (&quot;nós&quot;, &quot;plataforma&quot;), produto da Symbius, trata dados
               pessoais quando você utiliza nosso serviço de agendamento online, painel
               administrativo e integrações (incluindo Google Calendar e pagamentos via
               Mercado Pago).
             </p>
             <p>
-              Ao usar o Book Symbius, você declara ter lido e compreendido esta política.
+              Ao usar o {name}, você declara ter lido e compreendido esta política.
               Dúvidas:{" "}
-              <a href={`mailto:${CONTACT}`} className="text-foreground underline-offset-2 hover:underline">
-                {CONTACT}
+              <a href={`mailto:${contact}`} className="text-foreground underline-offset-2 hover:underline">
+                {contact}
               </a>
               .
             </p>
@@ -43,10 +48,10 @@ export default function PrivacidadePage() {
             title: "1. Quem somos",
             content: (
               <p>
-                O Book Symbius é uma plataforma SaaS multi-tenant de agendamento e
+                O {name} é uma plataforma SaaS multi-tenant de agendamento e
                 cobrança, operada pela Symbius, acessível em{" "}
-                <Link href="/" className="text-foreground underline-offset-2 hover:underline">
-                  book.symbius.com.br
+                <Link href={homeHref} className="text-foreground underline-offset-2 hover:underline">
+                  {hostLabel}
                 </Link>
                 . Empresas cadastradas criam páginas públicas de agendamento; clientes
                 finais utilizam essas páginas para marcar horários e, quando aplicável,
@@ -153,14 +158,14 @@ export default function PrivacidadePage() {
                   compartilhamento, conforme a LGPD.
                 </p>
                 <p>
-                  Organizações que utilizam o Book Symbius são responsáveis pelos dados de
+                  Organizações que utilizam o {name} são responsáveis pelos dados de
                   seus clientes finais coletados nas páginas de agendamento e devem
                   informá-los adequadamente.
                 </p>
                 <p>
                   Contato para exercer direitos:{" "}
-                  <a href={`mailto:${CONTACT}`} className="text-foreground underline-offset-2 hover:underline">
-                    {CONTACT}
+                  <a href={`mailto:${contact}`} className="text-foreground underline-offset-2 hover:underline">
+                    {contact}
                   </a>
                   .
                 </p>

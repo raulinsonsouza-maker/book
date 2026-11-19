@@ -217,6 +217,8 @@ model Organization {
 model AttendanceCertificate {
   id              String       @id @default(cuid())
   organizationId  String
+  /** COMPARECIMENTO | ATESTADO */
+  kind            String       @default("COMPARECIMENTO")
   patientName     String
   /** AAAA-MM-DD */
   visitDate       String
@@ -225,6 +227,10 @@ model AttendanceCertificate {
   endTime         String
   issuedAt        DateTime
   issueCity       String
+  /** Título do documento (ex.: ATESTADO MÉDICO). */
+  title           String?
+  /** Corpo livre (atestado); comparecimento gera o texto na hora. */
+  bodyText        String?
   /** Cabeçalho congelado no momento da emissão (JSON). */
   headerSnapshot  String
   createdByUserId String?

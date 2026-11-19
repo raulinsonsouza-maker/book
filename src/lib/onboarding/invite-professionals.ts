@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { sendProfessionalWelcome } from "@/lib/email";
 import { appUrl } from "@/lib/email/templates/layout";
 import { sendWhatsAppProfessionalInvite } from "@/lib/whatsapp/client";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
+import { getProductBrand } from "@/lib/product-brand";
 
 /**
  * Após assinatura ativa: envia e-mail (e WhatsApp, se configurado)
@@ -39,7 +41,13 @@ export async function inviteOnboardingProfessionals(organizationId: string) {
     });
 
     const serviceTitles = pro.services.map((s) => s.service.title);
-    const loginUrl = appUrl("/login");
+    let brand = getProductBrand("book");
+    try {
+      brand = await getRequestProductBrand();
+    } catch {
+      /* background */
+    }
+    const loginUrl = appUrl("/login", brand.appOrigin);
 
     try {
       await sendProfessionalWelcome({
@@ -50,6 +58,7 @@ export async function inviteOnboardingProfessionals(organizationId: string) {
         temporaryPassword,
         serviceTitles,
         loginUrl,
+        brandId: brand.id,
       });
       sent += 1;
     } catch (err) {

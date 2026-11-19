@@ -458,10 +458,11 @@ function formatBookingDescription(booking: {
     }
   }
 
-  const base =
+  const base = (
     process.env.NEXTAUTH_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    "https://book.symbius.com.br";
+    "https://book.symbius.com.br"
+  ).replace(/\/$/, "");
   lines.push(`---`, `Booking ID: ${booking.id}`, `Admin: ${base}/app/agenda/listagem`);
 
   return lines.join("\n");

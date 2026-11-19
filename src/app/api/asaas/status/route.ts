@@ -10,19 +10,22 @@ import {
   validateAsaasApiKey,
 } from "@/lib/asaas/client";
 import { isAsaasReady, webhookUrl } from "@/lib/payments/resolve-provider";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.organizationId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
   const org = await prisma.organization.findUnique({
     where: { id: session.user.organizationId },
   });
   if (!org) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: "Organização não encontrada" }, { status: 404 });
   }
+
+  const brand = await getRequestProductBrand();
 
   return NextResponse.json({
     enabled: ASAAS_ENABLED,
@@ -30,7 +33,7 @@ export async function GET() {
     email: org.asaasAccountEmail,
     walletId: org.asaasWalletId,
     connectedAt: org.asaasConnectedAt,
-    webhookUrl: webhookUrl("/api/webhooks/asaas"),
+    webhookUrl: webhookUrl("/api/webhooks/asaas", brand.id),
   });
 }
 

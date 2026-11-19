@@ -1,5 +1,6 @@
 import type { Organization, PaymentProvider } from "@prisma/client";
 import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
+import { getProductBrand, type ProductBrandId } from "@/lib/product-brand";
 
 export type ResolvedPaymentProvider = PaymentProvider | "DEMO";
 
@@ -55,7 +56,19 @@ export function paymentProviderLabel(provider: ResolvedPaymentProvider) {
   return "Demo";
 }
 
-export function webhookUrl(path: string) {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}${path}`;
+/**
+ * URL canônica de webhook por marca.
+ * Temark → app.temark.com.br; Book → NEXT_PUBLIC_APP_URL / book.symbius.
+ */
+export function webhookUrl(path: string, brandId: ProductBrandId = "book") {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  if (brandId === "temark") {
+    return `${getProductBrand("temark").appOrigin}${normalized}`;
+  }
+  const base = (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    getProductBrand("book").appOrigin ||
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
+  return `${base}${normalized}`;
 }

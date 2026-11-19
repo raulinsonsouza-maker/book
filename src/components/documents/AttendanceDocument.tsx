@@ -2,6 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  ATESTADO_DEFAULT_TITLE,
+  ATESTADO_HEADER_SRC,
+  ATESTADO_SIGNATURE_SRC,
+  atestadoIssueLine,
+  isAtestadoKind,
+  type AttendanceKind,
+} from "@/lib/attendance/atestado";
+import {
   attendanceBody,
   attendanceContactLine,
   attendanceIssueLine,
@@ -11,11 +19,28 @@ import {
 
 type Props = {
   header: AttendanceHeader;
-  data: AttendanceDocumentData;
+  data: AttendanceDocumentData & {
+    kind?: AttendanceKind | string;
+    title?: string | null;
+    bodyText?: string | null;
+  };
 };
 
 /** Folha A4 da declaração — mesmo texto e proporções do PDF. */
 export function AttendanceDocument({ header, data }: Props) {
+  if (isAtestadoKind(data.kind)) {
+    return <AtestadoDocument data={data} />;
+  }
+  return <ComparecimentoDocument header={header} data={data} />;
+}
+
+function ComparecimentoDocument({
+  header,
+  data,
+}: {
+  header: AttendanceHeader;
+  data: AttendanceDocumentData;
+}) {
   const contact = attendanceContactLine(header);
   const signerTitle = (header.signerTitle || header.businessName).trim();
   const signerPhone = (header.signerPhone || header.phone).trim();
@@ -56,6 +81,61 @@ export function AttendanceDocument({ header, data }: Props) {
         )}
         {signerTitle && <p className="attendance-sign-meta">{signerTitle}</p>}
         {signerPhone && <p className="attendance-sign-meta">{signerPhone}</p>}
+      </footer>
+    </article>
+  );
+}
+
+function AtestadoDocument({
+  data,
+}: {
+  data: AttendanceDocumentData & {
+    title?: string | null;
+    bodyText?: string | null;
+  };
+}) {
+  const title = (data.title || ATESTADO_DEFAULT_TITLE).trim() || ATESTADO_DEFAULT_TITLE;
+  const paragraphs = (data.bodyText || "")
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return (
+    <article className="attendance-sheet attendance-sheet--atestado">
+      <header className="atestado-head">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={ATESTADO_HEADER_SRC}
+          alt="Cabeçalho UPA"
+          className="atestado-header-img"
+        />
+      </header>
+
+      <h1 className="atestado-title">{title}</h1>
+      <hr className="atestado-title-rule" />
+
+      <div className="atestado-body">
+        {paragraphs.length === 0 ? (
+          <p className="text-muted">Preencha o texto do atestado…</p>
+        ) : (
+          paragraphs.map((p, i) => <p key={i}>{p}</p>)
+        )}
+      </div>
+
+      <p className="atestado-issue">
+        {atestadoIssueLine({
+          issueCity: data.issueCity,
+          issueDate: data.issueDate,
+        })}
+      </p>
+
+      <footer className="atestado-signature">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={ATESTADO_SIGNATURE_SRC}
+          alt="Assinatura do profissional"
+          className="atestado-signature-img"
+        />
       </footer>
     </article>
   );

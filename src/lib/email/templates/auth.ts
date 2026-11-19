@@ -1,8 +1,9 @@
+import { getProductBrand } from "@/lib/product-brand";
 import {
-  appUrl,
   detailBox,
   escapeHtml,
   renderEmailLayout,
+  type EmailBrandId,
 } from "@/lib/email/templates/layout";
 
 export function professionalWelcomeEmail(params: {
@@ -12,7 +13,10 @@ export function professionalWelcomeEmail(params: {
   temporaryPassword: string;
   serviceTitles: string[];
   loginUrl: string;
+  brandId?: EmailBrandId;
 }) {
+  const brandId: EmailBrandId = params.brandId === "temark" ? "temark" : "book";
+  const brand = getProductBrand(brandId);
   const services =
     params.serviceTitles.length > 0
       ? params.serviceTitles.join(", ")
@@ -23,7 +27,7 @@ export function professionalWelcomeEmail(params: {
     <p>
       Sua conta de profissional em
       <strong>${escapeHtml(params.organizationName)}</strong>
-      foi criada no Book Symbius.
+      foi criada no ${escapeHtml(brand.name)}.
     </p>
     ${detailBox([
       { label: "E-mail (login)", value: params.email },
@@ -38,10 +42,13 @@ export function professionalWelcomeEmail(params: {
 
   return {
     subject: `Acesso profissional — ${params.organizationName}`,
+    brandId,
     html: renderEmailLayout({
       title: "Sua conta foi criada",
       preheader: `Acesse a área de profissionais de ${params.organizationName}`,
       bodyHtml: body,
+      brandId,
+      origin: brand.appOrigin,
       cta: { label: "Acessar painel", href: params.loginUrl },
     }),
   };
@@ -50,11 +57,14 @@ export function professionalWelcomeEmail(params: {
 export function passwordResetEmail(params: {
   name: string;
   resetUrl: string;
+  brandId?: EmailBrandId;
 }) {
+  const brandId: EmailBrandId = params.brandId === "temark" ? "temark" : "book";
+  const brand = getProductBrand(brandId);
   const body = `
     <p>Olá${params.name ? `, ${escapeHtml(params.name)}` : ""}.</p>
     <p>
-      Recebemos um pedido para redefinir a senha da sua conta no Book Symbius.
+      Recebemos um pedido para redefinir a senha da sua conta no ${escapeHtml(brand.name)}.
       O link é válido por 1 hora.
     </p>
     <p style="color:#555;font-size:14px">
@@ -63,11 +73,14 @@ export function passwordResetEmail(params: {
   `;
 
   return {
-    subject: "Redefinir senha — Book Symbius",
+    subject: `Redefinir senha — ${brand.name}`,
+    brandId,
     html: renderEmailLayout({
       title: "Redefinir senha",
       preheader: "Crie uma nova senha para acessar o sistema",
       bodyHtml: body,
+      brandId,
+      origin: brand.appOrigin,
       cta: { label: "Cadastrar nova senha", href: params.resetUrl },
     }),
   };

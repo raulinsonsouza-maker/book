@@ -14,6 +14,7 @@ import {
   MAX_COVER_BYTES,
 } from "@/lib/image-upload";
 import { bookingPublicPath, bookingPublicUrl } from "@/lib/booking-page-slug";
+import { useResolvedProductBrand } from "@/components/brand/ProductBrandProvider";
 import {
   centsToBRLMask,
   formatBRL,
@@ -123,6 +124,7 @@ function setupLabel(c: ReturnType<typeof pageChecklist>) {
 function AgendadorInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const brand = useResolvedProductBrand();
   const pageIdParam = searchParams.get("id");
   const isNovo = searchParams.get("novo") === "1";
 
@@ -168,7 +170,7 @@ function AgendadorInner() {
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL || "";
+      : brand.appOrigin;
 
   const mode: "list" | "wizard" | "edit" = isNovo
     ? "wizard"
@@ -791,7 +793,7 @@ function AgendadorInner() {
     const isSalon = businessMode === "SALON";
     const publicUrl = wPage
       ? orgSlug
-        ? bookingPublicUrl(orgSlug, wPage.slug)
+        ? bookingPublicUrl(orgSlug, wPage.slug, brand.id)
         : `${appUrl}/p/${wPage.slug}`
       : "";
 
@@ -1321,7 +1323,7 @@ function AgendadorInner() {
   }
 
   const publicUrl = orgSlug
-    ? bookingPublicUrl(orgSlug, page.slug)
+    ? bookingPublicUrl(orgSlug, page.slug, brand.id)
     : `${appUrl}/p/${page.slug}`;
   const activeServices = page.services.filter((s) => s.isActive).length;
 

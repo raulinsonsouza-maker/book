@@ -21,6 +21,7 @@ import {
   resolveCardPaymentOutcome,
   toPaymentUserMessage,
 } from "@/lib/payments/user-messages";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
 
 async function loadBooking(bookingId: string, slug: string) {
   return prisma.booking.findFirst({
@@ -53,6 +54,8 @@ export async function POST(
   const method = url.searchParams.get("method") || "pix";
 
   try {
+    const brand = await getRequestProductBrand();
+
     if (method === "pix") {
       const body = pixSchema.parse(await req.json());
       const booking = await loadBooking(body.bookingId, slug);
@@ -84,6 +87,7 @@ export async function POST(
         idempotencyKey,
         fingerprint: body.fingerprint,
         metadata: { bookingId: booking.id },
+        brandId: brand.id,
       });
 
       const payment = await prisma.payment.upsert({
@@ -193,6 +197,7 @@ export async function POST(
           ),
           metadata: { bookingId: booking.id },
           remoteIp,
+          brandId: brand.id,
         });
       } catch (e) {
         await emitBookingEvent({

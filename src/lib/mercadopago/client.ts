@@ -1,4 +1,5 @@
 import { webhookUrl } from "@/lib/payments/resolve-provider";
+import type { ProductBrandId } from "@/lib/product-brand";
 import {
   messageFromMercadoPagoApiError,
   PaymentUserError,
@@ -80,6 +81,7 @@ export async function createMercadoPagoPixPayment(params: {
   payer: MercadoPagoPayer;
   bookingId: string;
   idempotencyKey: string;
+  brandId?: ProductBrandId;
 }): Promise<MercadoPagoPaymentResult> {
   const { first_name, last_name } = splitName(params.payer.name);
   const cpf = (params.payer.cpf || "00000000000").replace(/\D/g, "");
@@ -92,7 +94,10 @@ export async function createMercadoPagoPixPayment(params: {
       description: params.description,
       payment_method_id: "pix",
       external_reference: params.bookingId,
-      notification_url: webhookUrl("/api/webhooks/mercadopago"),
+      notification_url: webhookUrl(
+        "/api/webhooks/mercadopago",
+        params.brandId === "temark" ? "temark" : "book",
+      ),
       payer: {
         email: params.payer.email,
         first_name,
@@ -125,6 +130,7 @@ export async function createMercadoPagoCardPayment(params: {
   bookingId: string;
   idempotencyKey: string;
   installments?: number;
+  brandId?: ProductBrandId;
 }): Promise<MercadoPagoPaymentResult> {
   const { first_name, last_name } = splitName(params.payer.name);
   const cpf = params.payer.cpf?.replace(/\D/g, "");
@@ -146,7 +152,10 @@ export async function createMercadoPagoCardPayment(params: {
       description: params.description,
       installments,
       external_reference: params.bookingId,
-      notification_url: webhookUrl("/api/webhooks/mercadopago"),
+      notification_url: webhookUrl(
+        "/api/webhooks/mercadopago",
+        params.brandId === "temark" ? "temark" : "book",
+      ),
       payer: {
         email: params.payer.email,
         first_name,

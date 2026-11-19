@@ -2,17 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { LegalDocument } from "@/components/marketing/LegalDocument";
+import { legalBrandCopy } from "@/lib/legal-brand";
 
-export const metadata: Metadata = {
-  title: "Termos de Serviço — Book Symbius",
-  description:
-    "Termos de uso da plataforma Book Symbius para empresas e usuários do serviço de agendamento.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await legalBrandCopy();
+  return {
+    title: `Termos de Serviço — ${brand.titleSuffix}`,
+    description: `Termos de uso da plataforma ${brand.name} para empresas e usuários do serviço de agendamento.`,
+  };
+}
 
 const UPDATED = "28 de agosto de 2026";
-const CONTACT = "contato@symbius.com.br";
 
-export default function TermosPage() {
+export default async function TermosPage() {
+  const brand = await legalBrandCopy();
+  const { name, contact } = brand;
+
   return (
     <MarketingShell>
       <LegalDocument
@@ -23,7 +28,7 @@ export default function TermosPage() {
           <>
             <p>
               Estes Termos de Serviço (&quot;Termos&quot;) regem o uso do{" "}
-              <strong>Book Symbius</strong>, plataforma de agendamento online operada
+              <strong>{name}</strong>, plataforma de agendamento online operada
               pela Symbius. Ao criar uma conta ou utilizar o serviço, você concorda com
               estes Termos e com nossa{" "}
               <Link href="/privacidade" className="text-foreground underline-offset-2 hover:underline">
@@ -47,7 +52,7 @@ export default function TermosPage() {
                   pública de uma empresa.
                 </p>
                 <p>
-                  <strong>Plataforma:</strong> o software Book Symbius, incluindo painel
+                  <strong>Plataforma:</strong> o software {name}, incluindo painel
                   administrativo, APIs e páginas públicas de agendamento.
                 </p>
               </>
@@ -57,7 +62,7 @@ export default function TermosPage() {
             title: "2. Objeto do serviço",
             content: (
               <p>
-                O Book Symbius disponibiliza ferramentas para criar páginas de agendamento,
+                O {name} disponibiliza ferramentas para criar páginas de agendamento,
                 gerenciar serviços e disponibilidade, registrar reservas, integrar
                 pagamentos (via Mercado Pago) e, opcionalmente, sincronizar eventos com Google
                 Calendar. Funcionalidades podem evoluir ao longo do tempo.
@@ -117,7 +122,7 @@ export default function TermosPage() {
             content: (
               <p>
                 Pagamentos de clientes finais são processados pelo Mercado Pago, conforme termos
-                e políticas do próprio Mercado Pago. O Book Symbius não é instituição financeira
+                e políticas do próprio Mercado Pago. O {name} não é instituição financeira
                 e não garante aprovação de transações. Taxas e condições comerciais do
                 Mercado Pago aplicam-se independentemente destes Termos.
               </p>
@@ -138,7 +143,7 @@ export default function TermosPage() {
             title: "8. Propriedade intelectual",
             content: (
               <p>
-                O software, marca, layout e documentação do Book Symbius pertencem à
+                O software, marca, layout e documentação do {name} pertencem à
                 Symbius ou a seus licenciadores. É concedida licença limitada, não
                 exclusiva e revogável de uso durante a vigência da conta. Conteúdos
                 inseridos pela empresa permanecem de sua propriedade.
@@ -190,8 +195,8 @@ export default function TermosPage() {
                 </p>
                 <p>
                   Dúvidas:{" "}
-                  <a href={`mailto:${CONTACT}`} className="text-foreground underline-offset-2 hover:underline">
-                    {CONTACT}
+                  <a href={`mailto:${contact}`} className="text-foreground underline-offset-2 hover:underline">
+                    {contact}
                   </a>
                   .
                 </p>
