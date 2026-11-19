@@ -4,12 +4,31 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DESCRIPTION_MAX } from "@/lib/branding";
 import { readLogoFile } from "@/lib/image-upload";
+import { formatBRL } from "@/lib/utils";
 import { SubscriptionSubscribeButton } from "@/components/billing/SubscriptionSubscribeButton";
 import { useHostProductBrand } from "@/hooks/useProductBrand";
 import {
   profileOptions,
   type BusinessProfileId,
 } from "@/lib/business-profile";
+
+function billingStatusLabel(status: string | null | undefined) {
+  switch (status) {
+    case "ACTIVE":
+      return "Ativa";
+    case "TRIALING":
+      return "Em trial";
+    case "PAST_DUE":
+      return "Pagamento pendente";
+    case "CANCELED":
+    case "CANCELLED":
+      return "Cancelada";
+    case "INACTIVE":
+      return "Inativa";
+    default:
+      return status || "—";
+  }
+}
 
 type BillingStatus = {
   billingEnabled: boolean;
@@ -264,18 +283,6 @@ export function NegocioPanel() {
       {msg ? <p className="settings-flash is-ok">{msg}</p> : null}
       {error ? <p className="settings-flash is-err">{error}</p> : null}
 
-      <div className="settings-quick-links">
-        <Link href="/app/clientes" className="settings-quick-link">
-          <span className="settings-quick-icon" aria-hidden>
-            Pr
-          </span>
-          <span>
-            <strong>Prontuário</strong>
-            <em>Clientes e histórico de atendimentos</em>
-          </span>
-        </Link>
-      </div>
-
       {billing?.billingEnabled ? (
         <section className="settings-card settings-card-billing">
           <div className="settings-card-head">
@@ -285,10 +292,12 @@ export function NegocioPanel() {
             </div>
             <span
               className={`settings-status-pill ${
-                billing.status === "ACTIVE" ? "is-active" : "is-muted"
+                billing.status === "ACTIVE" || billing.status === "TRIALING"
+                  ? "is-active"
+                  : "is-muted"
               }`}
             >
-              {billing.status ?? "—"}
+              {billingStatusLabel(billing.status)}
             </span>
           </div>
           <div className="settings-stat-row">
@@ -297,10 +306,7 @@ export function NegocioPanel() {
                 <p className="settings-stat-label">Plano</p>
                 <p className="settings-stat-value">
                   {billing.plan.name}
-                  <span>
-                    {" "}
-                    · R$ {(billing.plan.priceCents / 100).toFixed(2)}/mês
-                  </span>
+                  <span> · {formatBRL(billing.plan.priceCents)}/mês</span>
                 </p>
               </div>
             ) : null}
@@ -354,7 +360,7 @@ export function NegocioPanel() {
               ? "Canal ainda não ativado pela plataforma — lembretes seguem por e-mail."
               : wa.remaining <= 0
                 ? "Franquia esgotada. Novos envios caem para e-mail até o próximo ciclo."
-                : "OTP e lembretes pelo canal da plataforma."}
+                : "Códigos e lembretes pelo canal da plataforma."}
           </p>
         </section>
       ) : null}
@@ -367,8 +373,8 @@ export function NegocioPanel() {
           </div>
         </div>
         <p className="settings-card-lead">
-          Define nomenclatura (cliente/paciente) e módulos como prontuário e
-          prescrições. Trocar não apaga dados.
+          Ajusta nomes (cliente ou paciente) e o que o painel destaca. Não apaga
+          dados.
         </p>
         <div className="settings-choice-grid">
           {profileOptions().map((opt) => {
@@ -404,8 +410,7 @@ export function NegocioPanel() {
           </div>
         </div>
         <p className="settings-card-lead">
-          Individual = um calendário. Equipe = vários profissionais com login e
-          páginas próprias.
+          Individual: um calendário. Com equipe: vários profissionais na agenda.
         </p>
         <div className="settings-choice-grid settings-choice-grid-2">
           <button
@@ -421,7 +426,7 @@ export function NegocioPanel() {
             </span>
             <span className="settings-choice-copy">
               <strong>Individual</strong>
-              <em>Consultoria / profissional único</em>
+              <em>Um profissional, um calendário</em>
             </span>
           </button>
           <button
@@ -436,15 +441,17 @@ export function NegocioPanel() {
               N
             </span>
             <span className="settings-choice-copy">
-              <strong>Equipe</strong>
-              <em>Serviços cruzados e escolha de profissional</em>
+              <strong>Com equipe</strong>
+              <em>Vários profissionais e serviços cruzados</em>
             </span>
           </button>
         </div>
         {businessMode === "SALON" ? (
           <p className="settings-card-note">
-            Cadastre a equipe em{" "}
-            <Link href="/app/profissionais">Profissionais</Link>.
+            Cadastre quem atende em{" "}
+            <Link href="/app/profissionais">Profissionais</Link>. Logins extras
+            do painel ficam em{" "}
+            <Link href="/app/configuracoes?tab=equipe">Acessos</Link>.
           </p>
         ) : null}
       </section>
@@ -460,8 +467,7 @@ export function NegocioPanel() {
           </div>
         </div>
         <p className="settings-card-lead">
-          Limite que o cliente vê no funil e no checkout. Juros finos ficam na
-          conta do provedor.
+          Máximo de parcelas no cartão no agendamento e no link de pagamento.
         </p>
         <label className="settings-field">
           <span>Máximo de parcelas</span>
@@ -496,7 +502,7 @@ export function NegocioPanel() {
           </div>
         </div>
         <p className="settings-card-lead">
-          Logo, nome e cor herdados no checkout e no agendamento.
+          Nome, logo e cor usados no checkout e na tela de agendamento.
         </p>
 
         <div className="settings-identity-grid">
@@ -617,8 +623,7 @@ export function NegocioPanel() {
           </div>
         </div>
         <p className="settings-card-lead">
-          E-mails com identidade {brand.name}. Lembretes do profissional também
-          podem vir do Google Calendar.
+          E-mails com a identidade {brand.name} para cliente e profissional.
         </p>
 
         <div className="settings-comms-grid">

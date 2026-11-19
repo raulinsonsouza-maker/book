@@ -7,15 +7,15 @@ import { useSearchParams } from "next/navigation";
 const TABS = [
   {
     id: "conta",
-    label: "Conta",
+    label: "Negócio",
     href: "/app/configuracoes?tab=negocio",
-    hint: "Marca e preferências",
+    hint: "Marca e operação",
   },
   {
     id: "equipe",
-    label: "Equipe",
+    label: "Acessos",
     href: "/app/configuracoes?tab=equipe",
-    hint: "Acessos e permissões",
+    hint: "Logins da equipe",
   },
 ] as const;
 

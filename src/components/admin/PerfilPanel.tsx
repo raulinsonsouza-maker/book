@@ -31,16 +31,16 @@ export function PerfilPanel() {
     role === "PROFESSIONAL"
       ? "Profissional"
       : org?.businessMode === "SALON"
-        ? "Equipe"
-        : "Individual";
+        ? "Administrador"
+        : "Conta individual";
 
   return (
     <div className="space-y-5">
       <section className="settings-card">
         <div className="settings-card-head">
           <div>
-            <p className="settings-card-kicker">Conta</p>
-            <h2>Seu perfil</h2>
+            <p className="settings-card-kicker">Perfil</p>
+            <h2>Seus dados</h2>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-4">
@@ -64,12 +64,11 @@ export function PerfilPanel() {
         <div className="settings-card-head">
           <div>
             <p className="settings-card-kicker">Segurança</p>
-            <h2>Acesso</h2>
+            <h2>Senha e sessão</h2>
           </div>
         </div>
         <p className="settings-card-lead">
-          Redefina a senha pelo e-mail cadastrado ou encerre a sessão neste
-          dispositivo.
+          Altere a senha pelo e-mail cadastrado ou saia deste dispositivo.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Link href="/esqueci-senha" className="btn-secondary">

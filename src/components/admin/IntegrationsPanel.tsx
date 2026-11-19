@@ -191,142 +191,123 @@ export function IntegrationsPanel() {
   function paymentStatus(connected: boolean, isDefault: boolean) {
     if (!connected) return "Não conectado";
     if (showProviderPicker) return isDefault ? "Padrão" : "Conectado";
-    return "Ativo";
+    return "Conectado";
   }
 
   return (
-    <div className="space-y-6">
-      {msg && (
+    <div className="space-y-5">
+      {msg ? (
         <p
-          className={`rounded-xl border px-4 py-3 text-sm ${
-            msgTone === "err"
-              ? "border-red-200 bg-red-50 text-danger"
-              : "border-emerald-200 bg-emerald-50 text-emerald-900"
-          }`}
+          className={`settings-flash ${msgTone === "err" ? "is-err" : "is-ok"}`}
         >
           {msg}
         </p>
-      )}
+      ) : null}
 
-      <p className="text-sm text-muted">
-        Conecte serviços externos para sincronizar agenda, receber pagamentos e
-        medir campanhas.
+      <p className="settings-card-lead !mt-0">
+        Conecte agenda, pagamentos e medição de campanhas.
       </p>
 
-      {showProviderPicker && org && (
-        <div className="surface space-y-4 p-5">
-          <div>
-            <h2 className="text-base font-semibold tracking-tight">
-              Provedor de pagamento padrão
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              Define qual integração processa pagamentos de{" "}
-              <strong className="text-foreground">agendamentos</strong> e{" "}
-              <strong className="text-foreground">checkout rápido</strong>.
-            </p>
+      {showProviderPicker && org ? (
+        <section className="settings-card">
+          <div className="settings-card-head">
+            <div>
+              <p className="settings-card-kicker">Pagamentos</p>
+              <h2>Provedor padrão</h2>
+            </div>
           </div>
-
+          <p className="settings-card-lead">
+            Qual integração processa o agendamento e o link de pagamento.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            {org.mercadoPagoConnected && (
+            {org.mercadoPagoConnected ? (
               <button
                 type="button"
                 disabled={savingDefault}
                 onClick={() => setDefaultProvider("MERCADO_PAGO")}
-                className={`rounded-xl border p-4 text-left transition ${
-                  org.paymentProvider === "MERCADO_PAGO"
-                    ? "border-foreground bg-muted-bg ring-1 ring-foreground"
-                    : "border-border bg-white hover:border-foreground/30"
+                className={`settings-choice ${
+                  org.paymentProvider === "MERCADO_PAGO" ? "is-selected" : ""
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <MercadoPagoIcon size={24} />
-                  <div>
-                    <p className="font-medium">Mercado Pago</p>
-                    <p className="text-xs text-muted">Pix e cartão</p>
-                  </div>
-                </div>
-                {org.paymentProvider === "MERCADO_PAGO" && (
-                  <span className="mt-3 inline-block text-xs font-medium text-emerald-700">
-                    Padrão ativo
-                  </span>
-                )}
+                <span className="settings-choice-glyph" aria-hidden>
+                  <MercadoPagoIcon size={20} />
+                </span>
+                <span className="settings-choice-copy">
+                  <strong>Mercado Pago</strong>
+                  <em>Pix e cartão</em>
+                  {org.paymentProvider === "MERCADO_PAGO" ? (
+                    <small>Padrão</small>
+                  ) : null}
+                </span>
               </button>
-            )}
+            ) : null}
 
-            {ASAAS_ENABLED && org.asaasConnected && (
+            {ASAAS_ENABLED && org.asaasConnected ? (
               <button
                 type="button"
                 disabled={savingDefault}
                 onClick={() => setDefaultProvider("ASAAS")}
-                className={`rounded-xl border p-4 text-left transition ${
-                  org.paymentProvider === "ASAAS"
-                    ? "border-foreground bg-muted-bg ring-1 ring-foreground"
-                    : "border-border bg-white hover:border-foreground/30"
+                className={`settings-choice ${
+                  org.paymentProvider === "ASAAS" ? "is-selected" : ""
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <AsaasIcon size={24} />
-                  <div>
-                    <p className="font-medium">Asaas</p>
-                    <p className="text-xs text-muted">Pix e cartão</p>
-                  </div>
-                </div>
-                {org.paymentProvider === "ASAAS" && (
-                  <span className="mt-3 inline-block text-xs font-medium text-emerald-700">
-                    Padrão ativo
-                  </span>
-                )}
+                <span className="settings-choice-glyph" aria-hidden>
+                  <AsaasIcon size={20} />
+                </span>
+                <span className="settings-choice-copy">
+                  <strong>Asaas</strong>
+                  <em>Pix e cartão</em>
+                  {org.paymentProvider === "ASAAS" ? (
+                    <small>Padrão</small>
+                  ) : null}
+                </span>
               </button>
-            )}
+            ) : null}
 
-            {CAKTO_ENABLED && org.caktoConnected && (
+            {CAKTO_ENABLED && org.caktoConnected ? (
               <button
                 type="button"
                 disabled={savingDefault}
                 onClick={() => setDefaultProvider("CAKTO")}
-                className={`rounded-xl border p-4 text-left transition ${
-                  org.paymentProvider === "CAKTO"
-                    ? "border-foreground bg-muted-bg ring-1 ring-foreground"
-                    : "border-border bg-white hover:border-foreground/30"
+                className={`settings-choice ${
+                  org.paymentProvider === "CAKTO" ? "is-selected" : ""
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-50 text-sm font-bold text-emerald-600">
-                    C
-                  </span>
-                  <div>
-                    <p className="font-medium">Cakto</p>
-                    <p className="text-xs text-muted">Pix e cartão</p>
-                  </div>
-                </div>
-                {org.paymentProvider === "CAKTO" && (
-                  <span className="mt-3 inline-block text-xs font-medium text-emerald-700">
-                    Padrão ativo
-                  </span>
-                )}
+                <span className="settings-choice-glyph" aria-hidden>
+                  C
+                </span>
+                <span className="settings-choice-copy">
+                  <strong>Cakto</strong>
+                  <em>Pix e cartão</em>
+                  {org.paymentProvider === "CAKTO" ? (
+                    <small>Padrão</small>
+                  ) : null}
+                </span>
               </button>
-            )}
+            ) : null}
           </div>
-        </div>
-      )}
+        </section>
+      ) : null}
 
-      {!showProviderPicker && org && (org.mercadoPagoConnected || org.asaasConnected) && (
-        <p className="surface px-4 py-3 text-sm text-muted">
-          Pagamentos processados via{" "}
+      {!showProviderPicker &&
+      org &&
+      (org.mercadoPagoConnected || org.asaasConnected) ? (
+        <p className="settings-card-note !mt-0">
+          Pagamentos via{" "}
           <strong className="text-foreground">
             {providerLabel(org.paymentProvider)}
           </strong>
           .
         </p>
-      )}
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <IntegrationCard
           icon={<GoogleCalendarIcon size={28} />}
-          title="Google Calendar"
+          title="Google Agenda"
           status={google?.connected ? "Conectado" : "Não conectado"}
           statusVariant={google?.connected ? "connected" : "disconnected"}
-          description="Sincroniza agenda: bloqueia horários ocupados e envia reservas confirmadas."
+          description="Sincroniza a agenda: bloqueia horários ocupados e envia reservas confirmadas."
           action={
             google?.connected ? (
               <div className="space-y-2">

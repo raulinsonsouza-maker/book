@@ -14,10 +14,10 @@ const ALL_TABS: {
   label: string;
   hint: string;
 }[] = [
-  { id: "perfil", label: "Perfil", hint: "Conta e acesso" },
-  { id: "negocio", label: "Negócio", hint: "Marca e preferências" },
-  { id: "integracoes", label: "Integrações", hint: "Pagamentos e agenda" },
-  { id: "equipe", label: "Equipe", hint: "Acessos e permissões" },
+  { id: "perfil", label: "Perfil", hint: "Você e a sessão" },
+  { id: "negocio", label: "Negócio", hint: "Marca e operação" },
+  { id: "integracoes", label: "Integrações", hint: "Agenda e pagamentos" },
+  { id: "equipe", label: "Acessos", hint: "Logins da equipe" },
 ];
 
 export function useSettingsHubTab(

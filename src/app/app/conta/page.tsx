@@ -8,7 +8,7 @@ export default async function ContaRedirectPage({
   const sp = await searchParams;
   const tabRaw = sp.tab;
   const tab = Array.isArray(tabRaw) ? tabRaw[0] : tabRaw;
-  const targetTab = tab === "equipe" ? "equipe" : "negocio";
+  const targetTab = tab === "equipe" ? "equipe" : "perfil";
   const q = new URLSearchParams();
   q.set("tab", targetTab);
   for (const [key, value] of Object.entries(sp)) {

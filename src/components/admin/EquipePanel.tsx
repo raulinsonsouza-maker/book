@@ -1,14 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
-  AdminFlashMessage,
-  AdminPageIntro,
   EntityListCard,
   EntityStatusDot,
 } from "@/components/admin/EntityImageField";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { useHostProductBrand } from "@/hooks/useProductBrand";
 
 type TeamMember = {
   id: string;
@@ -20,6 +20,7 @@ type TeamMember = {
 };
 
 export function EquipePanel() {
+  const brand = useHostProductBrand();
   const { confirm } = useConfirm();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +73,7 @@ export function EquipePanel() {
       return;
     }
     resetForm();
-    flash("Membro da equipe criado");
+    flash("Acesso criado");
     setShowCreate(false);
     await load();
   }
@@ -126,8 +127,8 @@ export function EquipePanel() {
 
   async function removeMember(m: TeamMember) {
     const ok = await confirm({
-      title: m.isActive ? "Excluir membro?" : "Remover membro inativo?",
-      description: "Isso remove o acesso à plataforma para este usuário.",
+      title: m.isActive ? "Excluir acesso?" : "Remover acesso inativo?",
+      description: "Essa pessoa deixa de entrar no painel.",
       confirmLabel: "Excluir",
       tone: "danger",
     });
@@ -138,31 +139,42 @@ export function EquipePanel() {
       flash(data.error || "Erro ao excluir", "err");
       return;
     }
-    flash("Membro removido");
+    flash("Acesso removido");
     await load();
   }
 
   if (loading) return <p className="text-sm text-muted">Carregando…</p>;
 
   return (
-    <div className="space-y-6">
-      <AdminPageIntro>
-        Convide pessoas da sua equipe para acessar o painel. Membros da equipe
-        veem apenas os dossiês em <strong>/intake</strong> (ex.: abertura de
-        empresa) — ideal para escritórios e contadores parceiros.
-      </AdminPageIntro>
-
-      {msg && <AdminFlashMessage tone={msgTone}>{msg}</AdminFlashMessage>}
-
-      <div>
+    <div className="space-y-5">
+      <section className="settings-card">
+        <div className="settings-card-head">
+          <div>
+            <p className="settings-card-kicker">Acessos</p>
+            <h2>Logins da equipe</h2>
+          </div>
+        </div>
+        <p className="settings-card-lead">
+          Crie logins para pessoas que usam o painel {brand.name}. Quem atende
+          na agenda fica em{" "}
+          <Link href="/app/profissionais">Profissionais</Link>.
+        </p>
         <button
           type="button"
           className="btn-primary"
           onClick={() => setShowCreate(true)}
         >
-          Adicionar membro
+          Adicionar pessoa
         </button>
-      </div>
+      </section>
+
+      {msg ? (
+        <p
+          className={`settings-flash ${msgTone === "err" ? "is-err" : "is-ok"}`}
+        >
+          {msg}
+        </p>
+      ) : null}
 
       {showCreate && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center">
@@ -188,10 +200,10 @@ export function EquipePanel() {
                   id="create-member-title"
                   className="text-lg font-semibold tracking-tight"
                 >
-                  Novo membro da equipe
+                  Novo acesso
                 </h2>
                 <p className="mt-1 text-sm text-muted">
-                  Nome, e-mail e senha para acesso ao Intake.
+                  Nome, e-mail e senha para entrar no painel.
                 </p>
               </div>
 
@@ -202,7 +214,7 @@ export function EquipePanel() {
                   className="input-field"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Ex.: Venx Legalização"
+                  placeholder="Ex.: Ana Souza"
                 />
               </label>
 
@@ -214,7 +226,7 @@ export function EquipePanel() {
                   className="input-field"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="contato@escritorio.com"
+                  placeholder="ana@empresa.com"
                 />
               </label>
 
@@ -244,7 +256,7 @@ export function EquipePanel() {
                   Cancelar
                 </button>
                 <button type="submit" disabled={creating} className="btn-primary">
-                  {creating ? "Criando…" : "Criar membro"}
+                  {creating ? "Criando…" : "Criar acesso"}
                 </button>
               </div>
             </form>
@@ -253,11 +265,13 @@ export function EquipePanel() {
       )}
 
       {members.length === 0 ? (
-        <div className="surface p-6 text-sm text-muted">
-          Nenhum membro cadastrado. Clique em{" "}
-          <strong className="text-foreground">Adicionar membro</strong> para dar
-          acesso ao Intake.
-        </div>
+        <section className="settings-card">
+          <p className="text-sm text-muted">
+            Ninguém cadastrado ainda. Use{" "}
+            <strong className="text-foreground">Adicionar pessoa</strong> para
+            criar o primeiro login.
+          </p>
+        </section>
       ) : (
         <ul className="space-y-3">
           {members.map((m) => (
@@ -278,7 +292,7 @@ export function EquipePanel() {
                   )}
                 </>
               }
-              meta={<>{m.email} · acesso Intake</>}
+              meta={<>{m.email} · acesso ao painel</>}
               actions={
                 <>
                   <button
@@ -309,7 +323,7 @@ export function EquipePanel() {
                   <div className="space-y-3 border-t border-border pt-4">
                     <p className="text-sm font-medium">Login de {m.name}</p>
                     <p className="text-xs text-muted">
-                      O membro usa este e-mail e senha em Entrar.
+                      Usado na tela de Entrar do {brand.name}.
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block text-sm">

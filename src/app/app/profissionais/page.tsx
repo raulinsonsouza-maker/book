@@ -389,14 +389,14 @@ export default function ProfessionalsAdminPage() {
               Cadastro de profissionais
             </h1>
             <p className="text-sm leading-relaxed text-muted">
-              Esta conta está no modo individual. Ative o{" "}
-              <strong className="font-medium text-foreground">modo equipe</strong>{" "}
-              em Conta para cadastrar profissionais, vincular serviços e definir
-              a agenda de cada um.
+              Esta conta está no modo individual. Ative{" "}
+              <strong className="font-medium text-foreground">Com equipe</strong>{" "}
+              em Configurações → Negócio para cadastrar profissionais e a agenda
+              de cada um.
             </p>
           </div>
-          <Link href="/app/configuracoes?tab=equipe" className="btn-primary inline-flex">
-            Ativar modo equipe
+          <Link href="/app/configuracoes?tab=negocio" className="btn-primary inline-flex">
+            Ir para Negócio
           </Link>
         </div>
       </div>

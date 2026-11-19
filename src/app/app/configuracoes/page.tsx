@@ -36,12 +36,8 @@ function ConfiguracoesBody() {
   return (
     <div className="settings-hub">
       <header className="settings-hub-header">
-        <p className="settings-eyebrow">Ajustes</p>
         <h1>Configurações</h1>
-        <p>
-          Perfil, negócio, integrações
-          {showEquipe ? " e equipe" : ""} — tudo em um só lugar.
-        </p>
+        <p>Conta, marca, pagamentos e acessos.</p>
       </header>
 
       <div className="settings-hub-layout">

@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatBRL } from "@/lib/utils";
+import {
+  formatBRL,
+  maskBRLFromDigits,
+  parseBRLMaskToCents,
+} from "@/lib/utils";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
 import { FIELD_PRESETS } from "@/types/funnel-config";
@@ -109,12 +113,12 @@ export default function CheckoutProductsPage() {
 
   async function createProduct(e: React.FormEvent) {
     e.preventDefault();
-    const priceCents = Math.round(parseFloat(form.price.replace(",", ".")) * 100);
+    const priceCents = parseBRLMaskToCents(form.price);
     if (!form.title.trim()) {
       setCreateError("Informe o título do produto");
       return;
     }
-    if (Number.isNaN(priceCents) || priceCents < 0) {
+    if (!form.price.trim() || priceCents < 0) {
       setCreateError("Informe um preço válido");
       return;
     }
@@ -160,17 +164,21 @@ export default function CheckoutProductsPage() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted">
-        Cadastre produtos e copie o link de pagamento para enviar ao cliente.
-      </p>
-
-      <CheckoutSubnav />
-
-      <div>
-        <button type="button" className="btn-primary" onClick={openCreate}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <p className="max-w-xl text-sm text-muted">
+          Monte o link de pagamento do produto: preço, Pix ou cartão, parcelas e
+          o formulário que o cliente preenche antes de pagar.
+        </p>
+        <button
+          type="button"
+          className="btn-primary shrink-0 self-start sm:self-auto"
+          onClick={openCreate}
+        >
           + Criar produto
         </button>
       </div>
+
+      <CheckoutSubnav />
 
       {loading ? (
         <p className="text-sm text-muted">Carregando…</p>
@@ -279,14 +287,18 @@ export default function CheckoutProductsPage() {
                 </label>
 
                 <label className="block text-sm">
-                  <span className="mb-1.5 block font-medium">Preço (R$)</span>
+                  <span className="mb-1.5 block font-medium">Preço</span>
                   <input
                     required
+                    inputMode="numeric"
                     className="input-field max-w-xs"
-                    placeholder="2000,00"
+                    placeholder="R$ 0,00"
                     value={form.price}
                     onChange={(e) =>
-                      setForm({ ...form, price: e.target.value })
+                      setForm({
+                        ...form,
+                        price: maskBRLFromDigits(e.target.value),
+                      })
                     }
                   />
                 </label>

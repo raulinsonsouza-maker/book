@@ -125,8 +125,6 @@ export function WeekCalendar({
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [googleEvents, setGoogleEvents] = useState<GoogleEventItem[]>([]);
-  const [googleConnected, setGoogleConnected] = useState(false);
-  const [showGoogle, setShowGoogle] = useState(true);
   const [loadingCal, setLoadingCal] = useState(false);
   const [calError, setCalError] = useState("");
   const [setupHint, setSetupHint] = useState<SetupHint>(null);
@@ -291,7 +289,6 @@ export function WeekCalendar({
         setBookings(nextBookings);
         setSlots(wantSlots ? data.availableSlots || [] : []);
         setGoogleEvents(data.googleEvents || []);
-        setGoogleConnected(Boolean(data.googleConnected));
         setSetupHint(wantSlots ? (data.setupHint as SetupHint) || null : null);
         setSelectedBooking((prev) => {
           if (!prev) return prev;
@@ -417,8 +414,7 @@ export function WeekCalendar({
                   <div key={h} className="agenda-hour-cell" />
                 ))}
 
-                {showGoogle &&
-                  googleEvents
+                {googleEvents
                     .filter(
                       (ev) =>
                         format(parseISO(ev.startAt), "yyyy-MM-dd") === dayKey,
@@ -556,12 +552,9 @@ export function WeekCalendar({
             const dayBookings = bookings.filter(
               (b) => format(parseISO(b.startAt), "yyyy-MM-dd") === dayKey,
             );
-            const dayGoogle = showGoogle
-              ? googleEvents.filter(
-                  (ev) =>
-                    format(parseISO(ev.startAt), "yyyy-MM-dd") === dayKey,
-                )
-              : [];
+            const dayGoogle = googleEvents.filter(
+              (ev) => format(parseISO(ev.startAt), "yyyy-MM-dd") === dayKey,
+            );
             const chips = [
               ...dayBookings.map((b) => ({
                 key: b.id,
@@ -777,19 +770,6 @@ export function WeekCalendar({
                 </option>
               ))}
             </select>
-          )}
-          {googleConnected && (
-            <div className="agenda-toggles">
-              <button
-                type="button"
-                className={`agenda-chip ${showGoogle ? "is-on is-google" : ""}`}
-                aria-pressed={showGoogle}
-                onClick={() => setShowGoogle((v) => !v)}
-                title="Mostrar eventos do Google Calendar"
-              >
-                Google
-              </button>
-            </div>
           )}
         </div>
       </div>
