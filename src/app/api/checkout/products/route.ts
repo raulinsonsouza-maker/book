@@ -12,7 +12,7 @@ import { serializeNotifyEmails } from "@/lib/intake/notify-emails";
 
 const schema = z.object({
   title: z.string().min(2),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   priceCents: z.number().int().min(0),
   caktoOfferId: z.string().optional(),
   formConfig: z.any().optional(),
@@ -21,6 +21,8 @@ const schema = z.object({
   intakeTemplateKey: z.string().optional().nullable(),
   notifyEmails: z.array(z.string().email()).optional(),
   intakeEmailAlerts: z.boolean().optional(),
+  /** null = usar padrão da organização */
+  cardMaxInstallments: z.number().int().min(1).max(12).nullable().optional(),
 });
 
 export async function GET() {
@@ -66,7 +68,7 @@ export async function POST(req: Request) {
       data: {
         organizationId: auth.ctx.organizationId,
         title: body.title,
-        description: body.description,
+        description: body.description || null,
         priceCents: body.priceCents,
         caktoOfferId: body.caktoOfferId || null,
         formConfig,
@@ -80,6 +82,9 @@ export async function POST(req: Request) {
           ? serializeNotifyEmails(body.notifyEmails)
           : null,
         intakeEmailAlerts: body.intakeEmailAlerts ?? true,
+        ...(body.cardMaxInstallments !== undefined
+          ? { cardMaxInstallments: body.cardMaxInstallments }
+          : {}),
       },
     });
 

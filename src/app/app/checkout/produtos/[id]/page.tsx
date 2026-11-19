@@ -5,7 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FIELD_PRESETS } from "@/types/funnel-config";
 import type { FormFieldConfig } from "@/types/funnel-config";
-import { defaultProductFormConfig, parseProductFormConfig } from "@/lib/product-form-config";
+import {
+  defaultProductFormConfig,
+  normalizePayMethods,
+  parseProductFormConfig,
+  type PayMethod,
+} from "@/lib/product-form-config";
 import { CAKTO_ENABLED } from "@/lib/feature-flags";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
@@ -45,6 +50,9 @@ export default function EditProductPage() {
   const [formFields, setFormFields] = useState<FormFieldConfig[]>(
     defaultProductFormConfig().formFields,
   );
+  const [payMethods, setPayMethods] = useState<PayMethod[]>(
+    normalizePayMethods(defaultProductFormConfig().payMethods),
+  );
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,7 +84,9 @@ export default function EditProductPage() {
         setPrice(centsToInput(data.priceCents));
         setCaktoOfferId(data.caktoOfferId || "");
         setIsActive(data.isActive);
-        setFormFields(parseProductFormConfig(data.formConfig).formFields);
+        const parsed = parseProductFormConfig(data.formConfig);
+        setFormFields(parsed.formFields);
+        setPayMethods(normalizePayMethods(parsed.payMethods));
         setLinkSlug(data.checkoutLinks?.[0]?.slug ?? null);
         setCardMaxInstallments(
           data.cardMaxInstallments == null ? null : data.cardMaxInstallments,
@@ -92,8 +102,25 @@ export default function EditProductPage() {
     );
   }
 
+  function togglePayMethod(method: PayMethod, enabled: boolean) {
+    setPayMethods((prev) => {
+      const next = new Set(prev);
+      if (enabled) next.add(method);
+      else next.delete(method);
+      if (next.size === 0) return prev;
+      return normalizePayMethods([...next]);
+    });
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (payMethods.length === 0) {
+      setSaveMsg({
+        tone: "err",
+        text: "Escolha ao menos uma forma de pagamento.",
+      });
+      return;
+    }
     setSaving(true);
     setSaveMsg(null);
     const res = await fetch(`/api/checkout/products/${id}`, {
@@ -107,8 +134,10 @@ export default function EditProductPage() {
         isActive,
         productKind: "SIMPLE",
         intakeTemplateKey: null,
-        cardMaxInstallments,
-        formConfig: { formFields },
+        cardMaxInstallments: payMethods.includes("card")
+          ? cardMaxInstallments
+          : null,
+        formConfig: { formFields, payMethods },
       }),
     }).catch(() => null);
     setSaving(false);
@@ -164,7 +193,41 @@ export default function EditProductPage() {
           <span className="mb-1.5 block font-medium">Preço (R$)</span>
           <input required className="input-field max-w-xs" value={price} onChange={(e) => setPrice(e.target.value)} />
         </label>
-        {CAKTO_ENABLED && paymentProvider === "CAKTO" ? (
+        <div>
+          <p className="mb-1.5 text-sm font-medium">Formas de pagamento</p>
+          <p className="mb-2 text-xs text-muted">
+            Via{" "}
+            <strong className="font-medium text-foreground">
+              {paymentProvider === "ASAAS"
+                ? "Asaas"
+                : paymentProvider === "MERCADO_PAGO"
+                  ? "Mercado Pago"
+                  : paymentProvider === "CAKTO"
+                    ? "Cakto"
+                    : "modo demo"}
+            </strong>
+            . Escolha o que aparece no link.
+          </p>
+          <ul className="space-y-2">
+            {(
+              [
+                { id: "pix" as const, label: "Pix" },
+                { id: "card" as const, label: "Cartão de crédito" },
+              ] as const
+            ).map((m) => (
+              <li key={m.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={payMethods.includes(m.id)}
+                  onChange={(e) => togglePayMethod(m.id, e.target.checked)}
+                />
+                {m.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {CAKTO_ENABLED && paymentProvider === "CAKTO" && (
           <label className="block text-sm">
             <span className="mb-1.5 block font-medium">Cakto Offer ID (opcional)</span>
             <p className="mb-1.5 text-xs text-muted">
@@ -172,17 +235,10 @@ export default function EditProductPage() {
             </p>
             <input className="input-field" value={caktoOfferId} onChange={(e) => setCaktoOfferId(e.target.value)} />
           </label>
-        ) : (
-          <p className="text-sm text-muted">
-            Pagamentos deste produto usam o{" "}
-            <strong className="text-foreground">
-              {paymentProvider === "ASAAS" ? "Asaas" : "Mercado Pago"}
-            </strong>{" "}
-            definido em Integrações.
-          </p>
         )}
-        {(paymentProvider === "MERCADO_PAGO" ||
-          paymentProvider === "ASAAS") && (
+        {payMethods.includes("card") &&
+          (paymentProvider === "MERCADO_PAGO" ||
+            paymentProvider === "ASAAS") && (
           <label className="block text-sm">
             <span className="mb-1.5 block font-medium">Parcelas no cartão</span>
             <p className="mb-1.5 text-xs text-muted">

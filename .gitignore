@@ -53,3 +53,6 @@ prisma/*.db-journal
 deploy/temark-landing/public/
 _vps_*.py
 
+
+Tema/
+

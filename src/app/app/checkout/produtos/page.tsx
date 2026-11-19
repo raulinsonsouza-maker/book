@@ -5,6 +5,14 @@ import { useEffect, useState } from "react";
 import { formatBRL } from "@/lib/utils";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
+import { FIELD_PRESETS } from "@/types/funnel-config";
+import type { FormFieldConfig } from "@/types/funnel-config";
+import {
+  defaultProductFormConfig,
+  normalizePayMethods,
+  type PayMethod,
+} from "@/lib/product-form-config";
+import { CAKTO_ENABLED } from "@/lib/feature-flags";
 
 type Product = {
   id: string;
@@ -16,13 +24,30 @@ type Product = {
   _count: { orders: number };
 };
 
+function emptyCreateForm() {
+  const defaults = defaultProductFormConfig();
+  return {
+    title: "",
+    description: "",
+    price: "",
+    caktoOfferId: "",
+    cardMaxInstallments: null as number | null,
+    payMethods: normalizePayMethods(defaults.payMethods) as PayMethod[],
+    formFields: defaults.formFields as FormFieldConfig[],
+  };
+}
+
 export default function CheckoutProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState(emptyCreateForm);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [paymentProvider, setPaymentProvider] = useState<
+    "CAKTO" | "MERCADO_PAGO" | "ASAAS" | "DEMO"
+  >("DEMO");
+  const [orgCardMaxInstallments, setOrgCardMaxInstallments] = useState(12);
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
@@ -37,17 +62,64 @@ export default function CheckoutProductsPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/organization")
+      .then((r) => r.json())
+      .then((data) => {
+        setPaymentProvider(data.paymentProvider || "DEMO");
+        setOrgCardMaxInstallments(
+          Math.min(12, Math.max(1, data.cardMaxInstallments || 12)),
+        );
+      })
+      .catch(() => undefined);
   }, []);
+
+  function openCreate() {
+    setForm(emptyCreateForm());
+    setCreateError("");
+    setShowCreate(true);
+  }
+
+  function closeCreate() {
+    if (creating) return;
+    setShowCreate(false);
+    setCreateError("");
+  }
+
+  function toggleField(preset: string, enabled: boolean) {
+    setForm((prev) => ({
+      ...prev,
+      formFields: prev.formFields.map((f) =>
+        f.preset === preset ? { ...f, enabled } : f,
+      ),
+    }));
+  }
+
+  function togglePayMethod(method: PayMethod, enabled: boolean) {
+    setForm((prev) => {
+      const next = new Set(prev.payMethods);
+      if (enabled) next.add(method);
+      else next.delete(method);
+      if (next.size === 0) return prev;
+      return {
+        ...prev,
+        payMethods: normalizePayMethods([...next]),
+      };
+    });
+  }
 
   async function createProduct(e: React.FormEvent) {
     e.preventDefault();
-    const priceCents = Math.round(parseFloat(price.replace(",", ".")) * 100);
-    if (!title.trim()) {
-      setCreateError("Informe o nome do produto");
+    const priceCents = Math.round(parseFloat(form.price.replace(",", ".")) * 100);
+    if (!form.title.trim()) {
+      setCreateError("Informe o título do produto");
       return;
     }
     if (Number.isNaN(priceCents) || priceCents < 0) {
       setCreateError("Informe um preço válido");
+      return;
+    }
+    if (form.payMethods.length === 0) {
+      setCreateError("Escolha ao menos uma forma de pagamento");
       return;
     }
     setCreating(true);
@@ -55,7 +127,21 @@ export default function CheckoutProductsPage() {
     const res = await fetch("/api/checkout/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, priceCents }),
+      body: JSON.stringify({
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        priceCents,
+        ...(CAKTO_ENABLED && paymentProvider === "CAKTO" && form.caktoOfferId
+          ? { caktoOfferId: form.caktoOfferId }
+          : {}),
+        cardMaxInstallments: form.payMethods.includes("card")
+          ? form.cardMaxInstallments
+          : null,
+        formConfig: {
+          formFields: form.formFields,
+          payMethods: form.payMethods,
+        },
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setCreating(false);
@@ -63,10 +149,14 @@ export default function CheckoutProductsPage() {
       setCreateError(data.error || "Não foi possível criar o produto");
       return;
     }
-    setTitle("");
-    setPrice("");
+    setShowCreate(false);
+    setForm(emptyCreateForm());
     await load();
   }
+
+  const showInstallments =
+    form.payMethods.includes("card") &&
+    (paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS");
 
   return (
     <div className="space-y-6">
@@ -76,37 +166,11 @@ export default function CheckoutProductsPage() {
 
       <CheckoutSubnav />
 
-      {createError && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-danger">
-          {createError}
-        </p>
-      )}
-
-      <form onSubmit={createProduct} className="surface flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
-        <label className="flex-1 text-sm">
-          <span className="mb-1.5 block font-medium">Nome do produto</span>
-          <input
-            required
-            placeholder="Ex: Abertura de empresa"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="input-field"
-          />
-        </label>
-        <label className="w-full text-sm sm:w-40">
-          <span className="mb-1.5 block font-medium">Preço (R$)</span>
-          <input
-            required
-            placeholder="2000,00"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="input-field"
-          />
-        </label>
-        <button type="submit" disabled={creating} className="btn-primary whitespace-nowrap">
-          {creating ? "Criando…" : "+ Criar produto"}
+      <div>
+        <button type="button" className="btn-primary" onClick={openCreate}>
+          + Criar produto
         </button>
-      </form>
+      </div>
 
       {loading ? (
         <p className="text-sm text-muted">Carregando…</p>
@@ -149,6 +213,225 @@ export default function CheckoutProductsPage() {
             );
           })}
         </ul>
+      )}
+
+      {showCreate && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center">
+          <button
+            type="button"
+            aria-label="Fechar"
+            className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+            onClick={closeCreate}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-product-title"
+            className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-2xl shadow-black/15"
+          >
+            <form
+              onSubmit={(e) => void createProduct(e)}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="border-b border-border px-5 py-4 sm:px-6">
+                <h2
+                  id="create-product-title"
+                  className="text-lg font-semibold tracking-tight"
+                >
+                  Novo produto
+                </h2>
+                <p className="mt-1 text-sm text-muted">
+                  Título, valor, pagamento e formulário do link.
+                </p>
+              </div>
+
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+                {createError && (
+                  <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
+                    {createError}
+                  </p>
+                )}
+
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium">Título</span>
+                  <input
+                    required
+                    autoFocus
+                    className="input-field"
+                    placeholder="Ex: Abertura de empresa"
+                    value={form.title}
+                    onChange={(e) =>
+                      setForm({ ...form, title: e.target.value })
+                    }
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium">Descrição</span>
+                  <textarea
+                    className="input-field min-h-20"
+                    placeholder="O que o cliente está comprando"
+                    value={form.description}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium">Preço (R$)</span>
+                  <input
+                    required
+                    className="input-field max-w-xs"
+                    placeholder="2000,00"
+                    value={form.price}
+                    onChange={(e) =>
+                      setForm({ ...form, price: e.target.value })
+                    }
+                  />
+                </label>
+
+                <div>
+                  <p className="mb-1.5 text-sm font-medium">Formas de pagamento</p>
+                  <p className="mb-2 text-xs text-muted">
+                    Via{" "}
+                    {paymentProvider === "ASAAS"
+                      ? "Asaas"
+                      : paymentProvider === "MERCADO_PAGO"
+                        ? "Mercado Pago"
+                        : paymentProvider === "CAKTO"
+                          ? "Cakto"
+                          : "modo demo"}
+                    . Escolha o que aparece no link.
+                  </p>
+                  <ul className="space-y-2">
+                    {(
+                      [
+                        { id: "pix" as const, label: "Pix" },
+                        { id: "card" as const, label: "Cartão de crédito" },
+                      ] as const
+                    ).map((m) => (
+                      <li key={m.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={form.payMethods.includes(m.id)}
+                          onChange={(e) =>
+                            togglePayMethod(m.id, e.target.checked)
+                          }
+                        />
+                        {m.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {showInstallments && (
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">
+                      Parcelas no cartão
+                    </span>
+                    <p className="mb-1.5 text-xs text-muted">
+                      Padrão do site:{" "}
+                      {orgCardMaxInstallments === 1
+                        ? "só à vista"
+                        : `até ${orgCardMaxInstallments}x`}
+                      .
+                    </p>
+                    <select
+                      className="input-field max-w-xs"
+                      value={
+                        form.cardMaxInstallments == null
+                          ? ""
+                          : String(form.cardMaxInstallments)
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setForm({
+                          ...form,
+                          cardMaxInstallments:
+                            v === "" ? null : Number(v) || 1,
+                        });
+                      }}
+                    >
+                      <option value="">
+                        Usar padrão do site (
+                        {orgCardMaxInstallments === 1
+                          ? "só à vista"
+                          : `até ${orgCardMaxInstallments}x`}
+                        )
+                      </option>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>
+                          {n === 1 ? "1x — só à vista" : `Até ${n}x`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {CAKTO_ENABLED && paymentProvider === "CAKTO" && (
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">
+                      Cakto Offer ID (opcional)
+                    </span>
+                    <input
+                      className="input-field"
+                      value={form.caktoOfferId}
+                      onChange={(e) =>
+                        setForm({ ...form, caktoOfferId: e.target.value })
+                      }
+                    />
+                  </label>
+                )}
+
+                <div>
+                  <p className="mb-2 text-sm font-medium">Campos do formulário</p>
+                  <ul className="space-y-2">
+                    {FIELD_PRESETS.filter((p) => p.preset).map((preset) => {
+                      const field = form.formFields.find(
+                        (f) => f.preset === preset.preset,
+                      );
+                      const enabled = field?.enabled ?? false;
+                      return (
+                        <li
+                          key={preset.preset}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={(e) =>
+                              toggleField(preset.preset!, e.target.checked)
+                            }
+                          />
+                          {preset.label}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 border-t border-border px-5 py-4 sm:px-6">
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="btn-primary"
+                >
+                  {creating ? "Criando…" : "Criar produto"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={creating}
+                  onClick={closeCreate}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

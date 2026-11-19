@@ -18,6 +18,8 @@ type PaymentStepProps = {
   demoPayments: boolean;
   payMethod: "pix" | "card";
   onPayMethodChange: (m: "pix" | "card") => void;
+  /** Formas disponíveis neste produto. Padrão: Pix e cartão. */
+  allowedPayMethods?: ("pix" | "card")[];
   pixLoading: boolean;
   pixQr: string | null;
   pixQrBase64?: string | null;
@@ -58,6 +60,7 @@ export function PaymentStep({
   demoPayments,
   payMethod,
   onPayMethodChange,
+  allowedPayMethods = ["pix", "card"],
   pixLoading,
   pixQr,
   pixQrBase64,
@@ -124,22 +127,30 @@ export function PaymentStep({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        {(["pix", "card"] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => onPayMethodChange(m)}
-            className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
-              payMethod === m
-                ? "border-foreground bg-foreground text-white shadow-sm"
-                : "border-border bg-white hover:bg-muted-bg"
-            }`}
-          >
-            {m === "pix" ? "Pix · instantâneo" : "Cartão de crédito"}
-          </button>
-        ))}
-      </div>
+      {allowedPayMethods.length > 1 ? (
+        <div className="grid grid-cols-2 gap-2">
+          {allowedPayMethods.map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onPayMethodChange(m)}
+              className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
+                payMethod === m
+                  ? "border-foreground bg-foreground text-white shadow-sm"
+                  : "border-border bg-white hover:bg-muted-bg"
+              }`}
+            >
+              {m === "pix" ? "Pix · instantâneo" : "Cartão de crédito"}
+            </button>
+          ))}
+        </div>
+      ) : allowedPayMethods[0] ? (
+        <p className="text-sm font-medium text-muted">
+          {allowedPayMethods[0] === "pix"
+            ? "Pagamento via Pix"
+            : "Pagamento no cartão de crédito"}
+        </p>
+      ) : null}
 
       {payMethod === "pix" && (
         <div className="space-y-3">

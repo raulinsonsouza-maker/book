@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatBRL, formatCpf, isValidCpf } from "@/lib/utils";
-import { enabledProductFormFields } from "@/lib/product-form-config";
-import type { ProductFormConfig } from "@/lib/product-form-config";
+import {
+  enabledProductFormFields,
+  normalizePayMethods,
+  type PayMethod,
+  type ProductFormConfig,
+} from "@/lib/product-form-config";
 import type { FormFieldConfig } from "@/types/funnel-config";
 import { FunnelFormFields } from "@/components/booking/FunnelFormFields";
 import { PaymentStep } from "@/components/payment/PaymentStep";
@@ -95,6 +99,10 @@ export function InstantCheckout({ slug }: { slug: string }) {
   const [creatingOrder, setCreatingOrder] = useState(false);
 
   const [payMethod, setPayMethod] = useState<"pix" | "card">("pix");
+  const [allowedPayMethods, setAllowedPayMethods] = useState<PayMethod[]>([
+    "pix",
+    "card",
+  ]);
   const [pixQr, setPixQr] = useState<string | null>(null);
   const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
   const [pixLoading, setPixLoading] = useState(false);
@@ -182,6 +190,9 @@ export function InstantCheckout({ slug }: { slug: string }) {
         setProductTitle(data.product.title);
         setPriceCents(data.product.priceCents);
         setFormConfig(data.formConfig);
+        const methods = normalizePayMethods(data.formConfig?.payMethods);
+        setAllowedPayMethods(methods);
+        setPayMethod(methods[0] || "pix");
         setDemoPayments(data.paymentProvider === "DEMO");
         setPaymentProvider(data.paymentProvider || "DEMO");
         setPaymentProviderLabel(data.paymentProviderLabel || "Demo");
@@ -708,6 +719,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
                       setPayMethod(m);
                       setError("");
                     }}
+                    allowedPayMethods={allowedPayMethods}
                     pixLoading={pixLoading}
                     pixQr={pixQr}
                     pixQrBase64={pixQrBase64}
@@ -738,7 +750,9 @@ export function InstantCheckout({ slug }: { slug: string }) {
                     onInstallmentsChange={setInstallments}
                     cardMaxInstallments={cardMaxInstallments}
                     showInstallments={
-                      paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS"
+                      allowedPayMethods.includes("card") &&
+                      (paymentProvider === "MERCADO_PAGO" ||
+                        paymentProvider === "ASAAS")
                     }
                     awaitingCardConfirm={awaitingCardConfirm}
                     cpf={details.customerCpf}
@@ -773,13 +787,21 @@ export function InstantCheckout({ slug }: { slug: string }) {
                       Preencha seus dados acima para liberar Pix ou cartão nesta mesma tela.
                     </p>
                     <div className="pointer-events-none select-none opacity-40">
-                      <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className="rounded-lg border border-border bg-muted-bg px-3 py-2.5 text-center text-sm font-semibold">
-                          Pix
-                        </div>
-                        <div className="rounded-lg border border-border px-3 py-2.5 text-center text-sm font-semibold">
-                          Cartão
-                        </div>
+                      <div
+                        className={`mt-4 grid gap-2 ${
+                          allowedPayMethods.length > 1
+                            ? "grid-cols-2"
+                            : "grid-cols-1"
+                        }`}
+                      >
+                        {allowedPayMethods.map((m) => (
+                          <div
+                            key={m}
+                            className="rounded-lg border border-border bg-muted-bg px-3 py-2.5 text-center text-sm font-semibold"
+                          >
+                            {m === "pix" ? "Pix" : "Cartão"}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -799,6 +821,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
                       setPayMethod(m);
                       setError("");
                     }}
+                    allowedPayMethods={allowedPayMethods}
                     pixLoading={pixLoading}
                     pixQr={pixQr}
                     pixQrBase64={pixQrBase64}
@@ -829,8 +852,9 @@ export function InstantCheckout({ slug }: { slug: string }) {
                     onInstallmentsChange={setInstallments}
                     cardMaxInstallments={cardMaxInstallments}
                     showInstallments={
-                      paymentProvider === "MERCADO_PAGO" ||
-                      paymentProvider === "ASAAS"
+                      allowedPayMethods.includes("card") &&
+                      (paymentProvider === "MERCADO_PAGO" ||
+                        paymentProvider === "ASAAS")
                     }
                     awaitingCardConfirm={awaitingCardConfirm}
                     cpf={details.customerCpf}
