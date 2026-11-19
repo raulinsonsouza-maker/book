@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getRequestAppOrigin } from "@/lib/app-origin-server";
+import { BOOK_APP_HOST, defaultAppOrigin } from "@/lib/app-origin";
 import {
   exchangeMercadoPagoCode,
   saveMercadoPagoTokens,
 } from "@/lib/mercadopago/oauth";
+import { parseMercadoPagoOAuthState } from "@/lib/mercadopago/oauth-state";
 import {
   exchangePlatformMercadoPagoCode,
   savePlatformMpOAuthTokens,
@@ -13,36 +14,24 @@ import {
 } from "@/lib/billing/platform-mercadopago-config";
 import { writePlatformAudit } from "@/lib/platform-audit";
 
+function fallbackOrigin() {
+  return (
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    `https://${BOOK_APP_HOST}` ||
+    defaultAppOrigin()
+  ).replace(/\/$/, "");
+}
+
 export async function GET(req: Request) {
-  const base = await getRequestAppOrigin();
   const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    return NextResponse.redirect(new URL("/login", base));
-  }
-
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
-  function parseState(stateParam: string | null) {
-    if (!stateParam) return null;
-    try {
-      return JSON.parse(
-        Buffer.from(stateParam, "base64url").toString("utf8"),
-      ) as {
-        purpose?: string;
-        organizationId?: string;
-        userId?: string;
-        popup?: boolean;
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  const parsed = parseState(state);
+  const parsed = parseMercadoPagoOAuthState(state);
+  const returnOrigin = parsed?.returnOrigin || fallbackOrigin();
   const popup = Boolean(parsed?.popup);
   const isPlatform = parsed?.purpose === "platform";
 
@@ -51,12 +40,12 @@ export async function GET(req: Request) {
       const path = popup
         ? `/admin/config/mercadopago-oauth-done?mp=${status}`
         : `/admin/config?mp=${status}`;
-      return NextResponse.redirect(new URL(path, base));
+      return NextResponse.redirect(new URL(path, returnOrigin));
     }
     const path = popup
       ? `/app/integracoes/mercadopago/oauth-done?mp=${status}`
       : `/app/integracoes/mercadopago?mp=${status}`;
-    return NextResponse.redirect(new URL(path, base));
+    return NextResponse.redirect(new URL(path, returnOrigin));
   }
 
   if (error || !code || !parsed) {
@@ -69,7 +58,7 @@ export async function GET(req: Request) {
   try {
     if (isPlatform) {
       if (
-        !session.user.isPlatformAdmin ||
+        !session?.user?.isPlatformAdmin ||
         parsed.userId !== session.user.id
       ) {
         return done("forbidden");
@@ -86,16 +75,24 @@ export async function GET(req: Request) {
       return done("connected");
     }
 
-    if (!session.user.organizationId) {
-      return NextResponse.redirect(new URL("/login", base));
+    if (!parsed.organizationId) {
+      return done("error");
     }
 
-    if (parsed.organizationId !== session.user.organizationId) {
+    // State assinado basta: o callback canônico pode ser no host Book
+    // enquanto a sessão do usuário está no Temark (cookie por domínio).
+    if (session?.user?.id && parsed.userId !== session.user.id) {
+      return done("forbidden");
+    }
+    if (
+      session?.user?.organizationId &&
+      parsed.organizationId !== session.user.organizationId
+    ) {
       return done("forbidden");
     }
 
-    const tokens = await exchangeMercadoPagoCode(code, base);
-    await saveMercadoPagoTokens(session.user.organizationId, tokens);
+    const tokens = await exchangeMercadoPagoCode(code);
+    await saveMercadoPagoTokens(parsed.organizationId, tokens);
     return done("connected");
   } catch (e) {
     console.error("[mercadopago:callback]", e);

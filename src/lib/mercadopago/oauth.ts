@@ -25,11 +25,12 @@ export async function mercadoPagoOAuthConfigured() {
   return Boolean(await getMpAppCredentials());
 }
 
-export function getMercadoPagoRedirectUri(origin?: string) {
-  // Prefer request origin so Temark/Book hosts round-trip on the same domain.
-  if (origin?.trim()) {
-    return `${origin.replace(/\/$/, "")}/api/mercadopago/callback`;
-  }
+/**
+ * URI cadastrada no app do Mercado Pago (uma só por app).
+ * Book e Temark compartilham o app Book Symbius; o callback canônico fica
+ * no host do Book e o `state` assinado devolve o usuário ao Temark.
+ */
+export function getMercadoPagoRedirectUri(_origin?: string) {
   const configured = process.env.MERCADOPAGO_REDIRECT_URI?.trim();
   if (configured) return configured;
   const base =
@@ -39,10 +40,10 @@ export function getMercadoPagoRedirectUri(origin?: string) {
   return `${base.replace(/\/$/, "")}/api/mercadopago/callback`;
 }
 
-export async function getMercadoPagoAuthUrl(state: string, origin?: string) {
+export async function getMercadoPagoAuthUrl(state: string) {
   const app = await getMpAppCredentials();
   if (!app) throw new Error("Mercado Pago OAuth não configurado");
-  const redirectUri = encodeURIComponent(getMercadoPagoRedirectUri(origin));
+  const redirectUri = encodeURIComponent(getMercadoPagoRedirectUri());
   const scope = encodeURIComponent("offline_access read write");
   return (
     `https://auth.mercadopago.com/authorization` +
@@ -84,11 +85,11 @@ async function postOAuthToken(body: Record<string, string>) {
   } satisfies MercadoPagoOAuthTokens;
 }
 
-export async function exchangeMercadoPagoCode(code: string, origin?: string) {
+export async function exchangeMercadoPagoCode(code: string) {
   return postOAuthToken({
     grant_type: "authorization_code",
     code,
-    redirect_uri: getMercadoPagoRedirectUri(origin),
+    redirect_uri: getMercadoPagoRedirectUri(),
   });
 }
 
