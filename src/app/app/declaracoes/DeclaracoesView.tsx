@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 import { AttendancePreview } from "@/components/documents/AttendanceDocument";
 import {
+  ATESTADO_DEFAULT_SIGNER_CRM,
+  ATESTADO_DEFAULT_SIGNER_NAME,
+  ATESTADO_DEFAULT_SIGNER_SPECIALTY,
   ATESTADO_DEFAULT_TITLE,
   ATESTADO_KIND,
   COMPARECIMENTO_KIND,
@@ -38,6 +41,9 @@ type FormState = {
   bodyText: string;
   footerLeft: string;
   footerRight: string;
+  signerName: string;
+  signerSpecialty: string;
+  signerCrm: string;
 };
 
 const HEADER_FIELDS: {
@@ -78,6 +84,9 @@ function emptyForm(headerCity = "", userName = ""): FormState {
     bodyText: defaultAtestadoBody({ visitDate: today }),
     footerLeft: defaultAtestadoFooterLeft({ issueDate: today }),
     footerRight: defaultAtestadoFooterRight(userName),
+    signerName: ATESTADO_DEFAULT_SIGNER_NAME,
+    signerSpecialty: ATESTADO_DEFAULT_SIGNER_SPECIALTY,
+    signerCrm: ATESTADO_DEFAULT_SIGNER_CRM,
   };
 }
 
@@ -139,6 +148,9 @@ export function DeclaracoesView({
       bodyText: form.bodyText,
       footerLeft: form.footerLeft,
       footerRight: form.footerRight,
+      signerName: form.signerName,
+      signerSpecialty: form.signerSpecialty,
+      signerCrm: form.signerCrm,
     }),
     [form, isAtestado, previewHeader.city],
   );
@@ -242,6 +254,10 @@ export function DeclaracoesView({
           defaultAtestadoFooterLeft({ issueDate: item.issueDate }),
         footerRight:
           item.footerRight || defaultAtestadoFooterRight(currentUserName),
+        signerName: item.signerName || ATESTADO_DEFAULT_SIGNER_NAME,
+        signerSpecialty:
+          item.signerSpecialty || ATESTADO_DEFAULT_SIGNER_SPECIALTY,
+        signerCrm: item.signerCrm || ATESTADO_DEFAULT_SIGNER_CRM,
       });
     } else {
       setForm({
@@ -295,6 +311,9 @@ export function DeclaracoesView({
           bodyText: form.bodyText,
           footerLeft: form.footerLeft,
           footerRight: form.footerRight,
+          signerName: form.signerName,
+          signerSpecialty: form.signerSpecialty,
+          signerCrm: form.signerCrm,
           visitDate: form.issueDate,
         }
       : {
@@ -392,6 +411,10 @@ export function DeclaracoesView({
           item.footerLeft || defaultAtestadoFooterLeft({ issueDate: today }),
         footerRight:
           item.footerRight || defaultAtestadoFooterRight(currentUserName),
+        signerName: item.signerName || ATESTADO_DEFAULT_SIGNER_NAME,
+        signerSpecialty:
+          item.signerSpecialty || ATESTADO_DEFAULT_SIGNER_SPECIALTY,
+        signerCrm: item.signerCrm || ATESTADO_DEFAULT_SIGNER_CRM,
       });
     } else {
       setForm({
@@ -404,6 +427,7 @@ export function DeclaracoesView({
         issueDate: todayIsoDate(),
       });
     }
+    setEditingId(null);
     setLastCreated(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -567,6 +591,40 @@ export function DeclaracoesView({
                     placeholder="Usuario: NOME"
                   />
                 </label>
+
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-3">
+                  <p className="text-xs font-medium text-muted">
+                    Assinatura à caneta — dados impressos abaixo do espaço em branco
+                  </p>
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">Nome</span>
+                    <input
+                      className="input-field"
+                      value={form.signerName}
+                      onChange={(e) => update("signerName", e.target.value)}
+                      maxLength={160}
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">Especialidade</span>
+                    <input
+                      className="input-field"
+                      value={form.signerSpecialty}
+                      onChange={(e) => update("signerSpecialty", e.target.value)}
+                      maxLength={120}
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">CRM</span>
+                    <input
+                      className="input-field"
+                      value={form.signerCrm}
+                      onChange={(e) => update("signerCrm", e.target.value)}
+                      maxLength={80}
+                      placeholder="SP 965685"
+                    />
+                  </label>
+                </div>
               </>
             ) : (
               <>
@@ -738,8 +796,8 @@ export function DeclaracoesView({
 
           {isAtestado && (
             <p className="px-1 text-xs text-muted">
-              O atestado usa o cabeçalho e a assinatura do modelo UPA (fixos). Título, texto e
-              rodapé são editáveis.
+              O atestado usa o cabeçalho UPA. A assinatura é à caneta no espaço em branco;
+              nome, especialidade, CRM, texto e rodapé são editáveis.
             </p>
           )}
         </div>

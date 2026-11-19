@@ -23,6 +23,9 @@ export type AttendanceCertificateDTO = {
   bodyText: string | null;
   footerLeft: string | null;
   footerRight: string | null;
+  signerName: string | null;
+  signerSpecialty: string | null;
+  signerCrm: string | null;
   header: AttendanceHeader;
   createdAt: string;
 };
@@ -44,6 +47,9 @@ export function serializeCertificate(
     bodyText: c.bodyText ?? null,
     footerLeft: c.footerLeft ?? null,
     footerRight: c.footerRight ?? null,
+    signerName: c.signerName ?? null,
+    signerSpecialty: c.signerSpecialty ?? null,
+    signerCrm: c.signerCrm ?? null,
     header: parseAttendanceHeader(c.headerSnapshot),
     createdAt: c.createdAt.toISOString(),
   };

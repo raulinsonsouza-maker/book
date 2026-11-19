@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  ATESTADO_DEFAULT_SIGNER_CRM,
+  ATESTADO_DEFAULT_SIGNER_NAME,
+  ATESTADO_DEFAULT_SIGNER_SPECIALTY,
   ATESTADO_DEFAULT_TITLE,
   ATESTADO_HEADER_SRC,
-  ATESTADO_SIGNATURE_SRC,
+  ATESTADO_SIGN_LABEL,
   atestadoIssueLine,
   isAtestadoKind,
   type AttendanceKind,
@@ -25,6 +28,9 @@ type Props = {
     bodyText?: string | null;
     footerLeft?: string | null;
     footerRight?: string | null;
+    signerName?: string | null;
+    signerSpecialty?: string | null;
+    signerCrm?: string | null;
   };
 };
 
@@ -96,6 +102,9 @@ function AtestadoDocument({
     bodyText?: string | null;
     footerLeft?: string | null;
     footerRight?: string | null;
+    signerName?: string | null;
+    signerSpecialty?: string | null;
+    signerCrm?: string | null;
   };
 }) {
   const title = (data.title || ATESTADO_DEFAULT_TITLE).trim() || ATESTADO_DEFAULT_TITLE;
@@ -105,6 +114,15 @@ function AtestadoDocument({
     .filter(Boolean);
   const footerLeft = (data.footerLeft || "").trim();
   const footerRight = (data.footerRight || "").trim();
+  const signerName =
+    (data.signerName || ATESTADO_DEFAULT_SIGNER_NAME).trim() ||
+    ATESTADO_DEFAULT_SIGNER_NAME;
+  const signerSpecialty =
+    (data.signerSpecialty || ATESTADO_DEFAULT_SIGNER_SPECIALTY).trim() ||
+    ATESTADO_DEFAULT_SIGNER_SPECIALTY;
+  const signerCrm =
+    (data.signerCrm || ATESTADO_DEFAULT_SIGNER_CRM).trim() ||
+    ATESTADO_DEFAULT_SIGNER_CRM;
 
   return (
     <article className="attendance-sheet attendance-sheet--atestado">
@@ -136,12 +154,21 @@ function AtestadoDocument({
       </p>
 
       <div className="atestado-signature">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={ATESTADO_SIGNATURE_SRC}
-          alt="Assinatura do profissional"
-          className="atestado-signature-img"
-        />
+        <div className="atestado-sign-space" aria-hidden="true" />
+        <div className="atestado-sign-line" />
+        <p className="atestado-sign-label">{ATESTADO_SIGN_LABEL}</p>
+        <div className="atestado-sign-details">
+          <p>
+            <span className="atestado-sign-key">Nome:</span> {signerName}
+          </p>
+          <p>
+            <span className="atestado-sign-key">Especialidade:</span>{" "}
+            {signerSpecialty}
+          </p>
+          <p>
+            <span className="atestado-sign-key">CRM:</span> {signerCrm}
+          </p>
+        </div>
       </div>
 
       {(footerLeft || footerRight) && (

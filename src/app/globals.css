@@ -8770,19 +8770,44 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 }
 
 .atestado-signature {
-  margin-top: 8mm;
-  margin-bottom: 10mm;
-  padding-top: 6mm;
+  margin-top: 10mm;
+  margin-bottom: 8mm;
+  padding-top: 4mm;
   text-align: center;
 }
 
-.atestado-signature-img {
-  display: block;
-  width: auto;
-  max-width: 72mm;
-  max-height: 42mm;
+.atestado-sign-space {
+  height: 22mm;
+  width: 100%;
+}
+
+.atestado-sign-line {
+  width: 72mm;
+  margin: 0 auto 2mm;
+  border-top: 0.7pt solid #1a1a1a;
+}
+
+.atestado-sign-label {
+  margin: 0 0 4mm !important;
+  font-size: 10pt;
+  font-weight: 600;
+  color: #333;
+}
+
+.atestado-sign-details {
   margin: 0 auto;
-  object-fit: contain;
+  max-width: 90mm;
+  text-align: left;
+  font-size: 11pt;
+  line-height: 1.55;
+}
+
+.atestado-sign-details p {
+  margin: 0 0 1.2mm !important;
+}
+
+.atestado-sign-key {
+  font-weight: 700;
 }
 
 .atestado-page-footer {

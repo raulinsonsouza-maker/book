@@ -14,10 +14,14 @@ export type AttendanceKind =
 export const ATESTADO_DEFAULT_TITLE = "ATESTADO MÉDICO";
 
 export const ATESTADO_HEADER_SRC = "/attendance/atestado-header.png";
-export const ATESTADO_SIGNATURE_SRC = "/attendance/atestado-signature.png";
 
 export const ATESTADO_FOOTER_REPORT =
   "Relatorio Atestado Mediico Paciente.rpt";
+
+export const ATESTADO_DEFAULT_SIGNER_NAME = "Dr. Rodrigo Bravo";
+export const ATESTADO_DEFAULT_SIGNER_SPECIALTY = "Clínico Geral";
+export const ATESTADO_DEFAULT_SIGNER_CRM = "SP 965685";
+export const ATESTADO_SIGN_LABEL = "Assinatura do Profissional";
 
 export function isAtestadoKind(kind: string | null | undefined): boolean {
   return kind === ATESTADO_KIND;

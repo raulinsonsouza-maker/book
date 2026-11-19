@@ -3,6 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { apiRequireAttendance } from "@/lib/attendance/server";
 import {
+  ATESTADO_DEFAULT_SIGNER_CRM,
+  ATESTADO_DEFAULT_SIGNER_NAME,
+  ATESTADO_DEFAULT_SIGNER_SPECIALTY,
   ATESTADO_DEFAULT_TITLE,
   ATESTADO_KIND,
   COMPARECIMENTO_KIND,
@@ -66,6 +69,9 @@ const atestadoSchema = z.object({
     .max(8000),
   footerLeft: z.string().trim().max(240).optional(),
   footerRight: z.string().trim().max(120).optional(),
+  signerName: z.string().trim().max(160).optional(),
+  signerSpecialty: z.string().trim().max(120).optional(),
+  signerCrm: z.string().trim().max(80).optional(),
   visitDate: z.string().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
@@ -115,6 +121,15 @@ export async function POST(req: Request) {
         bodyText: data.bodyText,
         footerLeft: (data.footerLeft || "").trim() || null,
         footerRight: (data.footerRight || "").trim() || null,
+        signerName:
+          (data.signerName || ATESTADO_DEFAULT_SIGNER_NAME).trim() ||
+          ATESTADO_DEFAULT_SIGNER_NAME,
+        signerSpecialty:
+          (data.signerSpecialty || ATESTADO_DEFAULT_SIGNER_SPECIALTY).trim() ||
+          ATESTADO_DEFAULT_SIGNER_SPECIALTY,
+        signerCrm:
+          (data.signerCrm || ATESTADO_DEFAULT_SIGNER_CRM).trim() ||
+          ATESTADO_DEFAULT_SIGNER_CRM,
         headerSnapshot: JSON.stringify({ kind: ATESTADO_KIND }),
         createdByUserId: ctx.userId,
       },

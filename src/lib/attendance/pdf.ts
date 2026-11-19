@@ -2,9 +2,12 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import {
+  ATESTADO_DEFAULT_SIGNER_CRM,
+  ATESTADO_DEFAULT_SIGNER_NAME,
+  ATESTADO_DEFAULT_SIGNER_SPECIALTY,
   ATESTADO_DEFAULT_TITLE,
   ATESTADO_HEADER_SRC,
-  ATESTADO_SIGNATURE_SRC,
+  ATESTADO_SIGN_LABEL,
   atestadoIssueLine,
   isAtestadoKind,
 } from "@/lib/attendance/atestado";
@@ -275,6 +278,9 @@ export async function buildAtestadoPdf(params: {
   issueCity?: string;
   footerLeft?: string | null;
   footerRight?: string | null;
+  signerName?: string | null;
+  signerSpecialty?: string | null;
+  signerCrm?: string | null;
 }): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const title =
@@ -350,20 +356,53 @@ export async function buildAtestadoPdf(params: {
     color: INK,
   });
 
-  const sig = await embedLogo(doc, ATESTADO_SIGNATURE_SRC);
-  if (sig) {
-    const maxW = 220;
-    const scale = Math.min(1, maxW / sig.width);
-    const w = sig.width * scale;
-    const h = sig.height * scale;
-    const sigY = Math.min(y - 24 - h, 120);
-    page.drawImage(sig, {
-      x: (PAGE_W - w) / 2,
+  // Espaço em branco para assinatura à caneta, depois linha + dados.
+  let sigY = Math.min(y - 70, 200);
+  const sigLineW = 220;
+  page.drawLine({
+    start: { x: (PAGE_W - sigLineW) / 2, y: sigY },
+    end: { x: (PAGE_W + sigLineW) / 2, y: sigY },
+    thickness: 0.7,
+    color: INK,
+  });
+  sigY -= 14;
+  drawCentered(page, clean(ATESTADO_SIGN_LABEL), sigY, fonts.bold, 10, MUTED);
+  sigY -= 18;
+
+  const signerName =
+    (params.signerName || ATESTADO_DEFAULT_SIGNER_NAME).trim() ||
+    ATESTADO_DEFAULT_SIGNER_NAME;
+  const signerSpecialty =
+    (params.signerSpecialty || ATESTADO_DEFAULT_SIGNER_SPECIALTY).trim() ||
+    ATESTADO_DEFAULT_SIGNER_SPECIALTY;
+  const signerCrm =
+    (params.signerCrm || ATESTADO_DEFAULT_SIGNER_CRM).trim() ||
+    ATESTADO_DEFAULT_SIGNER_CRM;
+
+  const detailX = (PAGE_W - 240) / 2;
+  const detailSize = 11;
+  const drawDetail = (label: string, value: string) => {
+    const labelT = clean(`${label}: `);
+    const valueT = clean(value);
+    page.drawText(labelT, {
+      x: detailX,
       y: sigY,
-      width: w,
-      height: h,
+      size: detailSize,
+      font: fonts.bold,
+      color: INK,
     });
-  }
+    page.drawText(valueT, {
+      x: detailX + fonts.bold.widthOfTextAtSize(labelT, detailSize),
+      y: sigY,
+      size: detailSize,
+      font: fonts.regular,
+      color: INK,
+    });
+    sigY -= 15;
+  };
+  drawDetail("Nome", signerName);
+  drawDetail("Especialidade", signerSpecialty);
+  drawDetail("CRM", signerCrm);
 
   const footerLeft = clean((params.footerLeft || "").trim());
   const footerRight = clean((params.footerRight || "").trim());
@@ -402,6 +441,9 @@ export async function buildCertificatePdf(params: {
     bodyText?: string | null;
     footerLeft?: string | null;
     footerRight?: string | null;
+    signerName?: string | null;
+    signerSpecialty?: string | null;
+    signerCrm?: string | null;
     patientName: string;
   };
 }) {
@@ -414,6 +456,9 @@ export async function buildCertificatePdf(params: {
       issueCity: params.data.issueCity,
       footerLeft: params.data.footerLeft,
       footerRight: params.data.footerRight,
+      signerName: params.data.signerName,
+      signerSpecialty: params.data.signerSpecialty,
+      signerCrm: params.data.signerCrm,
     });
   }
   return buildAttendancePdf(params.header, params.data);

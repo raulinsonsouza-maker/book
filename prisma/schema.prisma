@@ -235,6 +235,10 @@ model AttendanceCertificate {
   footerLeft      String?
   /** Rodapé direito do atestado (Usuário: …), editável. */
   footerRight     String?
+  /** Bloco de assinatura do atestado (caneta). */
+  signerName      String?
+  signerSpecialty String?
+  signerCrm       String?
   /** Cabeçalho congelado no momento da emissão (JSON). */
   headerSnapshot  String
   createdByUserId String?

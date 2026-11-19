@@ -3,6 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { apiRequireAttendance } from "@/lib/attendance/server";
 import {
+  ATESTADO_DEFAULT_SIGNER_CRM,
+  ATESTADO_DEFAULT_SIGNER_NAME,
+  ATESTADO_DEFAULT_SIGNER_SPECIALTY,
   ATESTADO_DEFAULT_TITLE,
   ATESTADO_KIND,
   COMPARECIMENTO_KIND,
@@ -32,6 +35,9 @@ const atestadoUpdateSchema = z.object({
     .max(8000),
   footerLeft: z.string().trim().max(240).optional(),
   footerRight: z.string().trim().max(120).optional(),
+  signerName: z.string().trim().max(160).optional(),
+  signerSpecialty: z.string().trim().max(120).optional(),
+  signerCrm: z.string().trim().max(80).optional(),
 });
 
 const comparecimentoUpdateSchema = z
@@ -96,6 +102,15 @@ export async function PATCH(
         bodyText: data.bodyText,
         footerLeft: (data.footerLeft || "").trim() || null,
         footerRight: (data.footerRight || "").trim() || null,
+        signerName:
+          (data.signerName || ATESTADO_DEFAULT_SIGNER_NAME).trim() ||
+          ATESTADO_DEFAULT_SIGNER_NAME,
+        signerSpecialty:
+          (data.signerSpecialty || ATESTADO_DEFAULT_SIGNER_SPECIALTY).trim() ||
+          ATESTADO_DEFAULT_SIGNER_SPECIALTY,
+        signerCrm:
+          (data.signerCrm || ATESTADO_DEFAULT_SIGNER_CRM).trim() ||
+          ATESTADO_DEFAULT_SIGNER_CRM,
         visitDate: issueDate,
       },
     });
