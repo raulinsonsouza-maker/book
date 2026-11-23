@@ -284,14 +284,15 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
         </p>
       )}
 
-      <div className="surface overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-[#f7f8fa] px-3 py-2.5 sm:px-4">
-          <div className="relative" ref={rangeRef}>
+      <div className="surface relative z-0 overflow-visible">
+        <div className="relative z-20 flex flex-wrap items-center gap-2 rounded-t-[inherit] border-b border-border bg-[#f7f8fa] px-3 py-2.5 sm:px-4">
+          <div className="relative z-30" ref={rangeRef}>
             <button
               type="button"
               onClick={() => setRangeOpen((v) => !v)}
               className="inline-flex items-center gap-2 rounded-lg border border-[#ced0d3] bg-white px-3 py-2 text-sm font-medium text-[#1c1e21] shadow-sm hover:bg-[#f0f2f5]"
               aria-expanded={rangeOpen}
+              aria-haspopup="listbox"
             >
               <svg
                 width="16"
@@ -324,7 +325,10 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             </button>
 
             {rangeOpen ? (
-              <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#dadde1] bg-white shadow-[0_8px_28px_rgba(0,0,0,0.12)]">
+              <div
+                role="listbox"
+                className="absolute left-0 top-full z-50 mt-1.5 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-[#dadde1] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.16)]"
+              >
                 <div className="border-b border-[#eef0f2] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#65676b]">
                   Período
                 </div>
@@ -339,6 +343,8 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
                     <button
                       key={opt.id}
                       type="button"
+                      role="option"
+                      aria-selected={preset === opt.id}
                       onClick={() => setPreset(opt.id)}
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
                         preset === opt.id
@@ -354,6 +360,8 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
                   ))}
                   <button
                     type="button"
+                    role="option"
+                    aria-selected={preset === "month"}
                     onClick={setThisMonth}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
                       preset === "month"
@@ -368,9 +376,9 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setCustomRange(true);
-                    }}
+                    role="option"
+                    aria-selected={preset === null}
+                    onClick={() => setCustomRange(true)}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
                       preset === null
                         ? "bg-[#e7f3ff] font-semibold text-[#0866ff]"
@@ -383,7 +391,7 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
                     ) : null}
                   </button>
                 </div>
-                {(customRange || preset === null) && (
+                {customRange || preset === null ? (
                   <div className="grid grid-cols-2 gap-2 border-t border-[#eef0f2] bg-[#f7f8fa] p-3">
                     <label className="block text-xs">
                       <span className="mb-1 block font-medium text-[#65676b]">
@@ -421,7 +429,7 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
                       Aplicar
                     </button>
                   </div>
-                )}
+                ) : null}
               </div>
             ) : null}
           </div>
