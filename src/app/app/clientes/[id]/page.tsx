@@ -10,7 +10,12 @@ import {
   type VisitBooking,
 } from "@/components/clients/VisitRecordModal";
 import { visitRecordSummary } from "@/lib/visit-record";
-import { formatCpf, formatPhoneDisplay } from "@/lib/utils";
+import {
+  formatCpf,
+  formatPhoneDisplay,
+  maskBRLFromDigits,
+  parseBRLMaskToCents,
+} from "@/lib/utils";
 
 type Tab = "timeline" | "bookings" | "payments" | "notes" | "prescriptions";
 
@@ -62,6 +67,28 @@ type RxRow = {
   issuedAt: string;
 };
 
+type ReceitaDoc = {
+  id: string;
+  bodyText: string | null;
+  issuedAt: string;
+  createdAt: string;
+  visitDate: string;
+  pdfUrl: string;
+  printUrl: string;
+  editUrl: string;
+  shareUrl: string | null;
+};
+
+type CashEntryRow = {
+  id: string;
+  amountCents: number;
+  method: string;
+  description: string;
+  occurredAt: string;
+  bookingId: string | null;
+  source: "manual";
+};
+
 type TimelineItem = {
   id: string;
   kind: "booking" | "payment" | "note" | "prescription" | "certificate";
@@ -70,8 +97,6 @@ type TimelineItem = {
   subtitle?: string;
   meta?: Record<string, unknown>;
 };
-
-type TimelineFilter = "all" | TimelineItem["kind"];
 
 function money(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", {
@@ -105,9 +130,10 @@ export default function ClienteProntuarioPage() {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [prescriptions, setPrescriptions] = useState<RxRow[]>([]);
+  const [receitaDocs, setReceitaDocs] = useState<ReceitaDoc[]>([]);
+  const [cashEntries, setCashEntries] = useState<CashEntryRow[]>([]);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [tab, setTab] = useState<Tab>("timeline");
-  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedVisit, setSelectedVisit] = useState<VisitBooking | null>(null);
@@ -115,11 +141,14 @@ export default function ClienteProntuarioPage() {
 
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
-  const [rxItems, setRxItems] = useState<RxItem[]>([
-    { name: "", dose: "", usage: "" },
-  ]);
-  const [rxNotes, setRxNotes] = useState("");
-  const [savingRx, setSavingRx] = useState(false);
+  const [showCashModal, setShowCashModal] = useState(false);
+  const [cashAmount, setCashAmount] = useState("");
+  const [cashMethod, setCashMethod] = useState("CASH");
+  const [cashDesc, setCashDesc] = useState("");
+  const [cashDate, setCashDate] = useState(() =>
+    format(new Date(), "yyyy-MM-dd"),
+  );
+  const [savingCash, setSavingCash] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -144,6 +173,8 @@ export default function ClienteProntuarioPage() {
         setBookings(detail.bookings || []);
         setNotes(detail.notes || []);
         setPrescriptions(detail.prescriptions || []);
+        setReceitaDocs(detail.receitaDocs || []);
+        setCashEntries(detail.cashEntries || []);
         setTimeline(tl.items || []);
       })
       .catch((e: Error) => {
@@ -211,37 +242,41 @@ export default function ClienteProntuarioPage() {
     }
   }
 
-  async function saveRx(e: React.FormEvent) {
+  async function saveCash(e: React.FormEvent) {
     e.preventDefault();
-    const items = rxItems
-      .map((i) => ({
-        name: (i.name || "").trim(),
-        dose: (i.dose || "").trim() || null,
-        usage: (i.usage || "").trim() || null,
-      }))
-      .filter((i) => i.name);
-    if (!items.length) return;
-    setSavingRx(true);
+    const cents = parseBRLMaskToCents(cashAmount);
+    if (!cents || cents <= 0) {
+      setError("Informe um valor válido");
+      return;
+    }
+    setSavingCash(true);
+    setError("");
     try {
-      const res = await fetch(`/api/clients/${id}/prescriptions`, {
+      const res = await fetch("/api/financeiro/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items,
-          notes: rxNotes.trim() || null,
+          type: "INCOME",
+          amountCents: cents,
+          method: cashMethod,
+          occurredAt: cashDate,
+          description: cashDesc.trim() || "Pagamento recebido",
+          customerId: id,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Erro ao salvar prescrição");
+        setError(data.error || "Erro ao registrar pagamento");
         return;
       }
-      setRxItems([{ name: "", dose: "", usage: "" }]);
-      setRxNotes("");
+      setShowCashModal(false);
+      setCashAmount("");
+      setCashDesc("");
+      setCashMethod("CASH");
       load();
-      setTab("prescriptions");
+      setTab("payments");
     } finally {
-      setSavingRx(false);
+      setSavingCash(false);
     }
   }
 
@@ -249,26 +284,27 @@ export default function ClienteProntuarioPage() {
     (b) => b.paymentStatus === "PAID" && b.paymentAmountCents != null,
   );
 
-  const filteredTimeline = useMemo(() => {
-    if (timelineFilter === "all") return timeline;
-    return timeline.filter((i) => i.kind === timelineFilter);
-  }, [timeline, timelineFilter]);
-
-  const timelineChips = useMemo(() => {
-    const chips: { id: TimelineFilter; label: string }[] = [
-      { id: "all", label: "Tudo" },
-      { id: "booking", label: profile?.visitNounPlural || "Agendamentos" },
-      { id: "payment", label: "Pagamentos" },
-    ];
-    if (profile?.features.visitNotes) chips.push({ id: "note", label: "Notas" });
-    if (profile?.features.prescriptions) {
-      chips.push({ id: "prescription", label: "Prescrições" });
-    }
-    if (profile?.features.attendanceCertificates) {
-      chips.push({ id: "certificate", label: "Documentos" });
-    }
-    return chips;
-  }, [profile]);
+  const paymentRows = useMemo(() => {
+    const fromBookings = paidBookings.map((b) => ({
+      id: `pay-${b.id}`,
+      label: b.serviceTitle,
+      when: b.startAt,
+      amountCents: b.paymentAmountCents || 0,
+      method: b.paymentMethod || "",
+      source: "online" as const,
+    }));
+    const fromCash = cashEntries.map((e) => ({
+      id: e.id,
+      label: e.description,
+      when: e.occurredAt,
+      amountCents: e.amountCents,
+      method: e.method,
+      source: "manual" as const,
+    }));
+    return [...fromBookings, ...fromCash].sort(
+      (a, b) => new Date(b.when).getTime() - new Date(a.when).getTime(),
+    );
+  }, [paidBookings, cashEntries]);
 
   async function copyShareUrl(path: string) {
     const absolute = `${window.location.origin}${path}`;
@@ -344,17 +380,20 @@ export default function ClienteProntuarioPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/app/agenda/calendario?customerId=${customer.id}`}
+            className="btn-primary"
+          >
+            Agendar
+          </Link>
           {profile.features.attendanceCertificates ? (
             <Link
               href={`/app/declaracoes?customerId=${customer.id}`}
-              className="btn-primary"
+              className="btn-secondary"
             >
-              Emitir documento
+              Documentos
             </Link>
           ) : null}
-          <Link href="/app/agenda/calendario" className="btn-secondary">
-            Agendar
-          </Link>
           <Link href="/app/clientes" className="btn-secondary">
             Voltar
           </Link>
@@ -408,27 +447,11 @@ export default function ClienteProntuarioPage() {
 
       {tab === "timeline" ? (
         <div className="rounded-2xl border border-border bg-white p-4 shadow-sm sm:p-5">
-          <div className="mb-4 flex flex-wrap gap-1.5">
-            {timelineChips.map((chip) => (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => setTimelineFilter(chip.id)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
-                  timelineFilter === chip.id
-                    ? "bg-[#1a1a1a] text-white"
-                    : "bg-[#f4f2ef] text-muted hover:text-foreground"
-                }`}
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-          {filteredTimeline.length === 0 ? (
+          {timeline.length === 0 ? (
             <p className="text-sm text-muted">Sem eventos ainda.</p>
           ) : (
             <ol className="relative space-y-0 border-l border-border pl-5">
-              {filteredTimeline.map((item) => {
+              {timeline.map((item) => {
                 const bookingId = bookingIdFromItem(item);
                 const clickable = Boolean(bookingId);
                 const shareUrl =
@@ -558,32 +581,55 @@ export default function ClienteProntuarioPage() {
       ) : null}
 
       {tab === "payments" ? (
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-          {paidBookings.length === 0 ? (
-            <p className="p-5 text-sm text-muted">Nenhum pagamento registrado.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {paidBookings.map((b) => (
-                <li
-                  key={b.id}
-                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setShowCashModal(true)}
+            >
+              Registrar pagamento
+            </button>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+            {paymentRows.length === 0 ? (
+              <div className="p-5 text-center">
+                <p className="text-sm text-muted">Nenhum pagamento registrado.</p>
+                <button
+                  type="button"
+                  className="btn-secondary mt-3"
+                  onClick={() => setShowCashModal(true)}
                 >
-                  <div>
-                    <p className="font-medium">{b.serviceTitle}</p>
-                    <p className="text-sm text-muted">{fmtWhen(b.startAt)}</p>
-                  </div>
-                  <p className="font-semibold tabular-nums">
-                    {money(b.paymentAmountCents || 0)}
-                    {b.paymentMethod ? (
-                      <span className="ml-2 text-sm font-normal text-muted">
-                        {b.paymentMethod}
-                      </span>
-                    ) : null}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
+                  Registrar pagamento recebido
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {paymentRows.map((row) => (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                  >
+                    <div>
+                      <p className="font-medium">{row.label}</p>
+                      <p className="text-sm text-muted">
+                        {fmtWhen(row.when)}
+                        {row.source === "manual" ? " · Manual" : ""}
+                      </p>
+                    </div>
+                    <p className="font-semibold tabular-nums">
+                      {money(row.amountCents)}
+                      {row.method ? (
+                        <span className="ml-2 text-sm font-normal text-muted">
+                          {row.method}
+                        </span>
+                      ) : null}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       ) : null}
 
@@ -641,95 +687,59 @@ export default function ClienteProntuarioPage() {
 
       {tab === "prescriptions" && profile.features.prescriptions ? (
         <div className="space-y-4">
-          <form
-            onSubmit={saveRx}
-            className="space-y-3 rounded-2xl border border-border bg-white p-4 shadow-sm"
-          >
-            <p className="text-sm font-medium">Nova prescrição / orientação</p>
-            <p className="text-xs text-muted">
-              Preferência: abra o {profile.visitNoun.toLowerCase()} na linha do
-              tempo para vincular a receita ao atendimento.
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-muted">
+              Receitas emitidas em Documentos para este{" "}
+              {profile.clientNoun.toLowerCase()}.
             </p>
-            {rxItems.map((item, idx) => (
-              <div
-                key={idx}
-                className="grid gap-2 rounded-xl border border-border bg-[#faf8f5] p-3 sm:grid-cols-3"
-              >
-                <label className="text-sm sm:col-span-1">
-                  <span className="mb-1 block text-xs text-muted">Item</span>
-                  <input
-                    className="input-field"
-                    value={item.name}
-                    onChange={(e) =>
-                      setRxItems((rows) =>
-                        rows.map((r, i) =>
-                          i === idx ? { ...r, name: e.target.value } : r,
-                        ),
-                      )
-                    }
-                    required={idx === 0}
-                  />
-                </label>
-                <label className="text-sm">
-                  <span className="mb-1 block text-xs text-muted">Dose</span>
-                  <input
-                    className="input-field"
-                    value={item.dose || ""}
-                    onChange={(e) =>
-                      setRxItems((rows) =>
-                        rows.map((r, i) =>
-                          i === idx ? { ...r, dose: e.target.value } : r,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <label className="text-sm">
-                  <span className="mb-1 block text-xs text-muted">Uso</span>
-                  <input
-                    className="input-field"
-                    value={item.usage || ""}
-                    onChange={(e) =>
-                      setRxItems((rows) =>
-                        rows.map((r, i) =>
-                          i === idx ? { ...r, usage: e.target.value } : r,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-              </div>
-            ))}
-            <button
-              type="button"
-              className="text-sm font-medium underline-offset-2 hover:underline"
-              onClick={() =>
-                setRxItems((rows) => [
-                  ...rows,
-                  { name: "", dose: "", usage: "" },
-                ])
-              }
+            <Link
+              href={`/app/declaracoes?customerId=${customer.id}&kind=RECEITA`}
+              className="btn-primary"
             >
-              + item
-            </button>
-            <label className="block text-sm">
-              <span className="mb-1 block text-xs text-muted">
-                Observações gerais
-              </span>
-              <textarea
-                className="input-field min-h-[64px]"
-                value={rxNotes}
-                onChange={(e) => setRxNotes(e.target.value)}
-              />
-            </label>
-            <button type="submit" className="btn-primary" disabled={savingRx}>
-              {savingRx ? "Salvando…" : "Salvar prescrição"}
-            </button>
-          </form>
+              Nova receita
+            </Link>
+          </div>
           <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-            {prescriptions.length === 0 ? (
-              <p className="p-5 text-sm text-muted">Nenhuma prescrição.</p>
+            {receitaDocs.length === 0 ? (
+              <p className="p-5 text-sm text-muted">Nenhuma receita emitida.</p>
             ) : (
+              <ul className="divide-y divide-border">
+                {receitaDocs.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex flex-wrap items-start justify-between gap-3 px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-muted">
+                        {fmtWhen(d.createdAt)}
+                        {d.visitDate ? ` · Visita ${d.visitDate}` : ""}
+                      </p>
+                      <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm">
+                        {d.bodyText || "Receita"}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Link href={d.editUrl} className="btn-secondary !text-sm">
+                        Editar
+                      </Link>
+                      <Link
+                        href={d.printUrl}
+                        className="btn-secondary !text-sm"
+                        target="_blank"
+                      >
+                        Imprimir
+                      </Link>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {prescriptions.length > 0 ? (
+            <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+              <p className="border-b border-border px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted">
+                Orientações internas
+              </p>
               <ul className="divide-y divide-border">
                 {prescriptions.map((p) => (
                   <li key={p.id} className="px-4 py-3">
@@ -745,23 +755,87 @@ export default function ClienteProntuarioPage() {
                         </li>
                       ))}
                     </ul>
-                    {p.notes ? (
-                      <p className="mt-2 text-sm text-muted">{p.notes}</p>
-                    ) : null}
-                    {p.bookingId ? (
-                      <button
-                        type="button"
-                        className="mt-1 text-sm font-medium underline-offset-2 hover:underline"
-                        onClick={() => openVisit(p.bookingId!)}
-                      >
-                        Abrir {profile.visitNoun.toLowerCase()}
-                      </button>
-                    ) : null}
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showCashModal ? (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <form
+            onSubmit={saveCash}
+            className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-white p-5 shadow-xl"
+          >
+            <h2 className="text-base font-semibold">Registrar pagamento</h2>
+            <p className="text-sm text-muted">
+              Lançamento manual para {customer.name}.
+            </p>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Valor (R$)</span>
+              <input
+                required
+                className="input-field"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={cashAmount}
+                onChange={(e) =>
+                  setCashAmount(maskBRLFromDigits(e.target.value))
+                }
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Data</span>
+              <input
+                type="date"
+                required
+                className="input-field"
+                value={cashDate}
+                onChange={(e) => setCashDate(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Método</span>
+              <select
+                className="input-field"
+                value={cashMethod}
+                onChange={(e) => setCashMethod(e.target.value)}
+              >
+                <option value="CASH">Dinheiro</option>
+                <option value="PIX">Pix</option>
+                <option value="CARD">Cartão</option>
+                <option value="OTHER">Outro</option>
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Descrição</span>
+              <input
+                className="input-field"
+                placeholder="Ex: Consulta particular"
+                value={cashDesc}
+                onChange={(e) => setCashDesc(e.target.value)}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={savingCash}
+              >
+                {savingCash ? "Salvando…" : "Salvar"}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={savingCash}
+                onClick={() => setShowCashModal(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
         </div>
       ) : null}
     </div>

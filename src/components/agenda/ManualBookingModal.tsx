@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
+import {
+  CustomerPicker,
+  type CustomerPick,
+} from "@/components/clients/CustomerPicker";
 import { formatPhone, normalizeEmailInput } from "@/lib/utils";
 
 type SlotItem = {
@@ -29,6 +33,7 @@ type Props = {
   professionals?: ProOption[];
   /** Grade em modo “qualquer” sem pro sugerido no slot. */
   anyoneMode?: boolean;
+  initialCustomer?: CustomerPick | null;
   onClose: () => void;
   onCreated: () => void;
 };
@@ -51,9 +56,13 @@ export function ManualBookingModal({
   isProfessionalView = false,
   professionals: professionalsProp,
   anyoneMode = false,
+  initialCustomer = null,
   onClose,
   onCreated,
 }: Props) {
+  const [pickedCustomer, setPickedCustomer] = useState<CustomerPick | null>(
+    null,
+  );
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -74,6 +83,7 @@ export function ManualBookingModal({
 
   useEffect(() => {
     if (!open) {
+      setPickedCustomer(null);
       setCustomerName("");
       setCustomerEmail("");
       setCustomerPhone("");
@@ -82,6 +92,15 @@ export function ManualBookingModal({
       setError("");
       setResult(null);
       return;
+    }
+
+    if (initialCustomer) {
+      setPickedCustomer(initialCustomer);
+      setCustomerName(initialCustomer.name);
+      setCustomerEmail(initialCustomer.email || "");
+      setCustomerPhone(
+        formatPhone(initialCustomer.phoneE164.replace(/\D/g, "")),
+      );
     }
 
     if (professionalId) {
@@ -164,6 +183,7 @@ export function ManualBookingModal({
         customerName,
         customerEmail: customerEmail || undefined,
         customerPhone: customerPhone || undefined,
+        customerId: pickedCustomer?.id || undefined,
         payOnSite,
         professionalId: effectiveProId,
       }),
@@ -318,15 +338,31 @@ export function ManualBookingModal({
               </label>
             )}
 
+            <CustomerPicker
+              label="Cliente cadastrado"
+              value={pickedCustomer}
+              onChange={(c) => {
+                setPickedCustomer(c);
+                if (c) {
+                  setCustomerName(c.name);
+                  setCustomerEmail(c.email || "");
+                  setCustomerPhone(formatPhone(c.phoneE164.replace(/\D/g, "")));
+                }
+              }}
+            />
+
             <label className="block text-sm">
-              <span className="mb-1 block text-muted">Nome da cliente</span>
+              <span className="mb-1 block text-muted">Nome</span>
               <input
                 className="input-field w-full"
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+                onChange={(e) => {
+                  setCustomerName(e.target.value);
+                  if (pickedCustomer) setPickedCustomer(null);
+                }}
                 required
                 minLength={2}
-                autoFocus
+                autoFocus={!pickedCustomer}
               />
             </label>
 

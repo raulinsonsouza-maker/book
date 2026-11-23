@@ -13,6 +13,11 @@ import {
   type PayMethod,
 } from "@/lib/product-form-config";
 import { CAKTO_ENABLED } from "@/lib/feature-flags";
+import {
+  parseBusinessProfile,
+  productFormPlaceholders,
+  type BusinessProfileId,
+} from "@/lib/business-profile";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -65,6 +70,9 @@ export default function EditProductPage() {
   const [paymentProvider, setPaymentProvider] = useState<
     "CAKTO" | "MERCADO_PAGO" | "ASAAS"
   >("CAKTO");
+  const [businessProfile, setBusinessProfile] =
+    useState<BusinessProfileId | null>(null);
+  const placeholders = productFormPlaceholders(businessProfile);
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
@@ -73,7 +81,10 @@ export default function EditProductPage() {
   useEffect(() => {
     fetch("/api/organization")
       .then((r) => r.json())
-      .then((data) => setPaymentProvider(data.paymentProvider || "CAKTO"));
+      .then((data) => {
+        setPaymentProvider(data.paymentProvider || "CAKTO");
+        setBusinessProfile(parseBusinessProfile(data.businessProfile));
+      });
 
     fetch(`/api/checkout/products/${id}`)
       .then((r) => r.json())
@@ -181,11 +192,22 @@ export default function EditProductPage() {
       <form onSubmit={save} className="surface max-w-2xl space-y-4 p-6">
         <label className="block text-sm">
           <span className="mb-1.5 block font-medium">Título</span>
-          <input required className="input-field" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            required
+            className="input-field"
+            placeholder={placeholders.title}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
         </label>
         <label className="block text-sm">
           <span className="mb-1.5 block font-medium">Descrição</span>
-          <textarea className="input-field min-h-24" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <textarea
+            className="input-field min-h-24"
+            placeholder={placeholders.description}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
         </label>
         <label className="block text-sm">
           <span className="mb-1.5 block font-medium">Preço (R$)</span>
@@ -224,14 +246,6 @@ export default function EditProductPage() {
         {payMethods.includes("card") && (
           <label className="block text-sm">
             <span className="mb-1.5 block font-medium">Parcelas no cartão</span>
-            <p className="mb-1.5 text-xs text-muted">
-              Quantas parcelas o cliente pode escolher nesta cobrança. Padrão do
-              site:{" "}
-              {orgCardMaxInstallments === 1
-                ? "só à vista"
-                : `até ${orgCardMaxInstallments}x`}
-              .
-            </p>
             <select
               className="input-field max-w-xs"
               value={cardMaxInstallments == null ? "" : String(cardMaxInstallments)}

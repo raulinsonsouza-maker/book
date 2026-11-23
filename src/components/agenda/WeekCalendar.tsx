@@ -19,7 +19,9 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ManualBookingModal } from "@/components/agenda/ManualBookingModal";
+import type { CustomerPick } from "@/components/clients/CustomerPicker";
 import {
   AgendaBookingModal,
   type AgendaBookingDetails,
@@ -113,6 +115,8 @@ export function WeekCalendar({
   businessMode = "SOLO",
 }: Props) {
   const salonAdmin = businessMode === "SALON" && !isProfessionalView;
+  const searchParams = useSearchParams();
+  const prefillCustomerId = searchParams.get("customerId");
 
   const [view, setView] = useState<AgendaView>("week");
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
@@ -130,6 +134,35 @@ export function WeekCalendar({
   const [setupHint, setSetupHint] = useState<SetupHint>(null);
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
   const [manualSlot, setManualSlot] = useState<SlotItem | null>(null);
+  const [prefillCustomer, setPrefillCustomer] = useState<CustomerPick | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!prefillCustomerId) {
+      setPrefillCustomer(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/clients/${prefillCustomerId}`)
+      .then(async (r) => {
+        if (!r.ok) return;
+        const data = await r.json();
+        const c = data.customer;
+        if (!c || cancelled) return;
+        setPrefillCustomer({
+          id: c.id,
+          name: c.name,
+          phoneE164: c.phoneE164,
+          email: c.email ?? null,
+          cpf: c.cpf ?? null,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [prefillCustomerId]);
 
   const range = useMemo(() => {
     if (view === "day") {
@@ -621,6 +654,18 @@ export function WeekCalendar({
 
   return (
     <div className="agenda-week space-y-3">
+      {prefillCustomer ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-white px-4 py-3 text-sm shadow-sm">
+          <p>
+            Agendando para <strong>{prefillCustomer.name}</strong> — escolha um
+            horário na grade.
+          </p>
+          <a href="/app/agenda/calendario" className="text-xs font-medium text-muted underline-offset-2 hover:underline">
+            Limpar
+          </a>
+        </div>
+      ) : null}
+
       <ManualBookingModal
         open={Boolean(manualSlot) && concretePage && concreteService}
         slot={manualSlot}
@@ -635,6 +680,7 @@ export function WeekCalendar({
           displayName: p.displayName,
         }))}
         anyoneMode={Boolean(modalAnyone)}
+        initialCustomer={prefillCustomer}
         onClose={() => setManualSlot(null)}
         onCreated={load}
       />

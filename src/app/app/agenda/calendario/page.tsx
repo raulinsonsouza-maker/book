@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getAuthContext, isProfessionalRole } from "@/lib/rbac";
@@ -66,17 +67,19 @@ export default async function AgendaCalendarioPage() {
   const first = withServices[0]!;
 
   return (
-    <WeekCalendar
-      pages={withServices.map((p) => ({
-        id: p.id,
-        title: p.title,
-        slug: p.slug,
-      }))}
-      initialPageId={first.id}
-      initialServiceId={first.pageServices[0]!.serviceId}
-      professionalId={professionalId}
-      isProfessionalView={isPro}
-      businessMode={org.businessMode === "SALON" ? "SALON" : "SOLO"}
-    />
+    <Suspense fallback={<p className="text-sm text-muted">Carregando agenda…</p>}>
+      <WeekCalendar
+        pages={withServices.map((p) => ({
+          id: p.id,
+          title: p.title,
+          slug: p.slug,
+        }))}
+        initialPageId={first.id}
+        initialServiceId={first.pageServices[0]!.serviceId}
+        professionalId={professionalId}
+        isProfessionalView={isPro}
+        businessMode={org.businessMode === "SALON" ? "SALON" : "SOLO"}
+      />
+    </Suspense>
   );
 }

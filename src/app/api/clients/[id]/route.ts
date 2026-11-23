@@ -6,6 +6,8 @@ import {
   customerScopeWhere,
 } from "@/lib/clients";
 import { resolveBusinessProfile } from "@/lib/business-profile";
+import { RECEITA_KIND } from "@/lib/attendance/kinds";
+import { documentPublicPath } from "@/lib/attendance/share";
 
 export async function GET(
   _req: Request,
@@ -63,42 +65,68 @@ export async function GET(
     org?.attendanceEnabled,
   );
 
-  const [bookings, notes, prescriptions] = await Promise.all([
-    prisma.booking.findMany({
-      where: {
-        customerId: customer.id,
-        bookingPage: { organizationId: ctx.organizationId },
-      },
-      include: {
-        service: { select: { title: true, imageUrl: true } },
-        professional: { select: { displayName: true, photoUrl: true } },
-        payment: true,
-        bookingPage: { select: { title: true } },
-      },
-      orderBy: { startAt: "desc" },
-      take: 100,
-    }),
-    prisma.visitNote.findMany({
-      where: { customerId: customer.id, organizationId: ctx.organizationId },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-    profile.features.prescriptions
-      ? prisma.prescription.findMany({
-          where: {
-            customerId: customer.id,
-            organizationId: ctx.organizationId,
-          },
-          orderBy: { issuedAt: "desc" },
-          take: 50,
-        })
-      : Promise.resolve([]),
-  ]);
+  const [bookings, notes, prescriptions, receitaDocs, cashEntries] =
+    await Promise.all([
+      prisma.booking.findMany({
+        where: {
+          customerId: customer.id,
+          bookingPage: { organizationId: ctx.organizationId },
+        },
+        include: {
+          service: { select: { title: true, imageUrl: true } },
+          professional: { select: { displayName: true, photoUrl: true } },
+          payment: true,
+          bookingPage: { select: { title: true } },
+        },
+        orderBy: { startAt: "desc" },
+        take: 100,
+      }),
+      prisma.visitNote.findMany({
+        where: { customerId: customer.id, organizationId: ctx.organizationId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      profile.features.prescriptions
+        ? prisma.prescription.findMany({
+            where: {
+              customerId: customer.id,
+              organizationId: ctx.organizationId,
+            },
+            orderBy: { issuedAt: "desc" },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      profile.features.prescriptions
+        ? prisma.attendanceCertificate.findMany({
+            where: {
+              customerId: customer.id,
+              organizationId: ctx.organizationId,
+              kind: RECEITA_KIND,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      prisma.cashEntry.findMany({
+        where: {
+          customerId: customer.id,
+          organizationId: ctx.organizationId,
+          type: "INCOME",
+        },
+        orderBy: { occurredAt: "desc" },
+        take: 50,
+      }),
+    ]);
 
-  const spentCents = bookings.reduce((acc, b) => {
+  const spentFromBookings = bookings.reduce((acc, b) => {
     if (b.payment?.status === "PAID") return acc + (b.payment.amountCents || 0);
     return acc;
   }, 0);
+  const spentFromCash = cashEntries.reduce(
+    (acc, e) => acc + (e.amountCents || 0),
+    0,
+  );
+  const spentCents = spentFromBookings + spentFromCash;
 
   return NextResponse.json({
     profile: {
@@ -151,6 +179,32 @@ export async function GET(
       notes: p.notes,
       bookingId: p.bookingId,
       issuedAt: p.issuedAt.toISOString(),
+    })),
+    receitaDocs: receitaDocs.map((d) => {
+      const shareActive = Boolean(d.shareToken && !d.shareRevokedAt);
+      return {
+        id: d.id,
+        bodyText: d.bodyText,
+        issuedAt: d.issuedAt.toISOString(),
+        createdAt: d.createdAt.toISOString(),
+        visitDate: d.visitDate,
+        pdfUrl: `/api/declaracoes/${d.id}/pdf`,
+        printUrl: `/app/declaracoes/${d.id}/imprimir`,
+        editUrl: `/app/declaracoes?customerId=${customer.id}&editId=${d.id}`,
+        shareUrl:
+          shareActive && d.shareToken
+            ? documentPublicPath(d.shareToken)
+            : null,
+      };
+    }),
+    cashEntries: cashEntries.map((e) => ({
+      id: e.id,
+      amountCents: e.amountCents,
+      method: e.method,
+      description: e.description,
+      occurredAt: e.occurredAt.toISOString(),
+      bookingId: e.bookingId,
+      source: "manual" as const,
     })),
   });
 }

@@ -10,12 +10,20 @@ import {
   subDays,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { formatBRL } from "@/lib/utils";
+import {
+  formatBRL,
+  maskBRLFromDigits,
+  parseBRLMaskToCents,
+} from "@/lib/utils";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   FinanceiroCharts,
   type FinanceSeries,
 } from "@/components/admin/FinanceiroCharts";
+import {
+  CustomerPicker,
+  type CustomerPick,
+} from "@/components/clients/CustomerPicker";
 
 type PageOption = { id: string; title: string };
 
@@ -48,11 +56,28 @@ type PaymentRow = {
 
 type Summary = {
   receitas: number;
+  despesas?: number;
+  saldo?: number;
   pendente: number;
   confirmados: number;
   ticketMedio: number;
   comissaoTotal?: number;
   liquidoSalao?: number;
+};
+
+type CashEntryRow = {
+  id: string;
+  type: "INCOME" | "EXPENSE";
+  status: string;
+  method: string;
+  amountCents: number;
+  paidAt: string | null;
+  createdAt: string;
+  description: string;
+  customerId: string | null;
+  customerName: string | null;
+  bookingId: string | null;
+  source: "manual";
 };
 
 const statusLabel: Record<string, string> = {
@@ -131,12 +156,23 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [series, setSeries] = useState<FinanceSeries | null>(null);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [cashEntries, setCashEntries] = useState<CashEntryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [customRange, setCustomRange] = useState(false);
   const [rangeOpen, setRangeOpen] = useState(false);
   const rangeRef = useRef<HTMLDivElement>(null);
+  const [showEntryModal, setShowEntryModal] = useState(false);
+  const [entryType, setEntryType] = useState<"INCOME" | "EXPENSE">("INCOME");
+  const [entryAmount, setEntryAmount] = useState("");
+  const [entryMethod, setEntryMethod] = useState("CASH");
+  const [entryDesc, setEntryDesc] = useState("");
+  const [entryDate, setEntryDate] = useState(() =>
+    format(new Date(), "yyyy-MM-dd"),
+  );
+  const [entryCustomer, setEntryCustomer] = useState<CustomerPick | null>(null);
+  const [savingEntry, setSavingEntry] = useState(false);
 
   useEffect(() => {
     if (isProfessionalView) return;
@@ -155,7 +191,13 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
     if (!isProfessionalView && type) params.set("type", type);
     fetch(`/api/financeiro?${params}`)
       .then(async (r) => {
-        let data: { error?: string; summary?: typeof summary; series?: typeof series; payments?: PaymentRow[] } = {};
+        let data: {
+          error?: string;
+          summary?: typeof summary;
+          series?: typeof series;
+          payments?: PaymentRow[];
+          cashEntries?: CashEntryRow[];
+        } = {};
         try {
           data = await r.json();
         } catch {
@@ -167,6 +209,7 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
           setSummary(null);
           setSeries(null);
           setPayments([]);
+          setCashEntries([]);
           return;
         }
         if (!r.ok) {
@@ -174,17 +217,20 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
           setSummary(null);
           setSeries(null);
           setPayments([]);
+          setCashEntries([]);
           return;
         }
         setSummary(data.summary ?? null);
         setSeries(data.series || null);
         setPayments(data.payments || []);
+        setCashEntries(data.cashEntries || []);
       })
       .catch(() => {
         setError("Falha de rede ao carregar o financeiro");
         setSummary(null);
         setSeries(null);
         setPayments([]);
+        setCashEntries([]);
       })
       .finally(() => setLoading(false));
   }, [from, to, status, method, pageId, type, isProfessionalView]);
@@ -265,10 +311,118 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             ? "Este mês"
             : "Personalizado";
 
+  async function saveEntry(e: React.FormEvent) {
+    e.preventDefault();
+    const cents = parseBRLMaskToCents(entryAmount);
+    if (!cents || cents <= 0) {
+      setError("Informe um valor válido");
+      return;
+    }
+    setSavingEntry(true);
+    setError("");
+    try {
+      const res = await fetch("/api/financeiro/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: entryType,
+          amountCents: cents,
+          method: entryMethod,
+          occurredAt: entryDate,
+          description:
+            entryDesc.trim() ||
+            (entryType === "INCOME" ? "Receita manual" : "Despesa"),
+          customerId: entryCustomer?.id || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Não foi possível salvar o lançamento");
+        return;
+      }
+      setShowEntryModal(false);
+      setEntryAmount("");
+      setEntryDesc("");
+      setEntryCustomer(null);
+      setEntryType("INCOME");
+      setEntryMethod("CASH");
+      load();
+    } finally {
+      setSavingEntry(false);
+    }
+  }
+
+  async function deleteEntry(id: string) {
+    if (!window.confirm("Excluir este lançamento?")) return;
+    const res = await fetch(`/api/financeiro/entries/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      setError("Não foi possível excluir");
+      return;
+    }
+    load();
+  }
+
+  const movementRows = useMemo(() => {
+    const fromPay = payments.map((p) => ({
+      key: `p-${p.id}`,
+      kind: p.type,
+      when: p.paidAt || p.createdAt,
+      customerName:
+        p.booking?.customerName || p.checkout?.customerName || "—",
+      label:
+        p.booking?.serviceTitle ||
+        p.checkout?.productTitle ||
+        "Pagamento",
+      amountCents: p.amountCents,
+      commissionCents: p.commissionCents || 0,
+      status: p.status,
+      method: p.method,
+      source: "online" as const,
+      href:
+        p.type === "booking" && p.booking
+          ? `/app/agenda/listagem`
+          : null,
+      cashId: null as string | null,
+      signed: 1,
+    }));
+    const fromCash = cashEntries.map((e) => ({
+      key: `c-${e.id}`,
+      kind: "manual" as const,
+      when: e.paidAt || e.createdAt,
+      customerName: e.customerName || "—",
+      label: e.description,
+      amountCents: e.amountCents,
+      commissionCents: 0,
+      status: e.type === "INCOME" ? "PAID" : "EXPENSE",
+      method: e.method,
+      source: "manual" as const,
+      href: null as string | null,
+      cashId: e.id,
+      signed: e.type === "EXPENSE" ? -1 : 1,
+    }));
+    return [...fromPay, ...fromCash].sort(
+      (a, b) => new Date(b.when).getTime() - new Date(a.when).getTime(),
+    );
+  }, [payments, cashEntries]);
+
   return (
     <div className="space-y-6">
-      <AdminPageHeader>
-        Acompanhe receitas, pendências e o histórico de pagamentos da conta.
+      <AdminPageHeader
+        action={
+          !isProfessionalView ? (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setShowEntryModal(true)}
+            >
+              Novo lançamento
+            </button>
+          ) : undefined
+        }
+      >
+        Acompanhe receitas, despesas e o histórico de pagamentos da conta.
       </AdminPageHeader>
 
       {error && (
@@ -531,30 +685,29 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             hint="Confirmado no período"
             tone="money"
           />
-          {(summary.comissaoTotal ?? 0) > 0 || isProfessionalView ? (
+          {!isProfessionalView ? (
             <KpiCard
-              label={isProfessionalView ? "Sua comissão" : "Comissão equipe"}
-              value={formatBRL(summary.comissaoTotal || 0)}
-              hint={
-                isProfessionalView
-                  ? "Com base no % cadastrado"
-                  : "Soma das comissões ativas"
-              }
-              tone="blue"
+              label="Despesas"
+              value={formatBRL(summary.despesas || 0)}
+              hint="Lançamentos de saída"
+              tone="warn"
             />
           ) : (
             <KpiCard
-              label="Pendente"
-              value={formatBRL(summary.pendente)}
-              hint="Cobranças em aberto"
-              tone="warn"
+              label="Sua comissão"
+              value={formatBRL(summary.comissaoTotal || 0)}
+              hint="Com base no % cadastrado"
+              tone="blue"
             />
           )}
-          {!isProfessionalView && (summary.comissaoTotal ?? 0) > 0 ? (
+          {!isProfessionalView ? (
             <KpiCard
-              label="Líquido salão"
-              value={formatBRL(summary.liquidoSalao || 0)}
-              hint="Receitas − comissão"
+              label="Saldo"
+              value={formatBRL(
+                summary.saldo ??
+                  summary.receitas - (summary.despesas || 0),
+              )}
+              hint="Receitas − despesas"
               tone="ink"
             />
           ) : (
@@ -566,18 +719,10 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             />
           )}
           <KpiCard
-            label={(summary.comissaoTotal ?? 0) > 0 && !isProfessionalView ? "Pendente" : "Ticket médio"}
-            value={
-              (summary.comissaoTotal ?? 0) > 0 && !isProfessionalView
-                ? formatBRL(summary.pendente)
-                : formatBRL(summary.ticketMedio)
-            }
-            hint={
-              (summary.comissaoTotal ?? 0) > 0 && !isProfessionalView
-                ? "Cobranças em aberto"
-                : "Por pagamento confirmado"
-            }
-            tone={(summary.comissaoTotal ?? 0) > 0 && !isProfessionalView ? "warn" : "ink"}
+            label="Pendente"
+            value={formatBRL(summary.pendente)}
+            hint="Cobranças em aberto"
+            tone="warn"
           />
         </div>
       )}
@@ -586,14 +731,23 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
 
       {loading ? (
         <p className="text-sm text-muted">Carregando…</p>
-      ) : payments.length === 0 ? (
+      ) : movementRows.length === 0 ? (
         <div className="surface px-6 py-12 text-center">
-          <p className="text-sm font-medium">Nenhum pagamento encontrado</p>
+          <p className="text-sm font-medium">Nenhuma movimentação</p>
           <p className="mt-1 text-sm text-muted">
             {isProfessionalView
               ? "Não há pagamentos dos seus agendamentos neste período."
-              : "Ajuste o período ou os filtros para ver movimentações."}
+              : "Registre um lançamento ou ajuste o período."}
           </p>
+          {!isProfessionalView ? (
+            <button
+              type="button"
+              className="btn-primary mt-4"
+              onClick={() => setShowEntryModal(true)}
+            >
+              Novo lançamento
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="surface overflow-hidden">
@@ -602,7 +756,7 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
               Movimentações
             </h2>
             <p className="text-xs text-muted">
-              Lista detalhada do período filtrado
+              Pagamentos online e lançamentos manuais do período
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -636,67 +790,51 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {payments.map((p) => {
-                  const customerName =
-                    p.booking?.customerName || p.checkout?.customerName || "—";
-                  const customerEmail =
-                    p.booking?.customerEmail || p.checkout?.customerEmail || "";
-                  const refTitle =
-                    p.booking?.serviceTitle || p.checkout?.productTitle || "—";
-                  const refSub = [
-                    p.booking?.professionalName,
-                    p.booking?.pageTitle ||
-                      (p.type === "checkout" ? "Checkout" : ""),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ");
+                {movementRows.map((p) => {
                   const commission = p.commissionCents || 0;
+                  const typeLabel =
+                    p.kind === "checkout"
+                      ? "Checkout"
+                      : p.kind === "booking"
+                        ? "Agendamento"
+                        : p.signed < 0
+                          ? "Despesa"
+                          : "Manual";
                   return (
                     <tr
-                      key={p.id}
+                      key={p.key}
                       className="transition hover:bg-muted-bg/40"
                     >
                       <td className="whitespace-nowrap px-5 py-3.5 text-muted">
-                        {format(
-                          new Date(p.paidAt || p.createdAt),
-                          "dd/MM/yyyy HH:mm",
-                        )}
+                        {format(new Date(p.when), "dd/MM/yyyy HH:mm")}
                       </td>
                       {!isProfessionalView && (
                         <td className="px-4 py-3.5">
                           <span className="rounded-md border border-border bg-white px-2 py-0.5 text-[11px] font-medium">
-                            {p.type === "checkout" ? "Checkout" : "Agendamento"}
+                            {typeLabel}
                           </span>
                         </td>
                       )}
                       <td className="px-4 py-3.5">
-                        <p className="font-medium">{customerName}</p>
-                        <p className="text-xs text-muted">{customerEmail}</p>
+                        <p className="font-medium">{p.customerName}</p>
                       </td>
+                      <td className="px-4 py-3.5">{p.label}</td>
                       <td className="px-4 py-3.5">
-                        {refTitle}
-                        {refSub && (
-                          <p className="text-xs text-muted">{refSub}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <p className="font-semibold tabular-nums text-money">
+                        <p
+                          className={`font-semibold tabular-nums ${
+                            p.signed < 0 ? "text-amber-800" : "text-money"
+                          }`}
+                        >
+                          {p.signed < 0 ? "−" : ""}
                           {formatBRL(p.amountCents)}
                         </p>
                         <p className="mt-0.5 text-xs text-muted">{p.method}</p>
                       </td>
                       <td className="px-4 py-3.5">
                         {commission > 0 ? (
-                          <>
-                            <p className="font-semibold tabular-nums">
-                              {formatBRL(commission)}
-                            </p>
-                            {p.booking?.commissionPercent != null && (
-                              <p className="mt-0.5 text-xs text-muted">
-                                {p.booking.commissionPercent}%
-                              </p>
-                            )}
-                          </>
+                          <p className="font-semibold tabular-nums">
+                            {formatBRL(commission)}
+                          </p>
                         ) : (
                           <span className="text-xs text-muted">—</span>
                         )}
@@ -704,26 +842,41 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
                       <td className="px-4 py-3.5">
                         <span
                           className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-                            statusTone[p.status] ||
-                            "border-border bg-muted-bg text-muted"
+                            p.status === "EXPENSE"
+                              ? "border-amber-200 bg-amber-50 text-amber-900"
+                              : statusTone[p.status] ||
+                                "border-border bg-muted-bg text-muted"
                           }`}
                         >
-                          {statusLabel[p.status] || p.status}
+                          {p.status === "EXPENSE"
+                            ? "Despesa"
+                            : statusLabel[p.status] || p.status}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <Link
-                          href={
-                            p.type === "checkout" && !isProfessionalView
-                              ? "/app/checkout/vendas"
-                              : "/app/agenda/listagem"
-                          }
-                          className="text-xs font-medium text-muted hover:text-foreground hover:underline"
-                        >
-                          {p.type === "checkout" && !isProfessionalView
-                            ? "Ver vendas"
-                            : "Ver agenda"}
-                        </Link>
+                        {p.cashId ? (
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-muted hover:text-danger hover:underline"
+                            onClick={() => deleteEntry(p.cashId!)}
+                          >
+                            Excluir
+                          </button>
+                        ) : p.kind === "checkout" && !isProfessionalView ? (
+                          <Link
+                            href="/app/checkout/vendas"
+                            className="text-xs font-medium text-muted hover:text-foreground hover:underline"
+                          >
+                            Ver vendas
+                          </Link>
+                        ) : (
+                          <Link
+                            href="/app/agenda/listagem"
+                            className="text-xs font-medium text-muted hover:text-foreground hover:underline"
+                          >
+                            Ver agenda
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   );
@@ -733,6 +886,109 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
           </div>
         </div>
       )}
+
+      {showEntryModal ? (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <form
+            onSubmit={saveEntry}
+            className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-white p-5 shadow-xl"
+          >
+            <h2 className="text-base font-semibold">Novo lançamento</h2>
+            <div className="flex gap-2">
+              {(
+                [
+                  { id: "INCOME" as const, label: "Receita" },
+                  { id: "EXPENSE" as const, label: "Despesa" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
+                    entryType === opt.id
+                      ? "border-foreground bg-foreground text-white"
+                      : "border-border bg-white hover:bg-muted-bg"
+                  }`}
+                  onClick={() => setEntryType(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Valor (R$)</span>
+              <input
+                required
+                className="input-field"
+                value={entryAmount}
+                onChange={(e) =>
+                  setEntryAmount(maskBRLFromDigits(e.target.value))
+                }
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Data</span>
+              <input
+                type="date"
+                required
+                className="input-field"
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Método</span>
+              <select
+                className="input-field"
+                value={entryMethod}
+                onChange={(e) => setEntryMethod(e.target.value)}
+              >
+                <option value="CASH">Dinheiro</option>
+                <option value="PIX">Pix</option>
+                <option value="CARD">Cartão</option>
+                <option value="OTHER">Outro</option>
+              </select>
+            </label>
+            {entryType === "INCOME" ? (
+              <CustomerPicker
+                value={entryCustomer}
+                onChange={setEntryCustomer}
+                label="Paciente / cliente (opcional)"
+              />
+            ) : null}
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Descrição</span>
+              <input
+                className="input-field"
+                value={entryDesc}
+                onChange={(e) => setEntryDesc(e.target.value)}
+                placeholder={
+                  entryType === "INCOME"
+                    ? "Ex: Pagamento particular"
+                    : "Ex: Material de consumo"
+                }
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={savingEntry}
+              >
+                {savingEntry ? "Salvando…" : "Salvar"}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={savingEntry}
+                onClick={() => setShowEntryModal(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

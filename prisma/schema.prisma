@@ -48,6 +48,18 @@ enum PaymentMethod {
   CARD
 }
 
+enum CashEntryType {
+  INCOME
+  EXPENSE
+}
+
+enum CashEntryMethod {
+  PIX
+  CARD
+  CASH
+  OTHER
+}
+
 enum PaymentStatus {
   PENDING
   PAID
@@ -212,6 +224,7 @@ model Organization {
   whatsappMessages   WhatsAppMessageLog[]
   otpChallenges      OtpChallenge[]
   attendanceCertificates AttendanceCertificate[]
+  cashEntries            CashEntry[]
 }
 
 model AttendanceCertificate {
@@ -753,11 +766,35 @@ model Customer {
   prescriptions  Prescription[]
   whatsappMessages WhatsAppMessageLog[]
   attendanceCertificates AttendanceCertificate[]
+  cashEntries    CashEntry[]
 
   @@unique([organizationId, phoneE164])
   @@index([organizationId, phoneE164])
   @@index([organizationId, name])
   @@index([organizationId, cpf])
+}
+
+/** Lançamento manual de caixa (receita/despesa), opcionalmente vinculado a cliente. */
+model CashEntry {
+  id              String          @id @default(cuid())
+  organizationId  String
+  type            CashEntryType
+  amountCents     Int
+  method          CashEntryMethod @default(OTHER)
+  occurredAt      DateTime
+  description     String
+  customerId      String?
+  bookingId       String?
+  createdByUserId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer        Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, type, occurredAt])
+  @@index([customerId, occurredAt])
+  @@index([bookingId])
 }
 
 /** Nota de evolução / anamnese leve no prontuário. */

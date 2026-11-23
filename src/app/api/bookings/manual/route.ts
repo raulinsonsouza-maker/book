@@ -25,6 +25,7 @@ const schema = z.object({
   customerName: z.string().min(2),
   customerEmail: z.string().email().optional().or(z.literal("")),
   customerPhone: z.string().optional(),
+  customerId: z.string().optional(),
   payOnSite: z.boolean().default(false),
   professionalId: z.string().optional(),
 });
@@ -110,6 +111,28 @@ export async function POST(req: Request) {
       }
     }
 
+    let linkedCustomerId: string | null = null;
+    let customerName = body.customerName.trim();
+    let customerEmail = body.customerEmail?.toLowerCase().trim() || "";
+    let customerPhone = body.customerPhone?.replace(/\D/g, "") || "";
+
+    if (body.customerId) {
+      const customer = await prisma.customer.findFirst({
+        where: {
+          id: body.customerId,
+          organizationId: ctx.organizationId,
+        },
+      });
+      if (!customer) {
+        return NextResponse.json({ error: "Cliente inválido" }, { status: 400 });
+      }
+      linkedCustomerId = customer.id;
+      customerName = customer.name;
+      customerEmail = customer.email || customerEmail;
+      customerPhone =
+        customer.phoneE164.replace(/\D/g, "") || customerPhone;
+    }
+
     const startAt = new Date(body.startAt);
     const endAt = addMinutes(startAt, service.durationMinutes);
     const timezone = page.timezone;
@@ -161,9 +184,10 @@ export async function POST(req: Request) {
           startAt,
           endAt,
           timezone,
-          customerName: body.customerName.trim(),
-          customerEmail: body.customerEmail?.toLowerCase().trim() || "",
-          customerPhone: body.customerPhone?.replace(/\D/g, "") || "",
+          customerId: linkedCustomerId,
+          customerName,
+          customerEmail,
+          customerPhone,
           holdExpiresAt,
           confirmedAt: confirmNow ? new Date() : null,
           manageToken,
@@ -197,14 +221,39 @@ export async function POST(req: Request) {
       });
     }
 
-    if (body.customerPhone?.trim()) {
+    if (!linkedCustomerId && customerPhone) {
       await ensureCustomerFromBooking({
         organizationId: page.organizationId,
-        phone: body.customerPhone,
-        name: body.customerName,
-        email: body.customerEmail || null,
+        phone: customerPhone,
+        name: customerName,
+        email: customerEmail || null,
         bookingId: booking.id,
       }).catch(() => null);
+    }
+
+    if (body.payOnSite && confirmNow && service.priceCents > 0) {
+      const existingPay = await prisma.payment.findUnique({
+        where: { bookingId: booking.id },
+      });
+      if (!existingPay) {
+        const refreshed = await prisma.booking.findUnique({
+          where: { id: booking.id },
+          select: { customerId: true },
+        });
+        await prisma.cashEntry.create({
+          data: {
+            organizationId: page.organizationId,
+            type: "INCOME",
+            amountCents: service.priceCents,
+            method: "CASH",
+            occurredAt: new Date(),
+            description: `Pagamento no local · ${service.title}`,
+            customerId: refreshed?.customerId || linkedCustomerId,
+            bookingId: booking.id,
+            createdByUserId: ctx.userId,
+          },
+        }).catch(() => null);
+      }
     }
 
     const paymentUrl = confirmNow

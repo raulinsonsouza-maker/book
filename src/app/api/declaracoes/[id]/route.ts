@@ -81,6 +81,23 @@ const textDocUpdateSchema = z.object({
   visitDate: z.string().optional(),
 });
 
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const access = await apiRequireAttendance();
+  if ("error" in access) return access.error;
+
+  const { id } = await params;
+  const item = await prisma.attendanceCertificate.findFirst({
+    where: { id, organizationId: access.ctx.organizationId },
+  });
+  if (!item) {
+    return NextResponse.json({ error: "Declaração não encontrada" }, { status: 404 });
+  }
+  return NextResponse.json({ item: serializeCertificate(item) });
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },

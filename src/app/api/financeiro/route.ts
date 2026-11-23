@@ -108,9 +108,68 @@ export async function GET(req: Request) {
     }),
   ]);
 
-  const receitas = paidAgg._sum.amountCents || 0;
+  const cashWhere = {
+    organizationId: orgId,
+    ...(from || to
+      ? {
+          occurredAt: {
+            ...(from ? { gte: new Date(`${from}T00:00:00`) } : {}),
+            ...(to ? { lte: new Date(`${to}T23:59:59`) } : {}),
+          },
+        }
+      : {}),
+  };
+
+  const emptyCash = {
+    income: { _sum: { amountCents: null as number | null } },
+    expense: { _sum: { amountCents: null as number | null } },
+    entries: [] as Array<{
+      id: string;
+      type: "INCOME" | "EXPENSE";
+      amountCents: number;
+      method: string;
+      occurredAt: Date;
+      description: string;
+      customerId: string | null;
+      bookingId: string | null;
+      createdAt: Date;
+      customer: { id: string; name: string } | null;
+    }>,
+  };
+
+  const cashBundle = isPro
+    ? emptyCash
+    : await (async () => {
+        const [income, expense, entries] = await Promise.all([
+          prisma.cashEntry.aggregate({
+            where: { ...cashWhere, type: "INCOME" },
+            _sum: { amountCents: true },
+          }),
+          prisma.cashEntry.aggregate({
+            where: { ...cashWhere, type: "EXPENSE" },
+            _sum: { amountCents: true },
+          }),
+          prisma.cashEntry.findMany({
+            where: cashWhere,
+            include: { customer: { select: { id: true, name: true } } },
+            orderBy: { occurredAt: "desc" },
+            take: 100,
+          }),
+        ]);
+        return { income, expense, entries };
+      })();
+
+  const cashIncomeAgg = cashBundle.income;
+  const cashExpenseAgg = cashBundle.expense;
+  const cashEntries = cashBundle.entries;
+
+  const cashIncome = cashIncomeAgg._sum.amountCents || 0;
+  const despesas = cashExpenseAgg._sum.amountCents || 0;
+  const receitas = (paidAgg._sum.amountCents || 0) + cashIncome;
   const pendente = pendingAgg._sum.amountCents || 0;
-  const ticketMedio = paidCount > 0 ? Math.round(receitas / paidCount) : 0;
+  const paidOnline = paidAgg._sum.amountCents || 0;
+  const ticketMedio = paidCount > 0 ? Math.round(paidOnline / paidCount) : 0;
+  const saldo = receitas - despesas;
 
   let comissaoTotal = 0;
   for (const row of paidBookingRows) {
@@ -159,6 +218,21 @@ export async function GET(req: Request) {
     }
   }
 
+  for (const entry of cashEntries) {
+    if (entry.type !== "INCOME") continue;
+    const methodKey = entry.method;
+    const prevMethod = byMethodMap.get(methodKey) || {
+      amountCents: 0,
+      count: 0,
+    };
+    byMethodMap.set(methodKey, {
+      amountCents: prevMethod.amountCents + entry.amountCents,
+      count: prevMethod.count + 1,
+    });
+    const day = ymdLocal(entry.occurredAt);
+    byDayMap.set(day, (byDayMap.get(day) || 0) + entry.amountCents);
+  }
+
   const byDay: { date: string; amountCents: number }[] = [];
   if (from && to) {
     const start = new Date(`${from}T12:00:00`);
@@ -192,6 +266,8 @@ export async function GET(req: Request) {
   return NextResponse.json({
     summary: {
       receitas,
+      despesas,
+      saldo,
       pendente,
       confirmados: paidCount,
       ticketMedio,
@@ -199,6 +275,20 @@ export async function GET(req: Request) {
       liquidoSalao,
     },
     series: { byDay, byMethod, byStatus },
+    cashEntries: cashEntries.map((e) => ({
+      id: e.id,
+      type: e.type,
+      status: e.type === "INCOME" ? "PAID" : "EXPENSE",
+      method: e.method,
+      amountCents: e.amountCents,
+      paidAt: e.occurredAt.toISOString(),
+      createdAt: e.createdAt.toISOString(),
+      description: e.description,
+      customerId: e.customerId,
+      customerName: e.customer?.name ?? null,
+      bookingId: e.bookingId,
+      source: "manual" as const,
+    })),
     payments: payments.map((p) => {
       if (p.checkoutOrder) {
         return {

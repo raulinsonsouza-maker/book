@@ -247,6 +247,24 @@ export function DeclaracoesView({
   useEffect(() => {
     const customerId = searchParams.get("customerId");
     const kindParam = parseAttendanceKind(searchParams.get("kind"));
+    const editId = searchParams.get("editId");
+
+    if (editId) {
+      const local = items.find((it) => it.id === editId);
+      if (local) {
+        startEdit(local);
+        return;
+      }
+      fetch(`/api/declaracoes/${editId}`)
+        .then(async (r) => {
+          if (!r.ok) return;
+          const data = await r.json();
+          if (data.item) startEdit(data.item as AttendanceCertificateDTO);
+        })
+        .catch(() => undefined);
+      return;
+    }
+
     if (!customerId) {
       if (kindParam && (kindParam !== ATESTADO_KIND || atestadoEnabled)) {
         if (kindParam === RECEITA_KIND && !prescriptionsEnabled) return;

@@ -46,46 +46,56 @@ export async function GET(
     org?.attendanceEnabled,
   );
 
-  const [bookings, notes, prescriptions, certificates] = await Promise.all([
-    prisma.booking.findMany({
-      where: {
-        customerId: customer.id,
-        bookingPage: { organizationId: ctx.organizationId },
-      },
-      include: {
-        service: { select: { title: true } },
-        professional: { select: { displayName: true } },
-        payment: true,
-      },
-      orderBy: { startAt: "desc" },
-      take: 80,
-    }),
-    prisma.visitNote.findMany({
-      where: { customerId: customer.id, organizationId: ctx.organizationId },
-      orderBy: { createdAt: "desc" },
-      take: 40,
-    }),
-    profile.features.prescriptions
-      ? prisma.prescription.findMany({
-          where: {
-            customerId: customer.id,
-            organizationId: ctx.organizationId,
-          },
-          orderBy: { issuedAt: "desc" },
-          take: 40,
-        })
-      : Promise.resolve([]),
-    profile.features.attendanceCertificates
-      ? prisma.attendanceCertificate.findMany({
-          where: {
-            customerId: customer.id,
-            organizationId: ctx.organizationId,
-          },
-          orderBy: { createdAt: "desc" },
-          take: 40,
-        })
-      : Promise.resolve([]),
-  ]);
+  const [bookings, notes, prescriptions, certificates, cashEntries] =
+    await Promise.all([
+      prisma.booking.findMany({
+        where: {
+          customerId: customer.id,
+          bookingPage: { organizationId: ctx.organizationId },
+        },
+        include: {
+          service: { select: { title: true } },
+          professional: { select: { displayName: true } },
+          payment: true,
+        },
+        orderBy: { startAt: "desc" },
+        take: 80,
+      }),
+      prisma.visitNote.findMany({
+        where: { customerId: customer.id, organizationId: ctx.organizationId },
+        orderBy: { createdAt: "desc" },
+        take: 40,
+      }),
+      profile.features.prescriptions
+        ? prisma.prescription.findMany({
+            where: {
+              customerId: customer.id,
+              organizationId: ctx.organizationId,
+            },
+            orderBy: { issuedAt: "desc" },
+            take: 40,
+          })
+        : Promise.resolve([]),
+      profile.features.attendanceCertificates
+        ? prisma.attendanceCertificate.findMany({
+            where: {
+              customerId: customer.id,
+              organizationId: ctx.organizationId,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 40,
+          })
+        : Promise.resolve([]),
+      prisma.cashEntry.findMany({
+        where: {
+          customerId: customer.id,
+          organizationId: ctx.organizationId,
+          type: "INCOME",
+        },
+        orderBy: { occurredAt: "desc" },
+        take: 40,
+      }),
+    ]);
 
   const items: TimelineItem[] = [];
 
@@ -168,6 +178,23 @@ export async function GET(
           shareActive && c.shareToken
             ? documentPublicPath(c.shareToken)
             : null,
+      },
+    });
+  }
+
+  for (const e of cashEntries) {
+    items.push({
+      id: `cash-${e.id}`,
+      kind: "payment",
+      at: e.occurredAt.toISOString(),
+      title: `Pagamento recebido · R$ ${(e.amountCents / 100).toFixed(2)}`,
+      subtitle: [e.method, e.description].filter(Boolean).join(" · "),
+      meta: {
+        cashEntryId: e.id,
+        amountCents: e.amountCents,
+        method: e.method,
+        bookingId: e.bookingId,
+        source: "manual",
       },
     });
   }

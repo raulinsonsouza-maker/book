@@ -19,6 +19,11 @@ import {
   type PayMethod,
 } from "@/lib/product-form-config";
 import { CAKTO_ENABLED } from "@/lib/feature-flags";
+import {
+  parseBusinessProfile,
+  productFormPlaceholders,
+  type BusinessProfileId,
+} from "@/lib/business-profile";
 
 type Product = {
   id: string;
@@ -54,6 +59,9 @@ export default function CheckoutProductsPage() {
     "CAKTO" | "MERCADO_PAGO" | "ASAAS" | "DEMO"
   >("DEMO");
   const [orgCardMaxInstallments, setOrgCardMaxInstallments] = useState(12);
+  const [businessProfile, setBusinessProfile] =
+    useState<BusinessProfileId | null>(null);
+  const placeholders = productFormPlaceholders(businessProfile);
   const appUrl =
     typeof window !== "undefined"
       ? window.location.origin
@@ -75,6 +83,7 @@ export default function CheckoutProductsPage() {
         setOrgCardMaxInstallments(
           Math.min(12, Math.max(1, data.cardMaxInstallments || 12)),
         );
+        setBusinessProfile(parseBusinessProfile(data.businessProfile));
       })
       .catch(() => undefined);
   }, []);
@@ -264,7 +273,7 @@ export default function CheckoutProductsPage() {
                     required
                     autoFocus
                     className="input-field"
-                    placeholder="Ex: Abertura de empresa"
+                    placeholder={placeholders.title}
                     value={form.title}
                     onChange={(e) =>
                       setForm({ ...form, title: e.target.value })
@@ -276,7 +285,7 @@ export default function CheckoutProductsPage() {
                   <span className="mb-1.5 block font-medium">Descrição</span>
                   <textarea
                     className="input-field min-h-20"
-                    placeholder="O que o cliente está comprando"
+                    placeholder={placeholders.description}
                     value={form.description}
                     onChange={(e) =>
                       setForm({ ...form, description: e.target.value })
@@ -329,14 +338,6 @@ export default function CheckoutProductsPage() {
                     <span className="mb-1.5 block font-medium">
                       Parcelas no cartão
                     </span>
-                    <p className="mb-1.5 text-xs text-muted">
-                      Quantas parcelas o cliente pode escolher nesta cobrança.
-                      Padrão do site:{" "}
-                      {orgCardMaxInstallments === 1
-                        ? "só à vista"
-                        : `até ${orgCardMaxInstallments}x`}
-                      .
-                    </p>
                     <select
                       className="input-field max-w-xs"
                       value={

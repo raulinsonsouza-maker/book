@@ -413,7 +413,7 @@ export function VisitRecordModal({
 
           {features.prescriptions ? (
             <section className="visit-record-section">
-              <h3>Receita / orientação</h3>
+              <h3>Orientação interna</h3>
               <p className="visit-record-hint">
                 Registro operacional ligado a este {visitNoun.toLowerCase()}.
               </p>

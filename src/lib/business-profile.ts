@@ -183,3 +183,37 @@ export function profileOptions(): {
     clientNounPlural: PROFILE_BASE[id].clientNounPlural,
   }));
 }
+
+/** Placeholders de produto/cobrança avulsa por nicho. */
+export function productFormPlaceholders(profile: BusinessProfileId | null | undefined): {
+  title: string;
+  description: string;
+} {
+  switch (profile) {
+    case "CLINIC":
+      return {
+        title: "Ex: Consulta de retorno",
+        description: "Ex: Avaliação e plano de cuidado",
+      };
+    case "BARBER":
+      return {
+        title: "Ex: Corte + barba",
+        description: "Ex: Pacote ou serviço avulso no link",
+      };
+    case "STUDIO":
+      return {
+        title: "Ex: Sessão de massagem",
+        description: "Ex: O que está incluso na sessão",
+      };
+    case "SALON":
+      return {
+        title: "Ex: Escova + hidratação",
+        description: "Ex: Serviço ou pacote vendido no link",
+      };
+    default:
+      return {
+        title: "Ex: Serviço ou produto",
+        description: "Ex: Descreva o que está incluso",
+      };
+  }
+}
