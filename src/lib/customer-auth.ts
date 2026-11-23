@@ -26,24 +26,74 @@ export async function upsertCustomer(input: {
   const phoneE164 = toE164(input.phone);
   if (!phoneE164) throw new Error("Telefone inválido");
   const cpfDigits = input.cpf?.replace(/\D/g, "") || null;
+  const email = input.email?.trim().toLowerCase() || null;
+  const name = input.name?.trim() || "Cliente";
 
-  return prisma.customer.upsert({
+  const byPhone = await prisma.customer.findUnique({
     where: {
       organizationId_phoneE164: {
         organizationId: input.organizationId,
         phoneE164,
       },
     },
-    update: {
-      ...(input.name ? { name: input.name } : {}),
-      ...(input.email !== undefined ? { email: input.email } : {}),
-      ...(cpfDigits ? { cpf: cpfDigits } : {}),
-    },
-    create: {
+  });
+  if (byPhone) {
+    return prisma.customer.update({
+      where: { id: byPhone.id },
+      data: {
+        ...(input.name ? { name } : {}),
+        ...(email ? { email } : {}),
+        ...(cpfDigits ? { cpf: cpfDigits } : {}),
+      },
+    });
+  }
+
+  if (email) {
+    const byEmail = await prisma.customer.findFirst({
+      where: {
+        organizationId: input.organizationId,
+        email: { equals: email },
+        ...(input.name
+          ? { name: { equals: name } }
+          : {}),
+      },
+    });
+    const fallback =
+      byEmail ||
+      (await prisma.customer.findFirst({
+        where: {
+          organizationId: input.organizationId,
+          email: { equals: email },
+        },
+      }));
+    if (fallback) {
+      const phoneTaken = await prisma.customer.findUnique({
+        where: {
+          organizationId_phoneE164: {
+            organizationId: input.organizationId,
+            phoneE164,
+          },
+        },
+        select: { id: true },
+      });
+      return prisma.customer.update({
+        where: { id: fallback.id },
+        data: {
+          ...(input.name ? { name } : {}),
+          email,
+          ...(cpfDigits ? { cpf: cpfDigits } : {}),
+          ...(!phoneTaken ? { phoneE164 } : {}),
+        },
+      });
+    }
+  }
+
+  return prisma.customer.create({
+    data: {
       organizationId: input.organizationId,
       phoneE164,
-      name: input.name?.trim() || "Cliente",
-      email: input.email || null,
+      name,
+      email,
       cpf: cpfDigits,
     },
   });

@@ -3,7 +3,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { apiRequireStaff } from "@/lib/rbac";
 import { toE164 } from "@/lib/whatsapp/phone";
-import { customerScopeWhere } from "@/lib/clients";
+import {
+  customerScopeWhere,
+  dedupeCustomersByEmailName,
+} from "@/lib/clients";
 import { resolveBusinessProfile } from "@/lib/business-profile";
 
 export async function GET(req: Request) {
@@ -27,6 +30,9 @@ export async function GET(req: Request) {
   if (!profile.features.clientsCrm) {
     return NextResponse.json({ error: "CRM desativado" }, { status: 403 });
   }
+
+  // Unifica duplicatas óbvias (mesmo e-mail + mesmo nome) antes de listar.
+  await dedupeCustomersByEmailName(ctx.organizationId).catch(() => 0);
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim() || "";
@@ -64,25 +70,28 @@ export async function GET(req: Request) {
   });
 
   const ids = customers.map((c) => c.id);
-  const paid = ids.length
-    ? await prisma.payment.groupBy({
-        by: ["bookingId"],
-        where: {
-          status: "PAID",
-          booking: { customerId: { in: ids } },
-        },
-        _sum: { amountCents: true },
-      })
-    : [];
 
-  const bookingPay = await prisma.booking.findMany({
-    where: { customerId: { in: ids } },
-    select: {
-      id: true,
-      customerId: true,
-      payment: { select: { status: true, amountCents: true } },
-    },
-  });
+  const [bookingPay, cashPay] = ids.length
+    ? await Promise.all([
+        prisma.booking.findMany({
+          where: { customerId: { in: ids } },
+          select: {
+            id: true,
+            customerId: true,
+            payment: { select: { status: true, amountCents: true } },
+          },
+        }),
+        prisma.cashEntry.findMany({
+          where: {
+            organizationId: ctx.organizationId,
+            customerId: { in: ids },
+            type: "INCOME",
+          },
+          select: { customerId: true, amountCents: true },
+        }),
+      ])
+    : [[], []];
+
   const spentByCustomer = new Map<string, number>();
   for (const b of bookingPay) {
     if (!b.customerId || b.payment?.status !== "PAID") continue;
@@ -91,7 +100,13 @@ export async function GET(req: Request) {
       (spentByCustomer.get(b.customerId) || 0) + (b.payment.amountCents || 0),
     );
   }
-  void paid;
+  for (const e of cashPay) {
+    if (!e.customerId) continue;
+    spentByCustomer.set(
+      e.customerId,
+      (spentByCustomer.get(e.customerId) || 0) + (e.amountCents || 0),
+    );
+  }
 
   const upcoming = await prisma.booking.findMany({
     where: {
@@ -169,20 +184,52 @@ export async function POST(req: Request) {
     }
     const email = body.email ? body.email.toLowerCase() : null;
     const cpf = body.cpf?.replace(/\D/g, "") || null;
-    const customer = await prisma.customer.upsert({
+
+    const byPhone = await prisma.customer.findUnique({
       where: {
         organizationId_phoneE164: {
           organizationId: ctx.organizationId,
           phoneE164,
         },
       },
-      update: {
-        name: body.name,
-        email,
-        ...(cpf ? { cpf } : {}),
-        notes: body.notes || null,
-      },
-      create: {
+    });
+    if (byPhone) {
+      const customer = await prisma.customer.update({
+        where: { id: byPhone.id },
+        data: {
+          name: body.name,
+          email,
+          ...(cpf ? { cpf } : {}),
+          notes: body.notes || null,
+        },
+      });
+      return NextResponse.json(customer, { status: 201 });
+    }
+
+    if (email) {
+      const byEmail = await prisma.customer.findFirst({
+        where: {
+          organizationId: ctx.organizationId,
+          email: { equals: email },
+        },
+      });
+      if (byEmail) {
+        const customer = await prisma.customer.update({
+          where: { id: byEmail.id },
+          data: {
+            name: body.name,
+            phoneE164,
+            email,
+            ...(cpf ? { cpf } : {}),
+            notes: body.notes || null,
+          },
+        });
+        return NextResponse.json(customer, { status: 201 });
+      }
+    }
+
+    const customer = await prisma.customer.create({
+      data: {
         organizationId: ctx.organizationId,
         phoneE164,
         name: body.name,

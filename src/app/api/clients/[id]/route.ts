@@ -5,6 +5,7 @@ import { apiRequireStaff } from "@/lib/rbac";
 import {
   backfillCustomerBookings,
   customerScopeWhere,
+  mergeCustomers,
 } from "@/lib/clients";
 import { resolveBusinessProfile } from "@/lib/business-profile";
 import { RECEITA_KIND } from "@/lib/attendance/kinds";
@@ -245,23 +246,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Telefone inválido" }, { status: 400 });
     }
 
-    if (phoneE164 !== existing.phoneE164) {
-      const clash = await prisma.customer.findFirst({
-        where: {
-          organizationId: ctx.organizationId,
-          phoneE164,
-          NOT: { id },
-        },
-        select: { id: true },
-      });
-      if (clash) {
-        return NextResponse.json(
-          { error: "Já existe um cadastro com este telefone" },
-          { status: 409 },
-        );
-      }
-    }
-
     const email =
       body.email === undefined
         ? existing.email
@@ -272,6 +256,49 @@ export async function PATCH(
       body.cpf === undefined
         ? existing.cpf
         : body.cpf?.replace(/\D/g, "") || null;
+    const notes =
+      body.notes === undefined ? existing.notes : body.notes?.trim() || null;
+
+    if (phoneE164 !== existing.phoneE164) {
+      const clash = await prisma.customer.findFirst({
+        where: {
+          organizationId: ctx.organizationId,
+          phoneE164,
+          NOT: { id },
+        },
+        select: { id: true },
+      });
+      if (clash) {
+        // Unifica o cadastro editado no que já tem o telefone.
+        await prisma.customer.update({
+          where: { id },
+          data: {
+            name: body.name,
+            email,
+            cpf,
+            notes,
+          },
+        });
+        await mergeCustomers({
+          organizationId: ctx.organizationId,
+          keepId: clash.id,
+          absorbId: id,
+        });
+        const merged = await prisma.customer.findUniqueOrThrow({
+          where: { id: clash.id },
+        });
+        return NextResponse.json({
+          id: merged.id,
+          name: merged.name,
+          phoneE164: merged.phoneE164,
+          email: merged.email,
+          cpf: merged.cpf,
+          notes: merged.notes,
+          createdAt: merged.createdAt.toISOString(),
+          merged: true,
+        });
+      }
+    }
 
     const customer = await prisma.customer.update({
       where: { id },
@@ -280,8 +307,7 @@ export async function PATCH(
         phoneE164,
         email,
         cpf,
-        notes:
-          body.notes === undefined ? existing.notes : body.notes?.trim() || null,
+        notes,
       },
     });
 
