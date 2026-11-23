@@ -252,27 +252,7 @@ export function EntityStatusDot({ active }: { active: boolean }) {
   );
 }
 
-export function AdminPageIntro({
-  children,
-  link,
-}: {
-  children: ReactNode;
-  link?: { href: string; label: string };
-}) {
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <p className="text-sm text-muted">{children}</p>
-      {link && (
-        <a
-          href={link.href}
-          className="shrink-0 text-sm font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
-        >
-          {link.label}
-        </a>
-      )}
-    </div>
-  );
-}
+export { AdminPageHeader as AdminPageIntro } from "@/components/admin/AdminPageHeader";
 
 export function AdminFlashMessage({
   tone,

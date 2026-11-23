@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 import { formatBRL } from "@/lib/utils";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { CancelBookingButton } from "@/components/admin/CancelBookingButton";
 
 function ProntuarioLink({
@@ -129,9 +130,9 @@ export default function AgendaListagemPage() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted">
+      <AdminPageHeader>
         Compromissos com status de pagamento e dados do cliente.
-      </p>
+      </AdminPageHeader>
 
       <div className="flex flex-wrap gap-3">
         <input

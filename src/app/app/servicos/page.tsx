@@ -2,9 +2,9 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   AdminFlashMessage,
-  AdminPageIntro,
   EntityImagePicker,
   EntityListCard,
   EntityListImage,
@@ -213,26 +213,27 @@ function ServicesAdminInner() {
 
   return (
     <div className="space-y-6">
-      <AdminPageIntro link={{ href: "/app/agendador", label: "Páginas →" }}>
+      <AdminPageHeader
+        link={{ href: "/app/agendador", label: "Páginas →" }}
+        action={
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => {
+              setForm(emptyForm());
+              setShowCreate(true);
+            }}
+          >
+            Novo serviço
+          </button>
+        }
+      >
         Catálogo da conta — os mesmos serviços ficam disponíveis em todas as
         páginas de agendamento. A imagem aparece no link público quando o
         cliente escolhe.
-      </AdminPageIntro>
+      </AdminPageHeader>
 
       {msg && <AdminFlashMessage tone={msgTone}>{msg}</AdminFlashMessage>}
-
-      <div>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => {
-            setForm(emptyForm());
-            setShowCreate(true);
-          }}
-        >
-          Novo serviço
-        </button>
-      </div>
 
       {showCreate && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center">

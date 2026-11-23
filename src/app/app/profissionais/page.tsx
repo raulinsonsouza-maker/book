@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { WeekHoursSimple } from "@/components/availability/WeekHoursSimple";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   AdminFlashMessage,
   EntityImagePicker,
@@ -405,17 +406,8 @@ export default function ProfessionalsAdminPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight">
-            Profissionais
-          </h1>
-          <p className="max-w-xl text-sm leading-relaxed text-muted">
-            Cadastre quem atende, vincule aos serviços e defina a agenda de
-            cada um — é ela que libera os horários no link público.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <AdminPageHeader
+        action={
           <button
             type="button"
             className="btn-primary"
@@ -423,8 +415,11 @@ export default function ProfessionalsAdminPage() {
           >
             Cadastrar profissional
           </button>
-        </div>
-      </div>
+        }
+      >
+        Cadastre quem atende, vincule aos serviços e defina a agenda de cada um
+        — é ela que libera os horários no link público.
+      </AdminPageHeader>
 
       {msg && <AdminFlashMessage tone={msgTone}>{msg}</AdminFlashMessage>}
 

@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { AgendadorWelcomeEditor } from "@/components/admin/AgendadorWelcomeEditor";
 import { DeletePageButton } from "@/components/admin/DeletePageButton";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { EntityImagePicker } from "@/components/admin/EntityImageField";
 import { WeekHoursSimple } from "@/components/availability/WeekHoursSimple";
 import {
@@ -566,17 +567,16 @@ function AgendadorInner() {
 
     return (
       <div className="pages-hub space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="max-w-xl text-sm text-muted">
-              Monte o link que seus clientes usam para marcar horário — serviços,
-              disponibilidade e visual do funil.
-            </p>
-          </div>
-          <Link href="/app/agendador?novo=1" className="btn-primary shrink-0">
-            + Nova tela de agendamento
-          </Link>
-        </div>
+        <AdminPageHeader
+          action={
+            <Link href="/app/agendador?novo=1" className="btn-primary shrink-0">
+              + Nova tela de agendamento
+            </Link>
+          }
+        >
+          Monte o link que seus clientes usam para marcar horário — serviços,
+          disponibilidade e visual do funil.
+        </AdminPageHeader>
 
         {list.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">

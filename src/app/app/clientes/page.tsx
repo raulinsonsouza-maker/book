@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   formatCpf,
   formatPhone,
@@ -145,23 +146,19 @@ export default function ClientesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {profile.clientNounPlural}
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Busque, cadastre e abra o {profile.chartNoun.toLowerCase()}.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => setShowCreate((v) => !v)}
-        >
-          Novo {profile.clientNoun.toLowerCase()}
-        </button>
-      </div>
+      <AdminPageHeader
+        action={
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => setShowCreate((v) => !v)}
+          >
+            Novo {profile.clientNoun.toLowerCase()}
+          </button>
+        }
+      >
+        Busque, cadastre e abra o {profile.chartNoun.toLowerCase()}.
+      </AdminPageHeader>
 
       {showCreate ? (
         <form

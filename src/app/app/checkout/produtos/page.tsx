@@ -7,6 +7,7 @@ import {
   maskBRLFromDigits,
   parseBRLMaskToCents,
 } from "@/lib/utils";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
 import { FIELD_PRESETS } from "@/types/funnel-config";
@@ -164,19 +165,16 @@ export default function CheckoutProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <p className="max-w-xl text-sm text-muted">
-          Monte o link de pagamento do produto: preço, Pix ou cartão, parcelas e
-          o formulário que o cliente preenche antes de pagar.
-        </p>
-        <button
-          type="button"
-          className="btn-primary shrink-0 self-start sm:self-auto"
-          onClick={openCreate}
-        >
-          + Criar produto
-        </button>
-      </div>
+      <AdminPageHeader
+        action={
+          <button type="button" className="btn-primary" onClick={openCreate}>
+            + Criar produto
+          </button>
+        }
+      >
+        Monte o link de pagamento do produto: preço, Pix ou cartão, parcelas e o
+        formulário que o cliente preenche antes de pagar.
+      </AdminPageHeader>
 
       <CheckoutSubnav />
 

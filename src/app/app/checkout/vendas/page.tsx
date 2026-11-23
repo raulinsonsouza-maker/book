@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatBRL } from "@/lib/utils";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
 
 type Order = {
@@ -84,9 +85,9 @@ export default function CheckoutVendasPage() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted">
+      <AdminPageHeader>
         Clientes que pagaram via checkout instantâneo.
-      </p>
+      </AdminPageHeader>
 
       <CheckoutSubnav />
 

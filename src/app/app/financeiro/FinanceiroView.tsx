@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { format, subDays } from "date-fns";
 import { formatBRL } from "@/lib/utils";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   FinanceiroCharts,
   type FinanceSeries,
@@ -220,6 +221,10 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
 
   return (
     <div className="space-y-6">
+      <AdminPageHeader>
+        Acompanhe receitas, pendências e o histórico de pagamentos da conta.
+      </AdminPageHeader>
+
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
           {error}
