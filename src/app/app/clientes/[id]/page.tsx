@@ -18,6 +18,10 @@ import {
   normalizeEmailInput,
   parseBRLMaskToCents,
 } from "@/lib/utils";
+import {
+  bookingStatusLabel,
+  moneyMethodLabel,
+} from "@/lib/booking-status";
 
 type Tab = "timeline" | "bookings" | "payments" | "notes" | "prescriptions";
 
@@ -418,58 +422,82 @@ export default function ClienteProntuarioPage() {
         />
       ) : null}
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-4">
-          <span
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1a1a1a] text-base font-semibold text-white"
-            aria-hidden
-          >
-            {initials(customer.name)}
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted">
-              {profile.chartNoun}
-            </p>
-            <h1 className="truncate text-2xl font-semibold tracking-tight">
-              {customer.name}
-            </h1>
-            <p className="mt-1 text-sm text-muted">
-              {formatPhoneDisplay(customer.phoneE164)}
-              {customer.email ? ` · ${customer.email}` : ""}
-              {customer.cpf ? ` · CPF ${formatCpf(customer.cpf)}` : ""}
-            </p>
-            {customer.notes ? (
-              <p className="mt-2 max-w-xl text-sm text-foreground/80">
-                {customer.notes}
-              </p>
+      <div className="space-y-4">
+        <Link
+          href="/app/clientes"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted transition hover:text-foreground"
+        >
+          <span aria-hidden>←</span>
+          {profile.clientNounPlural}
+        </Link>
+
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <span
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--ink,#101820)] text-sm font-semibold tracking-wide text-white"
+              aria-hidden
+            >
+              {initials(customer.name)}
+            </span>
+            <div className="min-w-0 space-y-1.5">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
+                  {profile.chartNoun}
+                </p>
+                <h1 className="truncate text-[1.65rem] font-semibold leading-tight tracking-tight">
+                  {customer.name}
+                </h1>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
+                <span>{formatPhoneDisplay(customer.phoneE164)}</span>
+                {customer.email ? (
+                  <>
+                    <span className="text-border" aria-hidden>
+                      ·
+                    </span>
+                    <span className="truncate">{customer.email}</span>
+                  </>
+                ) : null}
+                {customer.cpf ? (
+                  <>
+                    <span className="text-border" aria-hidden>
+                      ·
+                    </span>
+                    <span>CPF {formatCpf(customer.cpf)}</span>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={openEditPatient}
+                  className="ml-0.5 font-medium text-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  Editar
+                </button>
+              </div>
+              {customer.notes ? (
+                <p className="max-w-xl text-sm leading-relaxed text-foreground/75">
+                  {customer.notes}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/app/agenda/calendario?customerId=${customer.id}`}
+              className="btn-primary !px-4 !py-2"
+            >
+              Agendar
+            </Link>
+            {profile.features.attendanceCertificates ? (
+              <Link
+                href={`/app/declaracoes?customerId=${customer.id}`}
+                className="btn-secondary !px-4 !py-2"
+              >
+                Documentos
+              </Link>
             ) : null}
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/app/agenda/calendario?customerId=${customer.id}`}
-            className="btn-primary"
-          >
-            Agendar
-          </Link>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={openEditPatient}
-          >
-            Editar
-          </button>
-          {profile.features.attendanceCertificates ? (
-            <Link
-              href={`/app/declaracoes?customerId=${customer.id}`}
-              className="btn-secondary"
-            >
-              Documentos
-            </Link>
-          ) : null}
-          <Link href="/app/clientes" className="btn-secondary">
-            Voltar
-          </Link>
         </div>
       </div>
       {copyMsg ? <p className="text-sm text-muted">{copyMsg}</p> : null}
@@ -642,8 +670,8 @@ export default function ClienteProntuarioPage() {
                           : ""}
                       </p>
                     </div>
-                    <span className="text-xs font-medium uppercase tracking-wide text-muted">
-                      {b.status}
+                    <span className="text-xs font-medium text-muted">
+                      {bookingStatusLabel(b.status)}
                     </span>
                   </button>
                 </li>
@@ -687,14 +715,14 @@ export default function ClienteProntuarioPage() {
                       <p className="font-medium">{row.label}</p>
                       <p className="text-sm text-muted">
                         {fmtWhen(row.when)}
-                        {row.source === "manual" ? " · Manual" : ""}
+                        {row.source === "manual" ? " · No local" : ""}
                       </p>
                     </div>
                     <p className="font-semibold tabular-nums">
                       {money(row.amountCents)}
                       {row.method ? (
                         <span className="ml-2 text-sm font-normal text-muted">
-                          {row.method}
+                          {moneyMethodLabel(row.method)}
                         </span>
                       ) : null}
                     </p>

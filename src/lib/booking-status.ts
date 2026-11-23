@@ -8,6 +8,19 @@ export const BOOKING_STATUS_LABEL: Record<string, string> = {
   EXPIRED: "Expirado",
 };
 
+/** Métodos de Payment / CashEntry para UI. */
+export const MONEY_METHOD_LABEL: Record<string, string> = {
+  PIX: "Pix",
+  CARD: "Cartão",
+  CASH: "Dinheiro",
+  OTHER: "Outro",
+};
+
+export function moneyMethodLabel(method?: string | null) {
+  if (!method) return "";
+  return MONEY_METHOD_LABEL[method] || method;
+}
+
 export type BookingCancelSource = "PATIENT" | "CLINIC";
 
 export function bookingStatusLabel(

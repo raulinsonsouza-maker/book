@@ -6,6 +6,11 @@ import { resolveBusinessProfile } from "@/lib/business-profile";
 import { visitRecordSummary } from "@/lib/visit-record";
 import { kindLabel } from "@/lib/attendance/kinds";
 import { documentPublicPath } from "@/lib/attendance/share";
+import {
+  bookingStatusLabel,
+  moneyMethodLabel,
+} from "@/lib/booking-status";
+import { formatBRL } from "@/lib/utils";
 
 type TimelineItem = {
   id: string;
@@ -106,7 +111,7 @@ export async function GET(
       at: b.startAt.toISOString(),
       title: b.service.title,
       subtitle: [
-        b.status,
+        bookingStatusLabel(b.status, b.cancelSource),
         b.professional?.displayName,
       ]
         .filter(Boolean)
@@ -122,8 +127,8 @@ export async function GET(
         id: `payment-${b.payment.id}`,
         kind: "payment",
         at: b.payment.paidAt.toISOString(),
-        title: `Pagamento · R$ ${(b.payment.amountCents / 100).toFixed(2)}`,
-        subtitle: b.payment.method,
+        title: `Pagamento · ${formatBRL(b.payment.amountCents)}`,
+        subtitle: moneyMethodLabel(b.payment.method) || undefined,
         meta: {
           bookingId: b.id,
           amountCents: b.payment.amountCents,
@@ -183,12 +188,14 @@ export async function GET(
   }
 
   for (const e of cashEntries) {
+    const method = moneyMethodLabel(e.method);
+    const desc = e.description?.trim() || "";
     items.push({
       id: `cash-${e.id}`,
       kind: "payment",
       at: e.occurredAt.toISOString(),
-      title: `Pagamento recebido · R$ ${(e.amountCents / 100).toFixed(2)}`,
-      subtitle: [e.method, e.description].filter(Boolean).join(" · "),
+      title: `Pagamento recebido · ${formatBRL(e.amountCents)}`,
+      subtitle: [method, desc].filter(Boolean).join(" · ") || undefined,
       meta: {
         cashEntryId: e.id,
         amountCents: e.amountCents,
