@@ -468,8 +468,8 @@ export function AppShell({
               <Image
                 src={brand.wordmarkSrc}
                 alt={brand.name}
-                width={isCollapsed ? 48 : 140}
-                height={isCollapsed ? 28 : 36}
+                width={isCollapsed ? 36 : 140}
+                height={isCollapsed ? 36 : 36}
                 className="temark-wordmark-img"
                 priority
               />

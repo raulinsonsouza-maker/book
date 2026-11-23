@@ -18,6 +18,7 @@ import {
   todayIsoDate,
 } from "@/lib/attendance/format";
 import { serializeCertificate } from "@/lib/attendance/serialize";
+import { orgCanIssueAtestado } from "@/lib/attendance/atestado-access";
 
 const atestadoUpdateSchema = z.object({
   kind: z.literal(ATESTADO_KIND).optional(),
@@ -80,6 +81,12 @@ export async function PATCH(
   const { header } = access;
 
   if (isAtestadoKind(existing.kind)) {
+    if (!(await orgCanIssueAtestado(access.ctx.organizationId))) {
+      return NextResponse.json(
+        { error: "Atestado médico não está disponível nesta conta" },
+        { status: 403 },
+      );
+    }
     const parsed = atestadoUpdateSchema.safeParse({
       ...body,
       kind: ATESTADO_KIND,

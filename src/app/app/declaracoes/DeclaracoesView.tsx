@@ -27,6 +27,8 @@ type Props = {
   initialHeader: AttendanceHeader;
   initialItems: AttendanceCertificateDTO[];
   currentUserName?: string;
+  /** Atestado médico é exclusivo de contas allowlist (ex.: Leticia Galloni). */
+  atestadoEnabled?: boolean;
 };
 
 type FormState = {
@@ -111,6 +113,7 @@ export function DeclaracoesView({
   initialHeader,
   initialItems,
   currentUserName = "",
+  atestadoEnabled = false,
 }: Props) {
   const [header, setHeader] = useState(initialHeader);
   const [headerDraft, setHeaderDraft] = useState(initialHeader);
@@ -156,20 +159,23 @@ export function DeclaracoesView({
   );
 
   const filtered = useMemo(() => {
+    const visible = atestadoEnabled
+      ? items
+      : items.filter((it) => !isAtestadoKind(it.kind));
     const q = search
       .trim()
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
-    if (!q) return items;
-    return items.filter((it) =>
+    if (!q) return visible;
+    return visible.filter((it) =>
       it.patientName
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .includes(q),
     );
-  }, [items, search]);
+  }, [items, search, atestadoEnabled]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => {
@@ -200,6 +206,7 @@ export function DeclaracoesView({
   }
 
   function setKind(kind: AttendanceKind) {
+    if (kind === ATESTADO_KIND && !atestadoEnabled) return;
     if (isEditing) return;
     setForm((f) => ({
       ...f,
@@ -233,6 +240,10 @@ export function DeclaracoesView({
   }
 
   function startEdit(item: AttendanceCertificateDTO) {
+    if (isAtestadoKind(item.kind) && !atestadoEnabled) {
+      setError("Atestado médico não está disponível nesta conta");
+      return;
+    }
     if (isAtestadoKind(item.kind)) {
       setForm({
         kind: ATESTADO_KIND,
@@ -390,6 +401,10 @@ export function DeclaracoesView({
   }
 
   function reuse(item: AttendanceCertificateDTO) {
+    if (isAtestadoKind(item.kind) && !atestadoEnabled) {
+      setError("Atestado médico não está disponível nesta conta");
+      return;
+    }
     if (isAtestadoKind(item.kind)) {
       const today = todayIsoDate();
       setForm({
@@ -482,32 +497,34 @@ export function DeclaracoesView({
                   </button>
                 )}
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/30 p-1">
-                <button
-                  type="button"
-                  disabled={isEditing}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    !isAtestado
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted hover:text-foreground"
-                  } disabled:opacity-60`}
-                  onClick={() => setKind(COMPARECIMENTO_KIND)}
-                >
-                  Comparecimento
-                </button>
-                <button
-                  type="button"
-                  disabled={isEditing}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    isAtestado
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted hover:text-foreground"
-                  } disabled:opacity-60`}
-                  onClick={() => setKind(ATESTADO_KIND)}
-                >
-                  Atestado médico
-                </button>
-              </div>
+              {atestadoEnabled ? (
+                <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/30 p-1">
+                  <button
+                    type="button"
+                    disabled={isEditing}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      !isAtestado
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted hover:text-foreground"
+                    } disabled:opacity-60`}
+                    onClick={() => setKind(COMPARECIMENTO_KIND)}
+                  >
+                    Comparecimento
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isEditing}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      isAtestado
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted hover:text-foreground"
+                    } disabled:opacity-60`}
+                    onClick={() => setKind(ATESTADO_KIND)}
+                  >
+                    Atestado médico
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <label className="block text-sm">

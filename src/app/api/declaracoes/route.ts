@@ -18,6 +18,7 @@ import {
   todayIsoDate,
 } from "@/lib/attendance/format";
 import { serializeCertificate } from "@/lib/attendance/serialize";
+import { orgCanIssueAtestado } from "@/lib/attendance/atestado-access";
 
 export async function GET(req: Request) {
   const access = await apiRequireAttendance();
@@ -94,6 +95,12 @@ export async function POST(req: Request) {
   const { header, ctx } = access;
 
   if (isAtestadoKind(kindRaw)) {
+    if (!(await orgCanIssueAtestado(ctx.organizationId))) {
+      return NextResponse.json(
+        { error: "Atestado médico não está disponível nesta conta" },
+        { status: 403 },
+      );
+    }
     const parsed = atestadoSchema.safeParse({ ...body, kind: ATESTADO_KIND });
     if (!parsed.success) {
       return NextResponse.json(

@@ -5479,19 +5479,33 @@ html[data-product-brand="temark"] .checkout-shell .btn-primary:hover {
 }
 
 .admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .temark-sidebar-brand {
-  padding: 26px 12px 16px;
-  height: 88px;
-  min-height: 88px;
+  padding: 22px 10px 14px;
+  height: 72px;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .temark-wordmark {
-  width: 58px;
+  width: 36px;
+  height: 36px;
+  aspect-ratio: 1;
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: 10px;
 }
 
 .admin-shell[data-brand="temark"] .admin-sidebar.is-collapsed .temark-wordmark-img {
-  width: 138%;
-  left: -19%;
-  top: -24%;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  object-fit: contain;
+  object-position: center;
+  filter: brightness(0);
 }
 
 .admin-shell[data-brand="temark"] .temark-nav {
