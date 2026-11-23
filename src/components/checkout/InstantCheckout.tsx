@@ -29,6 +29,76 @@ function formatCardNumber(value: string) {
   return d.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
 }
 
+const BULLET_RE = /^\s*(?:[•·●▪‣]|[-–—*])\s+/;
+
+/** Quebra descrição colada (com • no meio da linha) e monta parágrafos + lista. */
+function parseCheckoutDescription(raw: string): Array<
+  { type: "p"; text: string } | { type: "ul"; items: string[] }
+> {
+  let text = raw.replace(/\r\n/g, "\n").trim();
+  if (!text) return [];
+
+  // "inclui: • item • item" → linhas com bullet
+  text = text.replace(/([^\n•·●▪‣])\s*[•·●▪‣]\s+/g, "$1\n• ");
+
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const blocks: Array<
+    { type: "p"; text: string } | { type: "ul"; items: string[] }
+  > = [];
+  let list: string[] = [];
+
+  const flushList = () => {
+    if (list.length) {
+      blocks.push({ type: "ul", items: list });
+      list = [];
+    }
+  };
+
+  for (const line of lines) {
+    if (BULLET_RE.test(line)) {
+      list.push(line.replace(BULLET_RE, "").trim());
+      continue;
+    }
+    flushList();
+    blocks.push({ type: "p", text: line });
+  }
+  flushList();
+  return blocks;
+}
+
+function CheckoutDescription({ text }: { text: string }) {
+  const blocks = useMemo(() => parseCheckoutDescription(text), [text]);
+  if (!blocks.length) return null;
+
+  return (
+    <div className="checkout-desc mx-auto mt-3 max-w-sm text-left text-sm leading-relaxed text-muted">
+      {blocks.map((block, i) =>
+        block.type === "p" ? (
+          <p key={i} className={i === 0 ? "text-center" : "mt-3"}>
+            {block.text}
+          </p>
+        ) : (
+          <ul key={i} className="mt-3 list-none space-y-2 pl-0">
+            {block.items.map((item, j) => (
+              <li key={j} className="flex gap-2.5 text-left">
+                <span
+                  className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-50"
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1">{item}</span>
+              </li>
+            ))}
+          </ul>
+        ),
+      )}
+    </div>
+  );
+}
+
 function isFormReady(
   formFields: FormFieldConfig[],
   details: {
@@ -668,11 +738,9 @@ export function InstantCheckout({ slug }: { slug: string }) {
             </p>
           )}
           <h1 className="mt-2 text-2xl font-bold tracking-tight">{displayTitle}</h1>
-          {displayDescription && (
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
-              {displayDescription}
-            </p>
-          )}
+          {displayDescription ? (
+            <CheckoutDescription text={displayDescription} />
+          ) : null}
           <p
             className="checkout-price mt-4 text-3xl font-bold tracking-tight"
             style={isTemark ? undefined : { color: shellAccent }}
