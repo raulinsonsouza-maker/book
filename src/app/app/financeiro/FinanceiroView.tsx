@@ -111,28 +111,35 @@ function KpiCard({
 }) {
   const tones = {
     money: {
-      wrap: "border-border bg-white",
-      value: "text-foreground",
+      wrap: "border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-white",
+      dot: "bg-emerald-500",
+      value: "text-emerald-900",
     },
     warn: {
-      wrap: "border-border bg-white",
-      value: "text-foreground",
+      wrap: "border-amber-200/80 bg-gradient-to-br from-amber-50 to-white",
+      dot: "bg-amber-500",
+      value: "text-amber-950",
     },
     ink: {
-      wrap: "border-border bg-white",
+      wrap: "border-slate-200 bg-gradient-to-br from-slate-50 to-white",
+      dot: "bg-slate-700",
       value: "text-foreground",
     },
     blue: {
-      wrap: "border-border bg-white",
-      value: "text-foreground",
+      wrap: "border-sky-200/80 bg-gradient-to-br from-sky-50 to-white",
+      dot: "bg-sky-500",
+      value: "text-sky-950",
     },
   }[tone];
 
   return (
     <div className={`rounded-2xl border p-4 shadow-sm ${tones.wrap}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-        {label}
-      </p>
+      <div className="flex items-center gap-2">
+        <span className={`h-1.5 w-1.5 rounded-full ${tones.dot}`} />
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+          {label}
+        </p>
+      </div>
       <p
         className={`mt-2 text-2xl font-bold tracking-tight tabular-nums sm:text-[1.65rem] ${tones.value}`}
       >
@@ -891,85 +898,97 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-4 sm:items-center">
           <form
             onSubmit={saveEntry}
-            className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-white p-5 shadow-xl"
+            className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-xl"
           >
-            <h2 className="text-base font-semibold">Novo lançamento</h2>
-            <div className="flex gap-2">
-              {(
-                [
-                  { id: "INCOME" as const, label: "Receita" },
-                  { id: "EXPENSE" as const, label: "Despesa" },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
-                    entryType === opt.id
-                      ? "border-foreground bg-foreground text-white"
-                      : "border-border bg-white hover:bg-muted-bg"
-                  }`}
-                  onClick={() => setEntryType(opt.id)}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div className="border-b border-border px-5 py-4">
+              <h2 className="text-base font-semibold">Novo lançamento</h2>
             </div>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Valor (R$)</span>
-              <input
-                required
-                className="input-field"
-                value={entryAmount}
-                onChange={(e) =>
-                  setEntryAmount(maskBRLFromDigits(e.target.value))
+            <div className="min-h-[28rem] space-y-4 overflow-y-auto px-5 py-4">
+              <div className="flex gap-2">
+                {(
+                  [
+                    { id: "INCOME" as const, label: "Receita" },
+                    { id: "EXPENSE" as const, label: "Despesa" },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
+                      entryType === opt.id
+                        ? "border-foreground bg-foreground text-white"
+                        : "border-border bg-white hover:bg-muted-bg"
+                    }`}
+                    onClick={() => {
+                      setEntryType(opt.id);
+                      if (opt.id === "EXPENSE") setEntryCustomer(null);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium">Valor (R$)</span>
+                <input
+                  required
+                  className="input-field"
+                  value={entryAmount}
+                  onChange={(e) =>
+                    setEntryAmount(maskBRLFromDigits(e.target.value))
+                  }
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium">Data</span>
+                <input
+                  type="date"
+                  required
+                  className="input-field"
+                  value={entryDate}
+                  onChange={(e) => setEntryDate(e.target.value)}
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium">Método</span>
+                <select
+                  className="input-field"
+                  value={entryMethod}
+                  onChange={(e) => setEntryMethod(e.target.value)}
+                >
+                  <option value="CASH">Dinheiro</option>
+                  <option value="PIX">Pix</option>
+                  <option value="CARD">Cartão</option>
+                  <option value="OTHER">Outro</option>
+                </select>
+              </label>
+              <div
+                className={
+                  entryType === "INCOME" ? "block" : "pointer-events-none invisible"
                 }
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Data</span>
-              <input
-                type="date"
-                required
-                className="input-field"
-                value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Método</span>
-              <select
-                className="input-field"
-                value={entryMethod}
-                onChange={(e) => setEntryMethod(e.target.value)}
+                aria-hidden={entryType !== "INCOME"}
               >
-                <option value="CASH">Dinheiro</option>
-                <option value="PIX">Pix</option>
-                <option value="CARD">Cartão</option>
-                <option value="OTHER">Outro</option>
-              </select>
-            </label>
-            {entryType === "INCOME" ? (
-              <CustomerPicker
-                value={entryCustomer}
-                onChange={setEntryCustomer}
-                label="Paciente / cliente (opcional)"
-              />
-            ) : null}
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Descrição</span>
-              <input
-                className="input-field"
-                value={entryDesc}
-                onChange={(e) => setEntryDesc(e.target.value)}
-                placeholder={
-                  entryType === "INCOME"
-                    ? "Ex: Pagamento particular"
-                    : "Ex: Material de consumo"
-                }
-              />
-            </label>
-            <div className="flex flex-wrap gap-2">
+                <CustomerPicker
+                  value={entryCustomer}
+                  onChange={setEntryCustomer}
+                  label="Paciente / cliente (opcional)"
+                />
+              </div>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium">Descrição</span>
+                <input
+                  className="input-field"
+                  value={entryDesc}
+                  onChange={(e) => setEntryDesc(e.target.value)}
+                  placeholder={
+                    entryType === "INCOME"
+                      ? "Ex: Pagamento particular"
+                      : "Ex: Material de consumo"
+                  }
+                />
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2 border-t border-border px-5 py-4">
               <button
                 type="submit"
                 className="btn-primary"

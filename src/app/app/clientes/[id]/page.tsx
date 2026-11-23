@@ -12,8 +12,10 @@ import {
 import { visitRecordSummary } from "@/lib/visit-record";
 import {
   formatCpf,
+  formatPhone,
   formatPhoneDisplay,
   maskBRLFromDigits,
+  normalizeEmailInput,
   parseBRLMaskToCents,
 } from "@/lib/utils";
 
@@ -149,6 +151,15 @@ export default function ClienteProntuarioPage() {
     format(new Date(), "yyyy-MM-dd"),
   );
   const [savingCash, setSavingCash] = useState(false);
+  const [showEditPatient, setShowEditPatient] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    cpf: "",
+    notes: "",
+  });
+  const [savingPatient, setSavingPatient] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -239,6 +250,61 @@ export default function ClienteProntuarioPage() {
       setTab("notes");
     } finally {
       setSavingNote(false);
+    }
+  }
+
+  function openEditPatient() {
+    if (!customer) return;
+    setEditForm({
+      name: customer.name,
+      phone: formatPhone(customer.phoneE164.replace(/\D/g, "")),
+      email: customer.email || "",
+      cpf: customer.cpf ? formatCpf(customer.cpf) : "",
+      notes: customer.notes || "",
+    });
+    setShowEditPatient(true);
+  }
+
+  async function savePatient(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editForm.name.trim() || editForm.phone.replace(/\D/g, "").length < 8) {
+      setError("Informe nome e telefone válidos");
+      return;
+    }
+    setSavingPatient(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/clients/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          phone: editForm.phone,
+          email: editForm.email.trim() || null,
+          cpf: editForm.cpf || null,
+          notes: editForm.notes.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Não foi possível salvar");
+        return;
+      }
+      setCustomer((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: data.name,
+              phoneE164: data.phoneE164,
+              email: data.email,
+              cpf: data.cpf,
+              notes: data.notes,
+            }
+          : prev,
+      );
+      setShowEditPatient(false);
+    } finally {
+      setSavingPatient(false);
     }
   }
 
@@ -386,6 +452,13 @@ export default function ClienteProntuarioPage() {
           >
             Agendar
           </Link>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={openEditPatient}
+          >
+            Editar
+          </button>
           {profile.features.attendanceCertificates ? (
             <Link
               href={`/app/declaracoes?customerId=${customer.id}`}
@@ -760,6 +833,101 @@ export default function ClienteProntuarioPage() {
               </ul>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {showEditPatient ? (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <form
+            onSubmit={savePatient}
+            className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-white p-5 shadow-xl"
+          >
+            <h2 className="text-base font-semibold">
+              Editar {profile.clientNoun.toLowerCase()}
+            </h2>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Nome</span>
+              <input
+                required
+                className="input-field"
+                value={editForm.name}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, name: e.target.value }))
+                }
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Telefone</span>
+              <input
+                required
+                type="tel"
+                inputMode="numeric"
+                className="input-field"
+                value={editForm.phone}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    phone: formatPhone(e.target.value),
+                  }))
+                }
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">E-mail</span>
+              <input
+                type="email"
+                className="input-field"
+                value={editForm.email}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    email: normalizeEmailInput(e.target.value),
+                  }))
+                }
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">CPF</span>
+              <input
+                className="input-field"
+                inputMode="numeric"
+                value={editForm.cpf}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    cpf: formatCpf(e.target.value),
+                  }))
+                }
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Observações</span>
+              <textarea
+                className="input-field min-h-[72px]"
+                value={editForm.notes}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, notes: e.target.value }))
+                }
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={savingPatient}
+              >
+                {savingPatient ? "Salvando…" : "Salvar"}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={savingPatient}
+                onClick={() => setShowEditPatient(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
         </div>
       ) : null}
 

@@ -210,7 +210,9 @@ export function DeclaracoesView({
   const [items, setItems] = useState(initialItems);
   const [search, setSearch] = useState("");
 
-  const [patientMode, setPatientMode] = useState<"quick" | "registered">("quick");
+  const [patientMode, setPatientMode] = useState<"quick" | "registered">(
+    "registered",
+  );
   const [patientQuery, setPatientQuery] = useState("");
   const [patientHits, setPatientHits] = useState<PatientHit[]>([]);
   const [patientSearching, setPatientSearching] = useState(false);
@@ -734,31 +736,6 @@ export function DeclaracoesView({
                 )}
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-[#ddd5c8] bg-[#ebe4d8]/70 p-1">
-                <button
-                  type="button"
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    patientMode === "quick"
-                      ? "bg-white text-[#1a1a1a] shadow-sm"
-                      : "text-[#6b645a] hover:text-[#1a1a1a]"
-                  }`}
-                  onClick={() => setPatientMode("quick")}
-                >
-                  Novo rápido
-                </button>
-                <button
-                  type="button"
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    patientMode === "registered"
-                      ? "bg-white text-[#1a1a1a] shadow-sm"
-                      : "text-[#6b645a] hover:text-[#1a1a1a]"
-                  }`}
-                  onClick={() => setPatientMode("registered")}
-                >
-                  Paciente cadastrado
-                </button>
-              </div>
-
               {!isEditing && (
                 <label className="mt-3 block text-sm">
                   <span className="mb-1.5 block font-medium text-[#3d3a34]">
@@ -781,86 +758,70 @@ export function DeclaracoesView({
               )}
             </div>
 
-            {patientMode === "registered" ? (
-              <div className="space-y-2">
-                <label className="block text-sm">
-                  <span className="mb-1.5 block font-medium">Buscar paciente</span>
-                  <input
-                    className="input-field"
-                    value={patientQuery}
-                    onChange={(e) => {
-                      setPatientQuery(e.target.value);
-                      if (form.customerId) clearPatient();
-                    }}
-                    placeholder="Nome, telefone ou e-mail"
-                    autoComplete="off"
-                  />
-                </label>
-                {patientSearching && (
-                  <p className="text-xs text-muted">Buscando…</p>
-                )}
-                {patientHits.length > 0 && (
-                  <ul className="overflow-hidden rounded-lg border border-border">
-                    {patientHits.map((p) => (
-                      <li key={p.id}>
-                        <button
-                          type="button"
-                          className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted/40"
-                          onClick={() => selectPatient(p)}
-                        >
-                          <span className="font-medium">{p.name}</span>
-                          <span className="text-xs text-muted">
-                            {formatPhoneDisplay(p.phoneE164)}
-                            {p.cpf ? ` · CPF ${formatCpf(p.cpf)}` : ""}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {form.customerId && (
-                  <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-                    Vinculado ao prontuário · {form.patientName}
+            <div className="space-y-2">
+              <label className="block text-sm">
+                <span className="mb-1.5 block font-medium">Paciente</span>
+                {form.customerId ? (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{form.patientName}</p>
+                      <p className="text-xs text-muted">Vinculado ao prontuário</p>
+                    </div>
                     <button
                       type="button"
-                      className="ml-2 underline"
-                      onClick={clearPatient}
+                      className="shrink-0 text-xs font-medium text-muted underline-offset-2 hover:underline"
+                      onClick={() => {
+                        clearPatient();
+                        setPatientQuery("");
+                        setPatientMode("registered");
+                      }}
                     >
-                      limpar
+                      Trocar
                     </button>
-                  </p>
+                  </div>
+                ) : (
+                  <input
+                    className="input-field"
+                    value={patientQuery || form.patientName}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setPatientMode("registered");
+                      setPatientQuery(v);
+                      update("patientName", v);
+                      if (form.customerId) clearPatient();
+                    }}
+                    placeholder="Buscar cadastrado ou digitar o nome"
+                    autoComplete="off"
+                    maxLength={160}
+                  />
                 )}
-              </div>
-            ) : (
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-medium">Nome completo do paciente</span>
-                <input
-                  className="input-field"
-                  value={form.patientName}
-                  onChange={(e) => {
-                    clearPatient();
-                    update("patientName", e.target.value);
-                  }}
-                  placeholder="Ex.: Maria da Silva Souza"
-                  autoComplete="off"
-                  maxLength={160}
-                />
               </label>
-            )}
-
-            {patientMode === "registered" && !form.customerId && (
-              <label className="block text-sm">
-                <span className="mb-1.5 block font-medium">Nome (se ainda não selecionou)</span>
-                <input
-                  className="input-field"
-                  value={form.patientName}
-                  onChange={(e) => update("patientName", e.target.value)}
-                  placeholder="Ou digite o nome completo"
-                  autoComplete="off"
-                  maxLength={160}
-                />
-              </label>
-            )}
+              {!form.customerId && patientSearching && (
+                <p className="text-xs text-muted">Buscando…</p>
+              )}
+              {!form.customerId && patientHits.length > 0 && (
+                <ul className="overflow-hidden rounded-lg border border-border bg-white">
+                  {patientHits.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted/40"
+                        onClick={() => {
+                          selectPatient(p);
+                          setPatientQuery("");
+                        }}
+                      >
+                        <span className="font-medium">{p.name}</span>
+                        <span className="text-xs text-muted">
+                          {formatPhoneDisplay(p.phoneE164)}
+                          {p.cpf ? ` · CPF ${formatCpf(p.cpf)}` : ""}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {isEspecial ? (
               <>

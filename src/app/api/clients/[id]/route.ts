@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { apiRequireStaff } from "@/lib/rbac";
 import {
@@ -8,6 +9,17 @@ import {
 import { resolveBusinessProfile } from "@/lib/business-profile";
 import { RECEITA_KIND } from "@/lib/attendance/kinds";
 import { documentPublicPath } from "@/lib/attendance/share";
+import { toE164 } from "@/lib/whatsapp/phone";
+
+const updateSchema = z.object({
+  name: z.string().trim().min(2).max(160),
+  phone: z.string().trim().min(8).max(20),
+  email: z
+    .union([z.string().trim().email().max(160), z.literal(""), z.null()])
+    .optional(),
+  cpf: z.union([z.string().trim().max(14), z.literal(""), z.null()]).optional(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+});
 
 export async function GET(
   _req: Request,
@@ -207,6 +219,83 @@ export async function GET(
       source: "manual" as const,
     })),
   });
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await apiRequireStaff();
+  if ("error" in auth) return auth.error;
+  const { ctx } = auth;
+  const { id } = await params;
+
+  const existing = await prisma.customer.findFirst({
+    where: { id, ...customerScopeWhere(ctx) },
+  });
+  if (!existing) {
+    return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  }
+
+  try {
+    const body = updateSchema.parse(await req.json());
+    const phoneE164 = toE164(body.phone);
+    if (!phoneE164) {
+      return NextResponse.json({ error: "Telefone inválido" }, { status: 400 });
+    }
+
+    if (phoneE164 !== existing.phoneE164) {
+      const clash = await prisma.customer.findFirst({
+        where: {
+          organizationId: ctx.organizationId,
+          phoneE164,
+          NOT: { id },
+        },
+        select: { id: true },
+      });
+      if (clash) {
+        return NextResponse.json(
+          { error: "Já existe um cadastro com este telefone" },
+          { status: 409 },
+        );
+      }
+    }
+
+    const email =
+      body.email === undefined
+        ? existing.email
+        : body.email
+          ? body.email.toLowerCase()
+          : null;
+    const cpf =
+      body.cpf === undefined
+        ? existing.cpf
+        : body.cpf?.replace(/\D/g, "") || null;
+
+    const customer = await prisma.customer.update({
+      where: { id },
+      data: {
+        name: body.name,
+        phoneE164,
+        email,
+        cpf,
+        notes:
+          body.notes === undefined ? existing.notes : body.notes?.trim() || null,
+      },
+    });
+
+    return NextResponse.json({
+      id: customer.id,
+      name: customer.name,
+      phoneE164: customer.phoneE164,
+      email: customer.email,
+      cpf: customer.cpf,
+      notes: customer.notes,
+      createdAt: customer.createdAt.toISOString(),
+    });
+  } catch {
+    return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+  }
 }
 
 function safeJson(raw: string) {
