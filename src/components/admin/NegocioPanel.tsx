@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DESCRIPTION_MAX } from "@/lib/branding";
 import { readLogoFile } from "@/lib/image-upload";
 import { formatBRL } from "@/lib/utils";
-import { SubscriptionSubscribeButton } from "@/components/billing/SubscriptionSubscribeButton";
 import { useHostProductBrand } from "@/hooks/useProductBrand";
 import {
   profileOptions,
   type BusinessProfileId,
 } from "@/lib/business-profile";
+import {
+  PLATFORM_PLAN_FALLBACKS,
+  PLATFORM_PLAN_SLUGS,
+} from "@/lib/billing/plans-catalog";
 
 function billingStatusLabel(status: string | null | undefined) {
   switch (status) {
@@ -36,7 +40,12 @@ type BillingStatus = {
   status: string | null;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
-  plan: { name: string; priceCents: number } | null;
+  plan: {
+    name: string;
+    priceCents: number;
+    slug?: string;
+    interval?: string;
+  } | null;
 };
 
 type Org = {
@@ -54,9 +63,6 @@ type Org = {
   notifyProReschedule: boolean;
   reminderHoursBefore: number;
   cardMaxInstallments: number;
-  whatsappEnabled?: boolean;
-  whatsappPlatformReady?: boolean;
-  whatsappUsage?: { used: number; quota: number; remaining: number };
 };
 
 const PROFILE_VISUAL: Record<
@@ -97,7 +103,9 @@ function ToggleRow({
 
 export function NegocioPanel() {
   const brand = useHostProductBrand();
+  const router = useRouter();
   const [org, setOrg] = useState<Org | null>(null);
+  const [checkoutBusy, setCheckoutBusy] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -243,7 +251,9 @@ export function NegocioPanel() {
       return;
     }
     setOrg(data);
-    setMsg("Identidade salva — painel, checkout e agendamento usam esses dados");
+    setMsg(
+      "Identidade salva — checkout, agendamento e declarações usam esses dados",
+    );
     setTimeout(() => setMsg(""), 3500);
   }
 
@@ -272,11 +282,22 @@ export function NegocioPanel() {
 
   const previewName = name.trim() || "Sua empresa";
   const previewDesc = description.trim().slice(0, DESCRIPTION_MAX);
-  const wa = org.whatsappUsage;
-  const waPct =
-    wa && wa.quota > 0
-      ? Math.min(100, Math.round((wa.used / wa.quota) * 100))
-      : 0;
+  const monthlyPlan = PLATFORM_PLAN_FALLBACKS.find(
+    (p) => p.slug === PLATFORM_PLAN_SLUGS.monthly,
+  )!;
+  const semesterPlan = PLATFORM_PLAN_FALLBACKS.find(
+    (p) => p.slug === PLATFORM_PLAN_SLUGS.semester,
+  )!;
+  const currentSlug = billing?.plan?.slug;
+  const needsPay =
+    Boolean(billing?.billingEnabled) &&
+    billing?.status !== "ACTIVE" &&
+    Boolean(billing?.mpConfigured);
+
+  function goCheckout(slug: string) {
+    setCheckoutBusy(slug);
+    router.push(`/onboarding/pagamento?plan=${encodeURIComponent(slug)}`);
+  }
 
   return (
     <div className="settings-account-stack space-y-5">
@@ -303,11 +324,8 @@ export function NegocioPanel() {
           <div className="settings-stat-row">
             {billing.plan ? (
               <div>
-                <p className="settings-stat-label">Plano</p>
-                <p className="settings-stat-value">
-                  {billing.plan.name}
-                  <span> · {formatBRL(billing.plan.priceCents)}/mês</span>
-                </p>
+                <p className="settings-stat-label">Plano atual</p>
+                <p className="settings-stat-value">{billing.plan.name}</p>
               </div>
             ) : null}
             {billing.trialEndsAt ? (
@@ -329,39 +347,61 @@ export function NegocioPanel() {
               </div>
             ) : null}
           </div>
-          {billing.status !== "ACTIVE" && billing.mpConfigured ? (
-            <SubscriptionSubscribeButton />
+
+          {needsPay ? (
+            <div className="settings-plan-picker">
+              <p className="settings-card-lead !mt-4">
+                Escolha o plano e pague com Pix ou cartão.
+              </p>
+              <div className="settings-plan-grid">
+                <button
+                  type="button"
+                  disabled={checkoutBusy !== null}
+                  onClick={() => goCheckout(monthlyPlan.slug)}
+                  className={`settings-plan-card ${
+                    currentSlug === monthlyPlan.slug ? "is-current" : ""
+                  }`}
+                >
+                  <span className="settings-plan-tag">Mensal</span>
+                  <strong>{formatBRL(monthlyPlan.priceCents)}/mês</strong>
+                  <em>Cobrança todo mês</em>
+                  <span className="settings-plan-cta">
+                    {checkoutBusy === monthlyPlan.slug
+                      ? "Abrindo…"
+                      : "Assinar mensal"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={checkoutBusy !== null}
+                  onClick={() => goCheckout(semesterPlan.slug)}
+                  className={`settings-plan-card is-highlight ${
+                    currentSlug === semesterPlan.slug ? "is-current" : ""
+                  }`}
+                >
+                  <span className="settings-plan-tag">
+                    {semesterPlan.badge || "Semestral"}
+                  </span>
+                  <strong>
+                    {formatBRL(semesterPlan.monthlyEquivalentCents!)}
+                    <span>/mês</span>
+                  </strong>
+                  <em>{semesterPlan.detail}</em>
+                  <span className="settings-plan-cta">
+                    {checkoutBusy === semesterPlan.slug
+                      ? "Abrindo…"
+                      : "Assinar semestral"}
+                  </span>
+                </button>
+              </div>
+            </div>
           ) : null}
+
           {billing.status !== "ACTIVE" && !billing.mpConfigured ? (
             <p className="settings-card-note">
               Assinatura online em breve. Entre em contato com o suporte.
             </p>
           ) : null}
-        </section>
-      ) : null}
-
-      {wa ? (
-        <section className="settings-card">
-          <div className="settings-card-head">
-            <div>
-              <p className="settings-card-kicker">WhatsApp</p>
-              <h2>Franquia do mês</h2>
-            </div>
-            <p className="settings-wa-count">
-              <strong>{wa.used}</strong>
-              <span>/{wa.quota}</span>
-            </p>
-          </div>
-          <div className="settings-meter" aria-hidden>
-            <span style={{ width: `${waPct}%` }} />
-          </div>
-          <p className="settings-card-note">
-            {!org.whatsappPlatformReady
-              ? "Canal ainda não ativado pela plataforma — lembretes seguem por e-mail."
-              : wa.remaining <= 0
-                ? "Franquia esgotada. Novos envios caem para e-mail até o próximo ciclo."
-                : "Códigos e lembretes pelo canal da plataforma."}
-          </p>
         </section>
       ) : null}
 
@@ -502,7 +542,8 @@ export function NegocioPanel() {
           </div>
         </div>
         <p className="settings-card-lead">
-          Nome, logo e cor usados no checkout e na tela de agendamento.
+          Nome, logo e cor usados no checkout, na agenda e nas declarações
+          (comparecimento, atestado, receita e encaminhamento).
         </p>
 
         <div className="settings-identity-grid">

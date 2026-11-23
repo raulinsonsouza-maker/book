@@ -21,6 +21,14 @@ export async function GET() {
     status: sub?.status ?? null,
     trialEndsAt: sub?.trialEndsAt ?? null,
     currentPeriodEnd: sub?.currentPeriodEnd ?? null,
-    plan: sub?.plan ?? null,
+    plan: sub?.plan
+      ? {
+          id: sub.plan.id,
+          name: sub.plan.name,
+          slug: sub.plan.slug,
+          priceCents: sub.plan.priceCents,
+          interval: sub.plan.interval,
+        }
+      : null,
   });
 }

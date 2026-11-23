@@ -75,7 +75,7 @@ const HEADER_FIELDS: {
 }[] = [
   { key: "businessName", label: "Nome da clínica", wide: true },
   { key: "address", label: "Endereço", wide: true },
-  { key: "phone", label: "Telefone / WhatsApp", placeholder: "(19) 99999-9999" },
+  { key: "phone", label: "Telefone", placeholder: "(19) 99999-9999" },
   { key: "cnpj", label: "CNPJ (opcional)", placeholder: "Deixe vazio se não houver" },
   { key: "city", label: "Cidade da emissão", placeholder: "Piracicaba/SP" },
   { key: "signerName", label: "Nome de quem assina" },
@@ -91,15 +91,29 @@ const HEADER_FIELDS: {
   },
 ];
 
+function nowHm() {
+  const d = new Date();
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(Math.floor(d.getMinutes() / 5) * 5).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function plusOneHour(hm: string) {
+  const [h, m] = hm.split(":").map(Number);
+  const endH = Math.min(23, (h || 0) + 1);
+  return `${String(endH).padStart(2, "0")}:${String(m || 0).padStart(2, "0")}`;
+}
+
 function emptyForm(headerCity = "", userName = ""): FormState {
   const today = todayIsoDate();
+  const start = nowHm();
   return {
     kind: COMPARECIMENTO_KIND,
     patientName: "",
     customerId: null,
     visitDate: today,
-    startTime: "",
-    endTime: "",
+    startTime: start,
+    endTime: plusOneHour(start),
     issueDate: today,
     issueCity: headerCity || "Piracicaba-SP",
     title: "",
@@ -680,7 +694,7 @@ export function DeclaracoesView({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         <div className="space-y-4">
           <form
-            className="surface space-y-4 p-5"
+            className="space-y-4 rounded-2xl border border-[#e4ddd2] bg-gradient-to-b from-[#f7f3ec] to-[#f3eee6] p-5 shadow-sm"
             onSubmit={(e) => {
               e.preventDefault();
               void create("pdf");
@@ -688,7 +702,7 @@ export function DeclaracoesView({
           >
             <div>
               <div className="flex items-start justify-between gap-2">
-                <h2 className="font-semibold tracking-tight">
+                <h2 className="font-semibold tracking-tight text-[#1a1a1a]">
                   {isEditing ? "Editar documento" : "Novo documento"}
                 </h2>
                 {isEditing && (
@@ -702,13 +716,13 @@ export function DeclaracoesView({
                 )}
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/30 p-1">
+              <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-[#ddd5c8] bg-[#ebe4d8]/70 p-1">
                 <button
                   type="button"
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                     patientMode === "quick"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted hover:text-foreground"
+                      ? "bg-white text-[#1a1a1a] shadow-sm"
+                      : "text-[#6b645a] hover:text-[#1a1a1a]"
                   }`}
                   onClick={() => setPatientMode("quick")}
                 >
@@ -718,8 +732,8 @@ export function DeclaracoesView({
                   type="button"
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                     patientMode === "registered"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted hover:text-foreground"
+                      ? "bg-white text-[#1a1a1a] shadow-sm"
+                      : "text-[#6b645a] hover:text-[#1a1a1a]"
                   }`}
                   onClick={() => setPatientMode("registered")}
                 >
@@ -728,24 +742,24 @@ export function DeclaracoesView({
               </div>
 
               {!isEditing && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {kindCards.map((card) => (
-                    <button
-                      key={card.kind}
-                      type="button"
-                      disabled={isEditing}
-                      onClick={() => setKind(card.kind)}
-                      className={`rounded-xl border px-3 py-2.5 text-left transition ${
-                        form.kind === card.kind
-                          ? "border-foreground/30 bg-background shadow-sm"
-                          : "border-border bg-muted/20 hover:bg-muted/40"
-                      }`}
-                    >
-                      <span className="block text-sm font-medium">{card.label}</span>
-                      <span className="mt-0.5 block text-[11px] text-muted">{card.hint}</span>
-                    </button>
-                  ))}
-                </div>
+                <label className="mt-3 block text-sm">
+                  <span className="mb-1.5 block font-medium text-[#3d3a34]">
+                    Tipo de documento
+                  </span>
+                  <select
+                    className="input-field bg-white"
+                    value={form.kind}
+                    onChange={(e) =>
+                      setKind(e.target.value as AttendanceKind)
+                    }
+                  >
+                    {kindCards.map((card) => (
+                      <option key={card.kind} value={card.kind}>
+                        {card.label} — {card.hint}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               )}
             </div>
 
@@ -926,40 +940,86 @@ export function DeclaracoesView({
               </>
             ) : (
               <>
-                <label className="block text-sm">
-                  <span className="mb-1.5 block font-medium">Data do atendimento</span>
-                  <input
-                    type="date"
-                    className="input-field"
-                    value={form.visitDate}
-                    onChange={(e) => update("visitDate", e.target.value)}
-                  />
-                </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-[#ddd5c8] bg-white/80 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6b645a]">
+                    Permanência
+                  </p>
                   <label className="block text-sm">
-                    <span className="mb-1.5 block font-medium">Entrada</span>
+                    <span className="mb-1.5 block font-medium">Data</span>
                     <input
-                      type="time"
-                      className="input-field"
-                      value={form.startTime}
-                      onChange={(e) => update("startTime", e.target.value)}
+                      type="date"
+                      className="input-field bg-white"
+                      value={form.visitDate}
+                      onChange={(e) => update("visitDate", e.target.value)}
                     />
                   </label>
-                  <label className="block text-sm">
-                    <span className="mb-1.5 block font-medium">Saída</span>
-                    <input
-                      type="time"
-                      className="input-field"
-                      value={form.endTime}
-                      onChange={(e) => update("endTime", e.target.value)}
-                    />
-                  </label>
+                  <div className="mt-3 flex items-end gap-2">
+                    <label className="block min-w-0 flex-1 text-sm">
+                      <span className="mb-1.5 block font-medium">Das</span>
+                      <input
+                        type="time"
+                        step={300}
+                        className="input-field bg-white tabular-nums"
+                        value={form.startTime}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setForm((f) => ({
+                            ...f,
+                            startTime: next,
+                            endTime:
+                              !f.endTime || f.endTime <= next
+                                ? plusOneHour(next)
+                                : f.endTime,
+                          }));
+                          setError("");
+                        }}
+                      />
+                    </label>
+                    <span className="mb-3 text-sm text-[#6b645a]">às</span>
+                    <label className="block min-w-0 flex-1 text-sm">
+                      <span className="mb-1.5 block font-medium">Até</span>
+                      <input
+                        type="time"
+                        step={300}
+                        className="input-field bg-white tabular-nums"
+                        value={form.endTime}
+                        onChange={(e) => update("endTime", e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {[
+                      { label: "30 min", mins: 30 },
+                      { label: "1 h", mins: 60 },
+                      { label: "2 h", mins: 120 },
+                    ].map((chip) => (
+                      <button
+                        key={chip.label}
+                        type="button"
+                        className="rounded-full border border-[#ddd5c8] bg-[#f7f3ec] px-2.5 py-1 text-[11px] font-medium text-[#3d3a34] hover:bg-white"
+                        onClick={() => {
+                          const start = form.startTime || nowHm();
+                          const [h, m] = start.split(":").map(Number);
+                          const total = (h || 0) * 60 + (m || 0) + chip.mins;
+                          const endH = Math.min(23, Math.floor(total / 60));
+                          const endM = total % 60;
+                          setForm((f) => ({
+                            ...f,
+                            startTime: start,
+                            endTime: `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`,
+                          }));
+                        }}
+                      >
+                        +{chip.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <label className="block text-sm">
                   <span className="mb-1.5 block font-medium">Data de emissão</span>
                   <input
                     type="date"
-                    className="input-field"
+                    className="input-field bg-white"
                     value={form.issueDate}
                     onChange={(e) => update("issueDate", e.target.value)}
                   />

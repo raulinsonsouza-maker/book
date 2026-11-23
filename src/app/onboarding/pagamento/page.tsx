@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   FormEvent,
@@ -16,6 +16,7 @@ import { PaymentStep } from "@/components/payment/PaymentStep";
 import {
   PLATFORM_PLAN_FALLBACKS,
   PLATFORM_PLAN_SLUGS,
+  isPlatformPlanSlug,
   type PlatformPlanSlug,
 } from "@/lib/billing/plans-catalog";
 import { useProductBrand } from "@/hooks/useProductBrand";
@@ -33,8 +34,8 @@ const PLAN_FEATURES = [
   "Link de agendamento com a sua marca",
   "Pix e cartão na hora da reserva",
   "Agenda e equipe no mesmo painel",
-  "Lembretes por e-mail e WhatsApp",
-  "600 mensagens WhatsApp por mês",
+  "Lembretes por e-mail",
+  "Declarações e documentos clínicos",
 ];
 
 function formatCardNumber(v: string) {
@@ -60,6 +61,7 @@ declare global {
 
 function OnboardingPagamentoForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const brand = useProductBrand();
   const { status, update } = useSession();
   const [plan, setPlan] = useState<PlanInfo | null>(null);
@@ -124,14 +126,25 @@ function OnboardingPagamentoForm() {
     if (Array.isArray(data.plans) && data.plans.length) {
       setPlans(data.plans);
     }
-    if (data.plan) {
+    const planList: PlanInfo[] =
+      Array.isArray(data.plans) && data.plans.length
+        ? data.plans
+        : PLATFORM_PLAN_FALLBACKS;
+    const requested = searchParams.get("plan");
+    const fromQuery =
+      requested && isPlatformPlanSlug(requested)
+        ? planList.find((p) => p.slug === requested)
+        : null;
+    if (fromQuery) {
+      setPlan(fromQuery);
+      setInstallments(fromQuery.interval === "SEMESTER" ? 6 : 1);
+    } else if (data.plan) {
       setPlan(data.plan);
       setInstallments(data.plan.interval === "SEMESTER" ? 6 : 1);
-    } else if (Array.isArray(data.plans) && data.plans.length) {
+    } else if (planList.length) {
       const preferred =
-        data.plans.find(
-          (p: PlanInfo) => p.slug === PLATFORM_PLAN_SLUGS.semester,
-        ) || data.plans[0];
+        planList.find((p) => p.slug === PLATFORM_PLAN_SLUGS.semester) ||
+        planList[0];
       if (preferred) {
         setPlan(preferred);
         setInstallments(preferred.interval === "SEMESTER" ? 6 : 1);
@@ -139,7 +152,7 @@ function OnboardingPagamentoForm() {
     }
     if (data.publicKey) setPublicKey(data.publicKey);
     setLoading(false);
-  }, [goApp]);
+  }, [goApp, searchParams]);
 
   useEffect(() => {
     if (status === "unauthenticated") {

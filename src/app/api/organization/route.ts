@@ -16,8 +16,6 @@ import {
 import { getRequestAppOrigin } from "@/lib/app-origin-server";
 import { ASAAS_ENABLED, CAKTO_ENABLED } from "@/lib/feature-flags";
 import { DESCRIPTION_MAX, normalizeAccent } from "@/lib/branding";
-import { getOrgWhatsAppUsage } from "@/lib/whatsapp/quota";
-import { getPlatformWhatsAppConfig } from "@/lib/whatsapp/config";
 import {
   maskSecret,
   parseGoogleAdsSendTo,
@@ -25,6 +23,7 @@ import {
   parseMetaPixelId,
 } from "@/lib/tracking/parse";
 import { resolveBusinessProfile } from "@/lib/business-profile";
+import { parseAttendanceHeader } from "@/lib/attendance/format";
 
 const schema = z.object({
   name: z.string().min(2).optional(),
@@ -164,17 +163,9 @@ export async function GET() {
     where: { id: auth.ctx.organizationId },
   });
   if (!org) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const [usage, waCfg] = await Promise.all([
-    getOrgWhatsAppUsage(org.id),
-    getPlatformWhatsAppConfig(),
-  ]);
+  // WhatsApp UI oculto por enquanto — não expor franquia/status no painel.
   return NextResponse.json({
     ...(await serializeOrg(org)),
-    whatsappEnabled: org.whatsappEnabled,
-    whatsappPlatformReady: Boolean(
-      waCfg.enabled && waCfg.accessToken && waCfg.phoneNumberId,
-    ),
-    whatsappUsage: usage,
   });
 }
 
@@ -417,6 +408,23 @@ export async function PATCH(req: Request) {
         }
         data.googleAdsSendTo = parsed;
       }
+    }
+
+    // Mantém o cabeçalho das declarações alinhado à marca (nome + logo).
+    if (
+      current.attendanceEnabled &&
+      (data.name !== undefined || data.logoUrl !== undefined)
+    ) {
+      const header = parseAttendanceHeader(
+        current.attendanceConfig,
+        current.name,
+      );
+      if (typeof data.name === "string") header.businessName = data.name;
+      if (data.logoUrl !== undefined) {
+        header.logoUrl =
+          typeof data.logoUrl === "string" ? data.logoUrl : "";
+      }
+      data.attendanceConfig = JSON.stringify(header);
     }
 
     const org = await prisma.organization.update({

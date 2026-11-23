@@ -1,8 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { format, subDays } from "date-fns";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  endOfMonth,
+  format,
+  parseISO,
+  startOfMonth,
+  subDays,
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { formatBRL } from "@/lib/utils";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
@@ -135,6 +142,8 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
   const [error, setError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [customRange, setCustomRange] = useState(false);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const rangeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isProfessionalView) return;
@@ -204,20 +213,64 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
     setCustomRange(false);
     setTo(format(new Date(), "yyyy-MM-dd"));
     setFrom(format(subDays(new Date(), days), "yyyy-MM-dd"));
+    setRangeOpen(false);
   }
 
-  function activePreset(): 7 | 30 | 90 | null {
+  function setThisMonth() {
+    const now = new Date();
+    setCustomRange(false);
+    setFrom(format(startOfMonth(now), "yyyy-MM-dd"));
+    setTo(format(endOfMonth(now), "yyyy-MM-dd"));
+    setRangeOpen(false);
+  }
+
+  function activePreset(): 7 | 30 | 90 | "month" | null {
     if (customRange) return null;
-    const today = format(new Date(), "yyyy-MM-dd");
+    const now = new Date();
+    if (
+      from === format(startOfMonth(now), "yyyy-MM-dd") &&
+      to === format(endOfMonth(now), "yyyy-MM-dd")
+    ) {
+      return "month";
+    }
+    const today = format(now, "yyyy-MM-dd");
     if (to !== today) return null;
     for (const days of [7, 30, 90] as const) {
-      if (from === format(subDays(new Date(), days), "yyyy-MM-dd")) return days;
+      if (from === format(subDays(now, days), "yyyy-MM-dd")) return days;
     }
     return null;
   }
 
+  useEffect(() => {
+    if (!rangeOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (!rangeRef.current?.contains(e.target as Node)) setRangeOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [rangeOpen]);
+
   const hasFilters = Boolean(status || method || type || pageId);
   const preset = activePreset();
+  const rangeLabel = useMemo(() => {
+    try {
+      const a = format(parseISO(from), "d MMM yyyy", { locale: ptBR });
+      const b = format(parseISO(to), "d MMM yyyy", { locale: ptBR });
+      return `${a} – ${b}`;
+    } catch {
+      return `${from} – ${to}`;
+    }
+  }, [from, to]);
+  const presetLabel =
+    preset === 7
+      ? "Últimos 7 dias"
+      : preset === 30
+        ? "Últimos 30 dias"
+        : preset === 90
+          ? "Últimos 90 dias"
+          : preset === "month"
+            ? "Este mês"
+            : "Personalizado";
 
   return (
     <div className="space-y-6">
@@ -232,81 +285,171 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
       )}
 
       <div className="surface overflow-hidden">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {([7, 30, 90] as const).map((days) => (
-              <button
-                key={days}
-                type="button"
-                onClick={() => setPreset(days)}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                  preset === days
-                    ? "bg-foreground text-white"
-                    : "bg-muted-bg text-muted hover:text-foreground"
-                }`}
-              >
-                {days} dias
-              </button>
-            ))}
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-[#f7f8fa] px-3 py-2.5 sm:px-4">
+          <div className="relative" ref={rangeRef}>
             <button
               type="button"
-              onClick={() => setCustomRange(true)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                customRange || preset === null
-                  ? "bg-foreground text-white"
-                  : "bg-muted-bg text-muted hover:text-foreground"
-              }`}
+              onClick={() => setRangeOpen((v) => !v)}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#ced0d3] bg-white px-3 py-2 text-sm font-medium text-[#1c1e21] shadow-sm hover:bg-[#f0f2f5]"
+              aria-expanded={rangeOpen}
             >
-              Personalizado
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden
+              >
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M3 10h18M8 3v4M16 3v4" />
+              </svg>
+              <span className="max-w-[14rem] truncate sm:max-w-none">
+                <span className="text-[#65676b]">{presetLabel}: </span>
+                {rangeLabel}
+              </span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                className={`opacity-60 transition ${rangeOpen ? "rotate-180" : ""}`}
+                aria-hidden
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </button>
+
+            {rangeOpen ? (
+              <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#dadde1] bg-white shadow-[0_8px_28px_rgba(0,0,0,0.12)]">
+                <div className="border-b border-[#eef0f2] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#65676b]">
+                  Período
+                </div>
+                <div className="p-1.5">
+                  {(
+                    [
+                      { id: 7 as const, label: "Últimos 7 dias" },
+                      { id: 30 as const, label: "Últimos 30 dias" },
+                      { id: 90 as const, label: "Últimos 90 dias" },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setPreset(opt.id)}
+                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
+                        preset === opt.id
+                          ? "bg-[#e7f3ff] font-semibold text-[#0866ff]"
+                          : "text-[#1c1e21] hover:bg-[#f0f2f5]"
+                      }`}
+                    >
+                      {opt.label}
+                      {preset === opt.id ? (
+                        <span className="text-[#0866ff]">✓</span>
+                      ) : null}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={setThisMonth}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
+                      preset === "month"
+                        ? "bg-[#e7f3ff] font-semibold text-[#0866ff]"
+                        : "text-[#1c1e21] hover:bg-[#f0f2f5]"
+                    }`}
+                  >
+                    Este mês
+                    {preset === "month" ? (
+                      <span className="text-[#0866ff]">✓</span>
+                    ) : null}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomRange(true);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
+                      preset === null
+                        ? "bg-[#e7f3ff] font-semibold text-[#0866ff]"
+                        : "text-[#1c1e21] hover:bg-[#f0f2f5]"
+                    }`}
+                  >
+                    Personalizado
+                    {preset === null ? (
+                      <span className="text-[#0866ff]">✓</span>
+                    ) : null}
+                  </button>
+                </div>
+                {(customRange || preset === null) && (
+                  <div className="grid grid-cols-2 gap-2 border-t border-[#eef0f2] bg-[#f7f8fa] p-3">
+                    <label className="block text-xs">
+                      <span className="mb-1 block font-medium text-[#65676b]">
+                        De
+                      </span>
+                      <input
+                        type="date"
+                        className="input-field !py-1.5 text-sm"
+                        value={from}
+                        onChange={(e) => {
+                          setCustomRange(true);
+                          setFrom(e.target.value);
+                        }}
+                      />
+                    </label>
+                    <label className="block text-xs">
+                      <span className="mb-1 block font-medium text-[#65676b]">
+                        Até
+                      </span>
+                      <input
+                        type="date"
+                        className="input-field !py-1.5 text-sm"
+                        value={to}
+                        onChange={(e) => {
+                          setCustomRange(true);
+                          setTo(e.target.value);
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="col-span-2 mt-1 rounded-lg bg-[#0866ff] px-3 py-2 text-sm font-semibold text-white hover:bg-[#0759db]"
+                      onClick={() => setRangeOpen(false)}
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setFiltersOpen((v) => !v)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${
                 filtersOpen || hasFilters
-                  ? "border-foreground/20 bg-muted-bg text-foreground"
-                  : "border-border text-muted hover:text-foreground"
+                  ? "border-[#0866ff]/30 bg-[#e7f3ff] text-[#0866ff]"
+                  : "border-[#ced0d3] bg-white text-[#1c1e21] hover:bg-[#f0f2f5]"
               }`}
             >
-              Filtros{hasFilters ? ` · ${[status, method, type, pageId].filter(Boolean).length}` : ""}
+              Filtros
+              {hasFilters
+                ? ` · ${[status, method, type, pageId].filter(Boolean).length}`
+                : ""}
             </button>
-            <button type="button" onClick={exportCsv} className="btn-secondary !py-1.5 !text-xs">
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="inline-flex items-center rounded-lg border border-[#ced0d3] bg-white px-3 py-2 text-sm font-medium text-[#1c1e21] hover:bg-[#f0f2f5]"
+            >
               Exportar
             </button>
           </div>
         </div>
-
-        {(customRange || preset === null) && (
-          <div className="flex flex-wrap items-end gap-3 border-t border-border px-4 py-3">
-            <label className="block text-sm">
-              <span className="mb-1 block text-xs text-muted">De</span>
-              <input
-                type="date"
-                className="input-field !w-auto"
-                value={from}
-                onChange={(e) => {
-                  setCustomRange(true);
-                  setFrom(e.target.value);
-                }}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-xs text-muted">Até</span>
-              <input
-                type="date"
-                className="input-field !w-auto"
-                value={to}
-                onChange={(e) => {
-                  setCustomRange(true);
-                  setTo(e.target.value);
-                }}
-              />
-            </label>
-          </div>
-        )}
 
         {filtersOpen && (
           <div className="flex flex-wrap items-end gap-3 border-t border-border bg-muted-bg/40 px-4 py-3">
