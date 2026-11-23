@@ -13,6 +13,25 @@ export type ProductFormConfig = {
   payMethods?: PayMethod[];
 };
 
+/** Campos exigidos pelos gateways para gerar Pix/cartão sem erro. */
+export const CHECKOUT_LOCKED_PRESETS = [
+  "customerName",
+  "customerEmail",
+  "customerPhone",
+  "customerCpf",
+] as const;
+
+export type CheckoutLockedPreset = (typeof CHECKOUT_LOCKED_PRESETS)[number];
+
+export function isCheckoutLockedPreset(
+  preset: string | undefined,
+): preset is CheckoutLockedPreset {
+  return (
+    !!preset &&
+    (CHECKOUT_LOCKED_PRESETS as readonly string[]).includes(preset)
+  );
+}
+
 export function defaultPayMethods(): PayMethod[] {
   return ["pix", "card"];
 }
@@ -27,13 +46,41 @@ export function normalizePayMethods(
   return (["pix", "card"] as const).filter((m) => allowed.has(m));
 }
 
+/** Garante nome, e-mail, celular e CPF ativos e obrigatórios. */
+export function ensurePaymentRequiredFields(
+  fields: FormFieldConfig[],
+): FormFieldConfig[] {
+  const byPreset = new Map(
+    fields.filter((f) => f.preset).map((f) => [f.preset!, f]),
+  );
+  const defaults = defaultFormFields();
+
+  for (const preset of CHECKOUT_LOCKED_PRESETS) {
+    const existing = byPreset.get(preset);
+    if (existing) {
+      existing.enabled = true;
+      existing.required = true;
+    } else {
+      const fallback = defaults.find((f) => f.preset === preset);
+      if (fallback) {
+        fields = [
+          ...fields,
+          { ...fallback, enabled: true, required: true },
+        ];
+      }
+    }
+  }
+
+  return fields.map((f) =>
+    isCheckoutLockedPreset(f.preset)
+      ? { ...f, enabled: true, required: true }
+      : f,
+  );
+}
+
 export function defaultProductFormConfig(): ProductFormConfig {
   return {
-    formFields: defaultFormFields().map((f) =>
-      f.preset === "customerCpf"
-        ? { ...f, enabled: true, required: true }
-        : f,
-    ),
+    formFields: ensurePaymentRequiredFields(defaultFormFields()),
     payMethods: defaultPayMethods(),
   };
 }
@@ -44,7 +91,7 @@ export function parseProductFormConfig(raw: string | null | undefined): ProductF
     const parsed = JSON.parse(raw) as ProductFormConfig;
     if (parsed?.formFields?.length) {
       return {
-        formFields: parsed.formFields,
+        formFields: ensurePaymentRequiredFields(parsed.formFields),
         payMethods: normalizePayMethods(parsed.payMethods),
       };
     }
@@ -54,7 +101,7 @@ export function parseProductFormConfig(raw: string | null | undefined): ProductF
   const funnel = parseFunnelConfig(raw);
   if (funnel?.formFields?.length) {
     return {
-      formFields: funnel.formFields,
+      formFields: ensurePaymentRequiredFields(funnel.formFields),
       payMethods: defaultPayMethods(),
     };
   }
@@ -68,5 +115,9 @@ export function enabledProductFormFields(config: ProductFormConfig | null) {
 }
 
 export function serializeProductFormConfig(config: ProductFormConfig) {
-  return JSON.stringify(config);
+  return JSON.stringify({
+    ...config,
+    formFields: ensurePaymentRequiredFields(config.formFields),
+    payMethods: normalizePayMethods(config.payMethods),
+  });
 }

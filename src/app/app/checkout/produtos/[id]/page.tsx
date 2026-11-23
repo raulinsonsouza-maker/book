@@ -7,6 +7,7 @@ import { FIELD_PRESETS } from "@/types/funnel-config";
 import type { FormFieldConfig } from "@/types/funnel-config";
 import {
   defaultProductFormConfig,
+  isCheckoutLockedPreset,
   normalizePayMethods,
   parseProductFormConfig,
   type PayMethod,
@@ -97,6 +98,7 @@ export default function EditProductPage() {
   }, [id]);
 
   function toggleField(preset: string, enabled: boolean) {
+    if (isCheckoutLockedPreset(preset)) return;
     setFormFields((prev) =>
       prev.map((f) => (f.preset === preset ? { ...f, enabled } : f)),
     );
@@ -195,19 +197,6 @@ export default function EditProductPage() {
         </label>
         <div>
           <p className="mb-1.5 text-sm font-medium">Formas de pagamento</p>
-          <p className="mb-2 text-xs text-muted">
-            Via{" "}
-            <strong className="font-medium text-foreground">
-              {paymentProvider === "ASAAS"
-                ? "Asaas"
-                : paymentProvider === "MERCADO_PAGO"
-                  ? "Mercado Pago"
-                  : paymentProvider === "CAKTO"
-                    ? "Cakto"
-                    : "modo demo"}
-            </strong>
-            . Escolha o que aparece no link.
-          </p>
           <ul className="space-y-2">
             {(
               [
@@ -286,18 +275,27 @@ export default function EditProductPage() {
 
         <div>
           <p className="mb-2 text-sm font-medium">Campos do formulário</p>
+          <p className="mb-2 text-xs text-muted">
+            Nome, e-mail, celular e CPF são obrigatórios para gerar a cobrança
+            (Pix/cartão).
+          </p>
           <ul className="space-y-2">
             {FIELD_PRESETS.filter((p) => p.preset).map((preset) => {
               const field = formFields.find((f) => f.preset === preset.preset);
-              const enabled = field?.enabled ?? false;
+              const locked = isCheckoutLockedPreset(preset.preset);
+              const enabled = locked || (field?.enabled ?? false);
               return (
                 <li key={preset.preset} className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={enabled}
+                    disabled={locked}
                     onChange={(e) => toggleField(preset.preset!, e.target.checked)}
                   />
-                  {preset.label}
+                  <span className="flex-1">{preset.label}</span>
+                  {locked ? (
+                    <span className="text-[11px] text-muted">Obrigatório</span>
+                  ) : null}
                 </li>
               );
             })}

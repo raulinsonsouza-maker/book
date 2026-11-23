@@ -86,37 +86,30 @@ function KpiCard({
 }) {
   const tones = {
     money: {
-      wrap: "border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 to-white",
-      dot: "bg-emerald-500",
-      value: "text-emerald-800",
+      wrap: "border-border bg-white",
+      value: "text-foreground",
     },
     warn: {
-      wrap: "border-amber-200/80 bg-gradient-to-br from-amber-50/80 to-white",
-      dot: "bg-amber-500",
-      value: "text-amber-900",
+      wrap: "border-border bg-white",
+      value: "text-foreground",
     },
     ink: {
-      wrap: "border-border bg-gradient-to-br from-slate-50 to-white",
-      dot: "bg-foreground",
+      wrap: "border-border bg-white",
       value: "text-foreground",
     },
     blue: {
-      wrap: "border-blue-200/70 bg-gradient-to-br from-blue-50/80 to-white",
-      dot: "bg-blue-600",
-      value: "text-blue-900",
+      wrap: "border-border bg-white",
+      value: "text-foreground",
     },
   }[tone];
 
   return (
     <div className={`rounded-2xl border p-4 shadow-sm ${tones.wrap}`}>
-      <div className="flex items-center gap-2">
-        <span className={`h-1.5 w-1.5 rounded-full ${tones.dot}`} />
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-          {label}
-        </p>
-      </div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+        {label}
+      </p>
       <p
-        className={`mt-3 text-2xl font-bold tracking-tight tabular-nums sm:text-[1.65rem] ${tones.value}`}
+        className={`mt-2 text-2xl font-bold tracking-tight tabular-nums sm:text-[1.65rem] ${tones.value}`}
       >
         {value}
       </p>
@@ -285,174 +278,169 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
       )}
 
       <div className="surface relative z-0 overflow-visible">
-        <div className="relative z-20 flex flex-wrap items-center gap-2 rounded-t-[inherit] border-b border-border bg-[#f7f8fa] px-3 py-2.5 sm:px-4">
-          <div className="relative z-30" ref={rangeRef}>
-            <button
-              type="button"
-              onClick={() => setRangeOpen((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-lg border border-[#ced0d3] bg-white px-3 py-2 text-sm font-medium text-[#1c1e21] shadow-sm hover:bg-[#f0f2f5]"
-              aria-expanded={rangeOpen}
-              aria-haspopup="listbox"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden
-              >
-                <rect x="3" y="5" width="18" height="16" rx="2" />
-                <path d="M3 10h18M8 3v4M16 3v4" />
-              </svg>
-              <span className="max-w-[14rem] truncate sm:max-w-none">
-                <span className="text-[#65676b]">{presetLabel}: </span>
-                {rangeLabel}
-              </span>
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                className={`opacity-60 transition ${rangeOpen ? "rotate-180" : ""}`}
-                aria-hidden
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
+        <div className="relative z-20 flex flex-wrap items-center gap-2 rounded-t-[inherit] border-b border-border bg-muted-bg/50 px-3 py-2.5 sm:px-4">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+              filtersOpen || hasFilters
+                ? "border-foreground/20 bg-white text-foreground shadow-sm"
+                : "border-border bg-white text-foreground hover:bg-muted-bg"
+            }`}
+          >
+            Filtros
+            {hasFilters
+              ? ` · ${[status, method, type, pageId].filter(Boolean).length}`
+              : ""}
+          </button>
 
-            {rangeOpen ? (
-              <div
-                role="listbox"
-                className="absolute left-0 top-full z-50 mt-1.5 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-[#dadde1] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.16)]"
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <div className="relative z-30" ref={rangeRef}>
+              <button
+                type="button"
+                onClick={() => setRangeOpen((v) => !v)}
+                className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-muted-bg"
+                aria-expanded={rangeOpen}
+                aria-haspopup="listbox"
               >
-                <div className="border-b border-[#eef0f2] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#65676b]">
-                  Período
-                </div>
-                <div className="p-1.5">
-                  {(
-                    [
-                      { id: 7 as const, label: "Últimos 7 dias" },
-                      { id: 30 as const, label: "Últimos 30 dias" },
-                      { id: 90 as const, label: "Últimos 90 dias" },
-                    ] as const
-                  ).map((opt) => (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
+                >
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 10h18M8 3v4M16 3v4" />
+                </svg>
+                <span className="max-w-[14rem] truncate sm:max-w-[18rem]">
+                  <span className="text-muted">{presetLabel}: </span>
+                  {rangeLabel}
+                </span>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  className={`shrink-0 opacity-60 transition ${rangeOpen ? "rotate-180" : ""}`}
+                  aria-hidden
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+
+              {rangeOpen ? (
+                <div
+                  role="listbox"
+                  className="absolute right-0 top-full z-50 mt-1.5 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-border bg-white shadow-lg shadow-black/10"
+                >
+                  <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                    Período
+                  </div>
+                  <div className="p-1.5">
+                    {(
+                      [
+                        { id: 7 as const, label: "Últimos 7 dias" },
+                        { id: 30 as const, label: "Últimos 30 dias" },
+                        { id: 90 as const, label: "Últimos 90 dias" },
+                      ] as const
+                    ).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="option"
+                        aria-selected={preset === opt.id}
+                        onClick={() => setPreset(opt.id)}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
+                          preset === opt.id
+                            ? "bg-muted-bg font-semibold text-foreground"
+                            : "text-foreground hover:bg-muted-bg"
+                        }`}
+                      >
+                        {opt.label}
+                        {preset === opt.id ? <span>✓</span> : null}
+                      </button>
+                    ))}
                     <button
-                      key={opt.id}
                       type="button"
                       role="option"
-                      aria-selected={preset === opt.id}
-                      onClick={() => setPreset(opt.id)}
+                      aria-selected={preset === "month"}
+                      onClick={setThisMonth}
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
-                        preset === opt.id
-                          ? "bg-[#e7f3ff] font-semibold text-[#0866ff]"
-                          : "text-[#1c1e21] hover:bg-[#f0f2f5]"
+                        preset === "month"
+                          ? "bg-muted-bg font-semibold text-foreground"
+                          : "text-foreground hover:bg-muted-bg"
                       }`}
                     >
-                      {opt.label}
-                      {preset === opt.id ? (
-                        <span className="text-[#0866ff]">✓</span>
-                      ) : null}
+                      Este mês
+                      {preset === "month" ? <span>✓</span> : null}
                     </button>
-                  ))}
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={preset === "month"}
-                    onClick={setThisMonth}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
-                      preset === "month"
-                        ? "bg-[#e7f3ff] font-semibold text-[#0866ff]"
-                        : "text-[#1c1e21] hover:bg-[#f0f2f5]"
-                    }`}
-                  >
-                    Este mês
-                    {preset === "month" ? (
-                      <span className="text-[#0866ff]">✓</span>
-                    ) : null}
-                  </button>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={preset === null}
-                    onClick={() => setCustomRange(true)}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
-                      preset === null
-                        ? "bg-[#e7f3ff] font-semibold text-[#0866ff]"
-                        : "text-[#1c1e21] hover:bg-[#f0f2f5]"
-                    }`}
-                  >
-                    Personalizado
-                    {preset === null ? (
-                      <span className="text-[#0866ff]">✓</span>
-                    ) : null}
-                  </button>
-                </div>
-                {customRange || preset === null ? (
-                  <div className="grid grid-cols-2 gap-2 border-t border-[#eef0f2] bg-[#f7f8fa] p-3">
-                    <label className="block text-xs">
-                      <span className="mb-1 block font-medium text-[#65676b]">
-                        De
-                      </span>
-                      <input
-                        type="date"
-                        className="input-field !py-1.5 text-sm"
-                        value={from}
-                        onChange={(e) => {
-                          setCustomRange(true);
-                          setFrom(e.target.value);
-                        }}
-                      />
-                    </label>
-                    <label className="block text-xs">
-                      <span className="mb-1 block font-medium text-[#65676b]">
-                        Até
-                      </span>
-                      <input
-                        type="date"
-                        className="input-field !py-1.5 text-sm"
-                        value={to}
-                        onChange={(e) => {
-                          setCustomRange(true);
-                          setTo(e.target.value);
-                        }}
-                      />
-                    </label>
                     <button
                       type="button"
-                      className="col-span-2 mt-1 rounded-lg bg-[#0866ff] px-3 py-2 text-sm font-semibold text-white hover:bg-[#0759db]"
-                      onClick={() => setRangeOpen(false)}
+                      role="option"
+                      aria-selected={preset === null}
+                      onClick={() => setCustomRange(true)}
+                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
+                        preset === null
+                          ? "bg-muted-bg font-semibold text-foreground"
+                          : "text-foreground hover:bg-muted-bg"
+                      }`}
                     >
-                      Aplicar
+                      Personalizado
+                      {preset === null ? <span>✓</span> : null}
                     </button>
                   </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+                  {customRange || preset === null ? (
+                    <div className="grid grid-cols-2 gap-2 border-t border-border bg-muted-bg/60 p-3">
+                      <label className="block text-xs">
+                        <span className="mb-1 block font-medium text-muted">
+                          De
+                        </span>
+                        <input
+                          type="date"
+                          className="input-field !py-1.5 text-sm"
+                          value={from}
+                          onChange={(e) => {
+                            setCustomRange(true);
+                            setFrom(e.target.value);
+                          }}
+                        />
+                      </label>
+                      <label className="block text-xs">
+                        <span className="mb-1 block font-medium text-muted">
+                          Até
+                        </span>
+                        <input
+                          type="date"
+                          className="input-field !py-1.5 text-sm"
+                          value={to}
+                          onChange={(e) => {
+                            setCustomRange(true);
+                            setTo(e.target.value);
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn-primary col-span-2 mt-1 !py-2 text-sm"
+                        onClick={() => setRangeOpen(false)}
+                      >
+                        Aplicar
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
 
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((v) => !v)}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                filtersOpen || hasFilters
-                  ? "border-[#0866ff]/30 bg-[#e7f3ff] text-[#0866ff]"
-                  : "border-[#ced0d3] bg-white text-[#1c1e21] hover:bg-[#f0f2f5]"
-              }`}
-            >
-              Filtros
-              {hasFilters
-                ? ` · ${[status, method, type, pageId].filter(Boolean).length}`
-                : ""}
-            </button>
             <button
               type="button"
               onClick={exportCsv}
-              className="inline-flex items-center rounded-lg border border-[#ced0d3] bg-white px-3 py-2 text-sm font-medium text-[#1c1e21] hover:bg-[#f0f2f5]"
+              className="inline-flex items-center rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-foreground hover:bg-muted-bg"
             >
               Exportar
             </button>
@@ -558,7 +546,7 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             <KpiCard
               label="Pendente"
               value={formatBRL(summary.pendente)}
-              hint="Ainda dá para pagar"
+              hint="Cobranças em aberto"
               tone="warn"
             />
           )}
@@ -573,7 +561,7 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             <KpiCard
               label="Confirmados"
               value={String(summary.confirmados)}
-              hint="Pagamentos pagos"
+              hint="Pagamentos confirmados"
               tone="blue"
             />
           )}
@@ -586,8 +574,8 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             }
             hint={
               (summary.comissaoTotal ?? 0) > 0 && !isProfessionalView
-                ? "Ainda dá para pagar"
-                : "Por pagamento pago"
+                ? "Cobranças em aberto"
+                : "Por pagamento confirmado"
             }
             tone={(summary.comissaoTotal ?? 0) > 0 && !isProfessionalView ? "warn" : "ink"}
           />
