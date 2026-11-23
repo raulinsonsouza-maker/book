@@ -14,18 +14,54 @@ import {
   platformMercadoPagoConfigured,
 } from "@/lib/billing/platform";
 import { isValidCpf } from "@/lib/utils";
+import { isPlatformPlanSlug } from "@/lib/billing/plans-catalog";
+import { ensurePlatformCheckoutPlans } from "@/lib/billing/ensure-plans";
+import { getRequestProductBrand } from "@/lib/app-origin-server";
+
+const planSlugField = z
+  .string()
+  .optional()
+  .refine((v) => !v || isPlatformPlanSlug(v), "Plano inválido");
 
 const paySchema = z.discriminatedUnion("method", [
   z.object({
     method: z.literal("pix"),
+    planSlug: planSlugField,
   }),
   z.object({
     method: z.literal("card"),
     cardToken: z.string().min(8),
     cpf: z.string().min(11),
     installments: z.coerce.number().int().min(1).max(12).optional(),
+    planSlug: planSlugField,
   }),
 ]);
+
+async function resolveCheckoutPlan(organizationId: string, planSlug?: string) {
+  if (planSlug && isPlatformPlanSlug(planSlug)) {
+    let plan = await prisma.plan.findFirst({
+      where: { slug: planSlug, isActive: true },
+    });
+    if (!plan) {
+      await ensurePlatformCheckoutPlans();
+      plan = await prisma.plan.findFirst({
+        where: { slug: planSlug, isActive: true },
+      });
+    }
+    if (!plan) return null;
+    await prisma.subscription.update({
+      where: { organizationId },
+      data: { planId: plan.id },
+    });
+    return plan;
+  }
+
+  const sub = await prisma.subscription.findUnique({
+    where: { organizationId },
+    include: { plan: true },
+  });
+  return sub?.plan ?? null;
+}
 
 export async function GET(req: Request) {
   const auth = await apiRequireAdmin();
@@ -79,18 +115,53 @@ export async function GET(req: Request) {
     }
   }
 
+  let plans = await prisma.plan.findMany({
+    where: {
+      isActive: true,
+      slug: { in: ["essencial-mensal", "essencial-semestral"] },
+    },
+    orderBy: { priceCents: "asc" },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      priceCents: true,
+      interval: true,
+    },
+  });
+  if (!plans.length) {
+    await ensurePlatformCheckoutPlans();
+    plans = await prisma.plan.findMany({
+      where: {
+        isActive: true,
+        slug: { in: ["essencial-mensal", "essencial-semestral"] },
+      },
+      orderBy: { priceCents: "asc" },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        priceCents: true,
+        interval: true,
+      },
+    });
+  }
+
+  const currentPlan = sub?.plan
+    ? {
+        id: sub.plan.id,
+        name: sub.plan.name,
+        slug: sub.plan.slug,
+        priceCents: sub.plan.priceCents,
+        interval: sub.plan.interval,
+      }
+    : plans.find((p) => p.slug === "essencial-semestral") || plans[0] || null;
+
   return NextResponse.json({
     status: sub?.status ?? null,
     paid: false,
-    plan: sub?.plan
-      ? {
-          id: sub.plan.id,
-          name: sub.plan.name,
-          slug: sub.plan.slug,
-          priceCents: sub.plan.priceCents,
-          interval: sub.plan.interval,
-        }
-      : null,
+    plan: currentPlan,
+    plans,
     publicKey: await platformMpPublicKey(),
     billingEnabled: await isPlatformBillingEnabled(),
     mpConfigured: await platformMercadoPagoConfigured(),
@@ -118,20 +189,27 @@ export async function POST(req: Request) {
     const sub = await prisma.subscription.findUnique({
       where: { organizationId: orgId },
       include: {
-        plan: true,
         organization: { select: { name: true } },
       },
     });
 
-    if (!sub?.plan) {
+    if (!sub) {
       return NextResponse.json(
-        { error: "Plano não encontrado. Refaça o cadastro." },
+        { error: "Assinatura não encontrada. Refaça o cadastro." },
         { status: 400 },
       );
     }
 
     if (sub.status === "ACTIVE") {
       return NextResponse.json({ ok: true, paid: true, status: "ACTIVE" });
+    }
+
+    const plan = await resolveCheckoutPlan(orgId, body.planSlug);
+    if (!plan) {
+      return NextResponse.json(
+        { error: "Plano não encontrado. Escolha mensal ou semestral." },
+        { status: 400 },
+      );
     }
 
     const user = await prisma.user.findUnique({
@@ -142,9 +220,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Usuário inválido" }, { status: 400 });
     }
 
-    const description = `Book Symbius — ${sub.plan.name}`;
-    const amountCents = sub.plan.priceCents;
-    const idempotencyKey = `plat-${orgId}-${body.method}-${Date.now()}`;
+    const brand = await getRequestProductBrand();
+    const description = `${brand.name} — ${plan.name}`;
+    const amountCents = plan.priceCents;
+    const idempotencyKey = `plat-${orgId}-${plan.slug}-${body.method}-${Date.now()}`;
 
     if (body.method === "pix") {
       const result = await createPlatformPixPayment({
@@ -195,8 +274,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "CPF inválido" }, { status: 400 });
     }
 
-    const maxInstallments =
-      sub.plan.interval === "SEMESTER" ? 6 : 1;
+    const maxInstallments = plan.interval === "SEMESTER" ? 6 : 1;
     const installments = Math.min(
       maxInstallments,
       body.installments || 1,

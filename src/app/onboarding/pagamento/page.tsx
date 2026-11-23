@@ -13,11 +13,16 @@ import {
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { MercadoPagoIcon } from "@/components/icons/MercadoPagoIcon";
 import { PaymentStep } from "@/components/payment/PaymentStep";
-import { PLATFORM_PLAN_FALLBACKS } from "@/lib/billing/plans-catalog";
+import {
+  PLATFORM_PLAN_FALLBACKS,
+  PLATFORM_PLAN_SLUGS,
+  type PlatformPlanSlug,
+} from "@/lib/billing/plans-catalog";
 import { useProductBrand } from "@/hooks/useProductBrand";
 import { formatBRL, formatCpf, isValidCpf } from "@/lib/utils";
 
 type PlanInfo = {
+  id?: string;
   name: string;
   slug: string;
   priceCents: number;
@@ -58,6 +63,7 @@ function OnboardingPagamentoForm() {
   const brand = useProductBrand();
   const { status, update } = useSession();
   const [plan, setPlan] = useState<PlanInfo | null>(null);
+  const [plans, setPlans] = useState<PlanInfo[]>(PLATFORM_PLAN_FALLBACKS);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,6 +91,19 @@ function OnboardingPagamentoForm() {
     [plan?.slug],
   );
 
+  const monthly = plans.find((p) => p.slug === PLATFORM_PLAN_SLUGS.monthly);
+  const semester = plans.find((p) => p.slug === PLATFORM_PLAN_SLUGS.semester);
+
+  function selectPlan(next: PlanInfo) {
+    setPlan(next);
+    setError("");
+    setPixQr(null);
+    setPixQrBase64(null);
+    setPaymentId(null);
+    setAwaitingCard(false);
+    setInstallments(next.interval === "SEMESTER" ? 6 : 1);
+  }
+
   const goApp = useCallback(async () => {
     await update();
     window.location.assign("/app");
@@ -102,7 +121,22 @@ function OnboardingPagamentoForm() {
       await goApp();
       return;
     }
-    if (data.plan) setPlan(data.plan);
+    if (Array.isArray(data.plans) && data.plans.length) {
+      setPlans(data.plans);
+    }
+    if (data.plan) {
+      setPlan(data.plan);
+      setInstallments(data.plan.interval === "SEMESTER" ? 6 : 1);
+    } else if (Array.isArray(data.plans) && data.plans.length) {
+      const preferred =
+        data.plans.find(
+          (p: PlanInfo) => p.slug === PLATFORM_PLAN_SLUGS.semester,
+        ) || data.plans[0];
+      if (preferred) {
+        setPlan(preferred);
+        setInstallments(preferred.interval === "SEMESTER" ? 6 : 1);
+      }
+    }
     if (data.publicKey) setPublicKey(data.publicKey);
     setLoading(false);
   }, [goApp]);
@@ -157,7 +191,10 @@ function OnboardingPagamentoForm() {
       const res = await fetch("/api/onboarding/checkout/pay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method: "pix" }),
+        body: JSON.stringify({
+          method: "pix",
+          planSlug: plan?.slug as PlatformPlanSlug | undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -232,6 +269,7 @@ function OnboardingPagamentoForm() {
           cardToken: tokenized.id,
           cpf: digits,
           installments: plan?.interval === "SEMESTER" ? installments : 1,
+          planSlug: plan?.slug as PlatformPlanSlug | undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -287,6 +325,74 @@ function OnboardingPagamentoForm() {
             com tudo pronto para receber clientes.
           </p>
         </header>
+
+        {(monthly || semester) && (
+          <section className="space-y-3" aria-label="Escolha do plano">
+            <div>
+              <h2 className="text-sm font-bold tracking-tight">
+                Escolha o plano
+              </h2>
+              <p className="mt-0.5 text-xs text-muted">
+                Semestral sai mais barato e pode parcelar em até 6x no cartão.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {monthly && (
+                <button
+                  type="button"
+                  onClick={() => selectPlan(monthly)}
+                  className={`onboard-plan-card text-left ${
+                    plan?.slug === monthly.slug ? "is-active" : ""
+                  }`}
+                >
+                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--lp-steel)]">
+                    Mensal
+                  </p>
+                  <p className="mt-2 text-2xl font-bold tracking-tight">
+                    {formatBRL(monthly.priceCents)}
+                    <span className="text-sm font-semibold text-[var(--lp-steel)]">
+                      /mês
+                    </span>
+                  </p>
+                  <p className="mt-2 text-xs text-[var(--lp-steel)]">
+                    Cobrança todo mês · cancele quando quiser
+                  </p>
+                </button>
+              )}
+              {semester && (
+                <button
+                  type="button"
+                  onClick={() => selectPlan(semester)}
+                  className={`onboard-plan-card text-left is-highlight ${
+                    plan?.slug === semester.slug ? "is-active" : ""
+                  }`}
+                >
+                  <span className="onboard-plan-badge">Economize 31%</span>
+                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--lp-steel)]">
+                    Semestral
+                  </p>
+                  <p className="mt-2 text-2xl font-bold tracking-tight">
+                    R$ 67
+                    <span className="text-sm font-semibold text-[var(--lp-steel)]">
+                      /mês
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--lp-steel)]">
+                    <span className="line-through">{formatBRL(58200)}</span>
+                    {" → "}
+                    <strong className="text-[var(--lp-ink)]">
+                      {formatBRL(semester.priceCents)}
+                    </strong>{" "}
+                    no semestre
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-[var(--lp-accent)]">
+                    Em até 6x no cartão
+                  </p>
+                </button>
+              )}
+            </div>
+          </section>
+        )}
 
         {plan && (
           <section className="onboard-pay-summary" aria-label="Resumo do plano">
