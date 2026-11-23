@@ -143,24 +143,30 @@ export function VisitRecordModal({
 
   useEffect(() => {
     if (!features.attendanceCertificates) return;
-    fetch(`/api/declaracoes?q=${encodeURIComponent(booking.customerName)}`)
+    const qs = customerId
+      ? `customerId=${encodeURIComponent(customerId)}`
+      : `q=${encodeURIComponent(booking.customerName)}`;
+    fetch(`/api/declaracoes?${qs}`)
       .then(async (r) => {
         if (!r.ok) return;
         const data = await r.json();
         const items = (data.items || []) as CertRow[];
         setCerts(
-          items.filter(
-            (c) =>
-              c.visitDate === when.date &&
-              c.patientName.trim().toLowerCase() ===
-                booking.customerName.trim().toLowerCase(),
-          ),
+          customerId
+            ? items.filter((c) => c.visitDate === when.date).slice(0, 10)
+            : items.filter(
+                (c) =>
+                  c.visitDate === when.date &&
+                  c.patientName.trim().toLowerCase() ===
+                    booking.customerName.trim().toLowerCase(),
+              ),
         );
       })
       .catch(() => undefined);
   }, [
     features.attendanceCertificates,
     booking.customerName,
+    customerId,
     when.date,
   ]);
 
@@ -248,6 +254,7 @@ export function VisitRecordModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientName: booking.customerName,
+          customerId,
           visitDate: when.date,
           startTime: when.time,
           endTime,

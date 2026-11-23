@@ -126,6 +126,7 @@ export async function GET(req: Request) {
       name: c.name,
       phoneE164: c.phoneE164,
       email: c.email,
+      cpf: c.cpf,
       bookingsCount: c._count.bookings,
       lastVisit: c.bookings[0]
         ? {

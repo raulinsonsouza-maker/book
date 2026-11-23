@@ -3,13 +3,31 @@ import {
   formatShortDate,
   todayIsoDate,
 } from "@/lib/attendance/format";
+import {
+  ATESTADO_KIND,
+  COMPARECIMENTO_KIND,
+  isAtestadoEspecialKind,
+  type AttendanceKind,
+} from "@/lib/attendance/kinds";
 
-export const ATESTADO_KIND = "ATESTADO" as const;
-export const COMPARECIMENTO_KIND = "COMPARECIMENTO" as const;
-
-export type AttendanceKind =
-  | typeof ATESTADO_KIND
-  | typeof COMPARECIMENTO_KIND;
+export {
+  ATESTADO_KIND,
+  ATESTADO_PADRAO_KIND,
+  COMPARECIMENTO_KIND,
+  ENCAMINHAMENTO_KIND,
+  RECEITA_KIND,
+  HUB_KINDS,
+  defaultAtestadoPadraoBody,
+  defaultEncaminhamentoBody,
+  defaultReceitaBody,
+  isAtestadoEspecialKind,
+  isAtestadoKind,
+  isLetterheadKind,
+  kindDocumentTitle,
+  kindLabel,
+  parseAttendanceKind,
+  type AttendanceKind,
+} from "@/lib/attendance/kinds";
 
 export const ATESTADO_DEFAULT_TITLE = "ATESTADO MÉDICO";
 
@@ -22,10 +40,6 @@ export const ATESTADO_DEFAULT_SIGNER_NAME = "Dr. Rodrigo Bravo";
 export const ATESTADO_DEFAULT_SIGNER_SPECIALTY = "Clínico Geral";
 export const ATESTADO_DEFAULT_SIGNER_CRM = "SP 965685";
 export const ATESTADO_SIGN_LABEL = "Assinatura do Profissional";
-
-export function isAtestadoKind(kind: string | null | undefined): boolean {
-  return kind === ATESTADO_KIND;
-}
 
 /** HH:mm:ss no fuso da clínica. */
 export function nowTimeHms(now = new Date(), timeZone = ATTENDANCE_TIMEZONE) {
@@ -113,3 +127,31 @@ export function atestadoFileName(patientName: string, issueDate: string) {
     .slice(0, 60);
   return `atestado-${slug || "paciente"}-${issueDate}.pdf`;
 }
+
+export function documentFileName(
+  kind: AttendanceKind | string,
+  patientName: string,
+  issueDate: string,
+) {
+  const prefix = isAtestadoEspecialKind(kind)
+    ? "atestado"
+    : kind === COMPARECIMENTO_KIND
+      ? "comparecimento"
+      : kind === "ENCAMINHAMENTO"
+        ? "encaminhamento"
+        : kind === "RECEITA"
+          ? "receita"
+          : kind === "ATESTADO_PADRAO"
+            ? "atestado"
+            : "documento";
+  const slug = patientName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return `${prefix}-${slug || "paciente"}-${issueDate}.pdf`;
+}
+
+export { ATESTADO_KIND as ATESTADO_ESPECIAL_KIND };

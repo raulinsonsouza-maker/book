@@ -9,9 +9,11 @@ import {
   ATESTADO_HEADER_SRC,
   ATESTADO_SIGN_LABEL,
   atestadoIssueLine,
-  isAtestadoKind,
+  isAtestadoEspecialKind,
+  kindDocumentTitle,
   type AttendanceKind,
 } from "@/lib/attendance/atestado";
+import { COMPARECIMENTO_KIND } from "@/lib/attendance/kinds";
 import {
   attendanceBody,
   attendanceContactLine,
@@ -36,10 +38,73 @@ type Props = {
 
 /** Folha A4 da declaração — mesmo texto e proporções do PDF. */
 export function AttendanceDocument({ header, data }: Props) {
-  if (isAtestadoKind(data.kind)) {
+  if (isAtestadoEspecialKind(data.kind)) {
     return <AtestadoDocument data={data} />;
   }
-  return <ComparecimentoDocument header={header} data={data} />;
+  if (!data.kind || data.kind === COMPARECIMENTO_KIND) {
+    return <ComparecimentoDocument header={header} data={data} />;
+  }
+  return <LetterheadDocument header={header} data={data} />;
+}
+
+function LetterheadDocument({
+  header,
+  data,
+}: {
+  header: AttendanceHeader;
+  data: AttendanceDocumentData & {
+    kind?: AttendanceKind | string;
+    title?: string | null;
+    bodyText?: string | null;
+  };
+}) {
+  const contact = attendanceContactLine(header);
+  const signerTitle = (header.signerTitle || header.businessName).trim();
+  const signerPhone = (header.signerPhone || header.phone).trim();
+  const heading =
+    (data.title || "").trim() || kindDocumentTitle(data.kind);
+  const paragraphs = (data.bodyText || "")
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return (
+    <article className="attendance-sheet">
+      <header className="attendance-head">
+        {header.logoUrl.trim() && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={header.logoUrl} alt="" className="attendance-logo" />
+        )}
+        {header.businessName.trim() && (
+          <p className="attendance-business">{header.businessName}</p>
+        )}
+        {header.address.trim() && <p className="attendance-meta">{header.address}</p>}
+        {contact && <p className="attendance-meta">{contact}</p>}
+        <hr className="attendance-rule" />
+      </header>
+
+      <h1 className="attendance-title">{heading.toUpperCase()}</h1>
+
+      <div className="attendance-body">
+        {paragraphs.length === 0 ? (
+          <p className="text-muted">Preencha o texto do documento…</p>
+        ) : (
+          paragraphs.map((p, i) => <p key={i}>{p}</p>)
+        )}
+      </div>
+
+      <p className="attendance-issue">{attendanceIssueLine(data)}</p>
+
+      <footer className="attendance-signature">
+        <div className="attendance-sign-line" />
+        {header.signerName.trim() && (
+          <p className="attendance-sign-name">{header.signerName}</p>
+        )}
+        {signerTitle && <p className="attendance-sign-meta">{signerTitle}</p>}
+        {signerPhone && <p className="attendance-sign-meta">{signerPhone}</p>}
+      </footer>
+    </article>
+  );
 }
 
 function ComparecimentoDocument({

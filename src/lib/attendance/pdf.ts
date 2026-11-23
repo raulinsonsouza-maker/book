@@ -9,8 +9,13 @@ import {
   ATESTADO_HEADER_SRC,
   ATESTADO_SIGN_LABEL,
   atestadoIssueLine,
-  isAtestadoKind,
+  isAtestadoEspecialKind,
+  kindDocumentTitle,
 } from "@/lib/attendance/atestado";
+import {
+  COMPARECIMENTO_KIND,
+  type AttendanceKind,
+} from "@/lib/attendance/kinds";
 import {
   attendanceBody,
   attendanceContactLine,
@@ -433,6 +438,113 @@ export async function buildAtestadoPdf(params: {
   return doc.save();
 }
 
+/** Documento timbrado genérico (encaminhamento, receita, atestado padrão). */
+export async function buildLetterheadDocPdf(params: {
+  header: AttendanceHeader;
+  data: AttendanceDocumentData & {
+    title?: string | null;
+    bodyText?: string | null;
+  };
+  kind: AttendanceKind | string;
+}): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const heading =
+    (params.data.title || "").trim() ||
+    kindDocumentTitle(params.kind);
+  doc.setTitle(`${heading} - ${params.data.patientName}`);
+  doc.setAuthor(params.header.businessName || params.header.signerName);
+  doc.setCreator("Temark / Book Symbius");
+
+  const fonts: Fonts = {
+    regular: await doc.embedFont(StandardFonts.TimesRoman),
+    bold: await doc.embedFont(StandardFonts.TimesRomanBold),
+  };
+  const clean = makeSanitizer(fonts.regular);
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+  const header = params.header;
+
+  let y = PAGE_H - 40;
+  const logo = await embedLogo(doc, header.logoUrl);
+  if (logo) {
+    const h = 96;
+    const w = (logo.width / logo.height) * h;
+    page.drawImage(logo, { x: (PAGE_W - w) / 2, y: y - h, width: w, height: h });
+    y -= h + 14;
+  } else {
+    y -= 20;
+  }
+
+  if (header.businessName.trim()) {
+    drawCentered(page, clean(header.businessName.trim()), y, fonts.bold, 15);
+    y -= 17;
+  }
+  if (header.address.trim()) {
+    drawCentered(page, clean(header.address.trim()), y, fonts.regular, 10.5, MUTED);
+    y -= 15;
+  }
+  const contact = attendanceContactLine(header);
+  if (contact) {
+    drawCentered(page, clean(contact), y, fonts.regular, 10.5, MUTED);
+    y -= 15;
+  }
+  y -= 4;
+  page.drawLine({
+    start: { x: MARGIN_X, y },
+    end: { x: PAGE_W - MARGIN_X, y },
+    thickness: 0.8,
+    color: ACCENT,
+  });
+
+  y -= 54;
+  drawSpacedCentered(page, clean(heading.toUpperCase()), y, fonts.bold, 15, 1.4);
+
+  y -= 48;
+  const paragraphs = (params.data.bodyText || "")
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  for (const paragraph of paragraphs) {
+    y = drawParagraph(page, [{ text: paragraph }], y, fonts, clean);
+    y -= 12;
+  }
+
+  y -= 28;
+  const issue = clean(attendanceIssueLine(params.data));
+  const issueW = fonts.bold.widthOfTextAtSize(issue, BODY_SIZE);
+  page.drawText(issue, {
+    x: PAGE_W - MARGIN_X - issueW,
+    y,
+    size: BODY_SIZE,
+    font: fonts.bold,
+    color: INK,
+  });
+
+  y = Math.min(y - 110, 230);
+  const sigW = 250;
+  page.drawLine({
+    start: { x: (PAGE_W - sigW) / 2, y },
+    end: { x: (PAGE_W + sigW) / 2, y },
+    thickness: 0.7,
+    color: INK,
+  });
+  y -= 18;
+  if (header.signerName.trim()) {
+    drawCentered(page, clean(header.signerName.trim()), y, fonts.bold, 12.5);
+    y -= 16;
+  }
+  const signerTitle = (header.signerTitle || header.businessName).trim();
+  if (signerTitle) {
+    drawCentered(page, clean(signerTitle), y, fonts.regular, 11, MUTED);
+    y -= 14;
+  }
+  const signerPhone = (header.signerPhone || header.phone).trim();
+  if (signerPhone) {
+    drawCentered(page, clean(signerPhone), y, fonts.regular, 11, MUTED);
+  }
+
+  return doc.save();
+}
+
 export async function buildCertificatePdf(params: {
   kind?: string | null;
   header: AttendanceHeader;
@@ -447,7 +559,7 @@ export async function buildCertificatePdf(params: {
     patientName: string;
   };
 }) {
-  if (isAtestadoKind(params.kind)) {
+  if (isAtestadoEspecialKind(params.kind)) {
     return buildAtestadoPdf({
       patientName: params.data.patientName,
       title: params.data.title,
@@ -461,5 +573,12 @@ export async function buildCertificatePdf(params: {
       signerCrm: params.data.signerCrm,
     });
   }
-  return buildAttendancePdf(params.header, params.data);
+  if (!params.kind || params.kind === COMPARECIMENTO_KIND) {
+    return buildAttendancePdf(params.header, params.data);
+  }
+  return buildLetterheadDocPdf({
+    header: params.header,
+    data: params.data,
+    kind: params.kind,
+  });
 }

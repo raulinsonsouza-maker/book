@@ -4,10 +4,12 @@ import { apiRequireStaff } from "@/lib/rbac";
 import { customerScopeWhere } from "@/lib/clients";
 import { resolveBusinessProfile } from "@/lib/business-profile";
 import { visitRecordSummary } from "@/lib/visit-record";
+import { kindLabel } from "@/lib/attendance/kinds";
+import { documentPublicPath } from "@/lib/attendance/share";
 
 type TimelineItem = {
   id: string;
-  kind: "booking" | "payment" | "note" | "prescription";
+  kind: "booking" | "payment" | "note" | "prescription" | "certificate";
   at: string;
   title: string;
   subtitle?: string;
@@ -44,7 +46,7 @@ export async function GET(
     org?.attendanceEnabled,
   );
 
-  const [bookings, notes, prescriptions] = await Promise.all([
+  const [bookings, notes, prescriptions, certificates] = await Promise.all([
     prisma.booking.findMany({
       where: {
         customerId: customer.id,
@@ -70,6 +72,16 @@ export async function GET(
             organizationId: ctx.organizationId,
           },
           orderBy: { issuedAt: "desc" },
+          take: 40,
+        })
+      : Promise.resolve([]),
+    profile.features.attendanceCertificates
+      ? prisma.attendanceCertificate.findMany({
+          where: {
+            customerId: customer.id,
+            organizationId: ctx.organizationId,
+          },
+          orderBy: { createdAt: "desc" },
           take: 40,
         })
       : Promise.resolve([]),
@@ -136,6 +148,27 @@ export async function GET(
       title: "Prescrição / orientação",
       subtitle: `${count} item(ns)`,
       meta: { prescriptionId: p.id, bookingId: p.bookingId },
+    });
+  }
+
+  for (const c of certificates) {
+    const shareActive = Boolean(c.shareToken && !c.shareRevokedAt);
+    items.push({
+      id: `cert-${c.id}`,
+      kind: "certificate",
+      at: c.createdAt.toISOString(),
+      title: kindLabel(c.kind),
+      subtitle: c.patientName,
+      meta: {
+        certificateId: c.id,
+        docKind: c.kind,
+        pdfUrl: `/api/declaracoes/${c.id}/pdf`,
+        printUrl: `/app/declaracoes/${c.id}/imprimir`,
+        shareUrl:
+          shareActive && c.shareToken
+            ? documentPublicPath(c.shareToken)
+            : null,
+      },
     });
   }
 

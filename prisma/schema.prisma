@@ -217,9 +217,10 @@ model Organization {
 model AttendanceCertificate {
   id              String       @id @default(cuid())
   organizationId  String
-  /** COMPARECIMENTO | ATESTADO */
+  /** COMPARECIMENTO | ENCAMINHAMENTO | RECEITA | ATESTADO_PADRAO | ATESTADO (especial Letícia) */
   kind            String       @default("COMPARECIMENTO")
   patientName     String
+  customerId      String?
   /** AAAA-MM-DD */
   visitDate       String
   /** HH:mm */
@@ -241,11 +242,16 @@ model AttendanceCertificate {
   signerCrm       String?
   /** Cabeçalho congelado no momento da emissão (JSON). */
   headerSnapshot  String
+  /** Token público /d/[token]. */
+  shareToken      String?      @unique
+  shareRevokedAt  DateTime?
   createdByUserId String?
   createdAt       DateTime     @default(now())
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer        Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, createdAt])
+  @@index([organizationId, customerId, createdAt])
 }
 
 model Membership {
@@ -746,6 +752,7 @@ model Customer {
   visitNotes     VisitNote[]
   prescriptions  Prescription[]
   whatsappMessages WhatsAppMessageLog[]
+  attendanceCertificates AttendanceCertificate[]
 
   @@unique([organizationId, phoneE164])
   @@index([organizationId, phoneE164])

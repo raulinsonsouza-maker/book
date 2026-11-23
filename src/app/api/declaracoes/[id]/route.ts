@@ -7,9 +7,12 @@ import {
   ATESTADO_DEFAULT_SIGNER_NAME,
   ATESTADO_DEFAULT_SIGNER_SPECIALTY,
   ATESTADO_DEFAULT_TITLE,
-  ATESTADO_KIND,
+  ATESTADO_PADRAO_KIND,
   COMPARECIMENTO_KIND,
-  isAtestadoKind,
+  ENCAMINHAMENTO_KIND,
+  RECEITA_KIND,
+  isAtestadoEspecialKind,
+  parseAttendanceKind,
 } from "@/lib/attendance/atestado";
 import {
   isValidIsoDate,
@@ -19,10 +22,13 @@ import {
 } from "@/lib/attendance/format";
 import { serializeCertificate } from "@/lib/attendance/serialize";
 import { orgCanIssueAtestado } from "@/lib/attendance/atestado-access";
+import { resolveCustomerForOrg } from "@/lib/attendance/create-helpers";
+
+const customerIdField = z.string().cuid().optional().nullable();
 
 const atestadoUpdateSchema = z.object({
-  kind: z.literal(ATESTADO_KIND).optional(),
   patientName: z.string().trim().min(3, "Informe o nome completo").max(160),
+  customerId: customerIdField,
   issueDate: z
     .string()
     .refine(isValidIsoDate, "Data de emissão inválida")
@@ -43,8 +49,8 @@ const atestadoUpdateSchema = z.object({
 
 const comparecimentoUpdateSchema = z
   .object({
-    kind: z.literal(COMPARECIMENTO_KIND).optional(),
     patientName: z.string().trim().min(3, "Informe o nome completo").max(160),
+    customerId: customerIdField,
     visitDate: z.string().refine(isValidIsoDate, "Data do atendimento inválida"),
     startTime: z.string().refine(isValidTime, "Horário de entrada inválido"),
     endTime: z.string().refine(isValidTime, "Horário de saída inválido"),
@@ -57,6 +63,23 @@ const comparecimentoUpdateSchema = z
     message: "O horário de saída precisa ser depois da entrada",
     path: ["endTime"],
   });
+
+const textDocUpdateSchema = z.object({
+  patientName: z.string().trim().min(3, "Informe o nome completo").max(160),
+  customerId: customerIdField,
+  issueDate: z
+    .string()
+    .refine(isValidIsoDate, "Data de emissão inválida")
+    .optional(),
+  issueCity: z.string().trim().max(120).optional(),
+  title: z.string().trim().max(160).optional().nullable(),
+  bodyText: z
+    .string()
+    .trim()
+    .min(10, "Informe o texto do documento")
+    .max(8000),
+  visitDate: z.string().optional(),
+});
 
 export async function PATCH(
   req: Request,
@@ -79,18 +102,41 @@ export async function PATCH(
   }
 
   const { header } = access;
+  const kind = parseAttendanceKind(existing.kind) ?? COMPARECIMENTO_KIND;
 
-  if (isAtestadoKind(existing.kind)) {
+  const customerIdRaw =
+    typeof (body as { customerId?: unknown }).customerId === "string"
+      ? (body as { customerId: string }).customerId
+      : (body as { customerId?: null }).customerId === null
+        ? null
+        : undefined;
+  let customerId = existing.customerId;
+  if (customerIdRaw !== undefined) {
+    if (customerIdRaw === null) {
+      customerId = null;
+    } else {
+      const customer = await resolveCustomerForOrg(
+        access.ctx.organizationId,
+        customerIdRaw,
+      );
+      if (!customer) {
+        return NextResponse.json(
+          { error: "Paciente não encontrado" },
+          { status: 400 },
+        );
+      }
+      customerId = customer.id;
+    }
+  }
+
+  if (isAtestadoEspecialKind(kind)) {
     if (!(await orgCanIssueAtestado(access.ctx.organizationId))) {
       return NextResponse.json(
         { error: "Atestado médico não está disponível nesta conta" },
         { status: 403 },
       );
     }
-    const parsed = atestadoUpdateSchema.safeParse({
-      ...body,
-      kind: ATESTADO_KIND,
-    });
+    const parsed = atestadoUpdateSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message || "Dados inválidos" },
@@ -103,6 +149,7 @@ export async function PATCH(
       where: { id: existing.id },
       data: {
         patientName: data.patientName.replace(/\s+/g, " "),
+        customerId,
         issuedAt: issueDateToDate(issueDate),
         issueCity: (data.issueCity || existing.issueCity || header.city || "Piracicaba-SP").trim(),
         title: (data.title || ATESTADO_DEFAULT_TITLE).trim(),
@@ -124,6 +171,38 @@ export async function PATCH(
     return NextResponse.json({ item: serializeCertificate(updated) });
   }
 
+  if (
+    kind === ENCAMINHAMENTO_KIND ||
+    kind === RECEITA_KIND ||
+    kind === ATESTADO_PADRAO_KIND
+  ) {
+    const parsed = textDocUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || "Dados inválidos" },
+        { status: 400 },
+      );
+    }
+    const data = parsed.data;
+    const issueDate = data.issueDate || todayIsoDate();
+    const updated = await prisma.attendanceCertificate.update({
+      where: { id: existing.id },
+      data: {
+        patientName: data.patientName.replace(/\s+/g, " "),
+        customerId,
+        issuedAt: issueDateToDate(issueDate),
+        issueCity: (data.issueCity || existing.issueCity || header.city).trim(),
+        title: (data.title || "").trim() || null,
+        bodyText: data.bodyText,
+        visitDate:
+          data.visitDate && isValidIsoDate(data.visitDate)
+            ? data.visitDate
+            : issueDate,
+      },
+    });
+    return NextResponse.json({ item: serializeCertificate(updated) });
+  }
+
   const parsed = comparecimentoUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -136,6 +215,7 @@ export async function PATCH(
     where: { id: existing.id },
     data: {
       patientName: data.patientName.replace(/\s+/g, " "),
+      customerId,
       visitDate: data.visitDate,
       startTime: data.startTime,
       endTime: data.endTime,

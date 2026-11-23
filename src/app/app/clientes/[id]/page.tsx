@@ -64,12 +64,14 @@ type RxRow = {
 
 type TimelineItem = {
   id: string;
-  kind: "booking" | "payment" | "note" | "prescription";
+  kind: "booking" | "payment" | "note" | "prescription" | "certificate";
   at: string;
   title: string;
   subtitle?: string;
   meta?: Record<string, unknown>;
 };
+
+type TimelineFilter = "all" | TimelineItem["kind"];
 
 function money(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", {
@@ -105,9 +107,11 @@ export default function ClienteProntuarioPage() {
   const [prescriptions, setPrescriptions] = useState<RxRow[]>([]);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [tab, setTab] = useState<Tab>("timeline");
+  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedVisit, setSelectedVisit] = useState<VisitBooking | null>(null);
+  const [copyMsg, setCopyMsg] = useState("");
 
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -245,6 +249,38 @@ export default function ClienteProntuarioPage() {
     (b) => b.paymentStatus === "PAID" && b.paymentAmountCents != null,
   );
 
+  const filteredTimeline = useMemo(() => {
+    if (timelineFilter === "all") return timeline;
+    return timeline.filter((i) => i.kind === timelineFilter);
+  }, [timeline, timelineFilter]);
+
+  const timelineChips = useMemo(() => {
+    const chips: { id: TimelineFilter; label: string }[] = [
+      { id: "all", label: "Tudo" },
+      { id: "booking", label: profile?.visitNounPlural || "Agendamentos" },
+      { id: "payment", label: "Pagamentos" },
+    ];
+    if (profile?.features.visitNotes) chips.push({ id: "note", label: "Notas" });
+    if (profile?.features.prescriptions) {
+      chips.push({ id: "prescription", label: "Prescrições" });
+    }
+    if (profile?.features.attendanceCertificates) {
+      chips.push({ id: "certificate", label: "Documentos" });
+    }
+    return chips;
+  }, [profile]);
+
+  async function copyShareUrl(path: string) {
+    const absolute = `${window.location.origin}${path}`;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      setCopyMsg("Link copiado");
+      setTimeout(() => setCopyMsg(""), 2000);
+    } catch {
+      setCopyMsg(absolute);
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-muted">Carregando prontuário…</p>;
   }
@@ -308,7 +344,15 @@ export default function ClienteProntuarioPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/app/agenda/calendario" className="btn-primary">
+          {profile.features.attendanceCertificates ? (
+            <Link
+              href={`/app/declaracoes?customerId=${customer.id}`}
+              className="btn-primary"
+            >
+              Emitir documento
+            </Link>
+          ) : null}
+          <Link href="/app/agenda/calendario" className="btn-secondary">
             Agendar
           </Link>
           <Link href="/app/clientes" className="btn-secondary">
@@ -316,6 +360,7 @@ export default function ClienteProntuarioPage() {
           </Link>
         </div>
       </div>
+      {copyMsg ? <p className="text-sm text-muted">{copyMsg}</p> : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-white px-4 py-3 shadow-sm">
@@ -363,13 +408,39 @@ export default function ClienteProntuarioPage() {
 
       {tab === "timeline" ? (
         <div className="rounded-2xl border border-border bg-white p-4 shadow-sm sm:p-5">
-          {timeline.length === 0 ? (
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            {timelineChips.map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setTimelineFilter(chip.id)}
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                  timelineFilter === chip.id
+                    ? "bg-[#1a1a1a] text-white"
+                    : "bg-[#f4f2ef] text-muted hover:text-foreground"
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+          {filteredTimeline.length === 0 ? (
             <p className="text-sm text-muted">Sem eventos ainda.</p>
           ) : (
             <ol className="relative space-y-0 border-l border-border pl-5">
-              {timeline.map((item) => {
+              {filteredTimeline.map((item) => {
                 const bookingId = bookingIdFromItem(item);
                 const clickable = Boolean(bookingId);
+                const shareUrl =
+                  typeof item.meta?.shareUrl === "string"
+                    ? item.meta.shareUrl
+                    : null;
+                const pdfUrl =
+                  typeof item.meta?.pdfUrl === "string" ? item.meta.pdfUrl : null;
+                const printUrl =
+                  typeof item.meta?.printUrl === "string"
+                    ? item.meta.printUrl
+                    : null;
                 return (
                   <li key={item.id} className="relative pb-5 last:pb-0">
                     <span
@@ -380,7 +451,9 @@ export default function ClienteProntuarioPage() {
                             ? "bg-amber-500"
                             : item.kind === "prescription"
                               ? "bg-sky-500"
-                              : "bg-[#1a1a1a]"
+                              : item.kind === "certificate"
+                                ? "bg-violet-600"
+                                : "bg-[#1a1a1a]"
                       }`}
                     />
                     {clickable ? (
@@ -401,7 +474,7 @@ export default function ClienteProntuarioPage() {
                         </p>
                       </button>
                     ) : (
-                      <>
+                      <div className="px-2 py-1.5">
                         <p className="text-xs text-muted">{fmtWhen(item.at)}</p>
                         <p className="font-medium text-foreground">
                           {item.title}
@@ -409,7 +482,38 @@ export default function ClienteProntuarioPage() {
                         {item.subtitle ? (
                           <p className="text-sm text-muted">{item.subtitle}</p>
                         ) : null}
-                      </>
+                        {item.kind === "certificate" ? (
+                          <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                            {pdfUrl ? (
+                              <a
+                                href={pdfUrl}
+                                className="font-medium underline-offset-2 hover:underline"
+                              >
+                                PDF
+                              </a>
+                            ) : null}
+                            {printUrl ? (
+                              <a
+                                href={printUrl}
+                                target="_blank"
+                                rel="noopener"
+                                className="font-medium underline-offset-2 hover:underline"
+                              >
+                                Imprimir
+                              </a>
+                            ) : null}
+                            {shareUrl ? (
+                              <button
+                                type="button"
+                                className="font-medium underline-offset-2 hover:underline"
+                                onClick={() => void copyShareUrl(shareUrl)}
+                              >
+                                Copiar link
+                              </button>
+                            ) : null}
+                          </p>
+                        ) : null}
+                      </div>
                     )}
                   </li>
                 );
