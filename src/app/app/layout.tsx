@@ -45,38 +45,47 @@ export default async function AppLayout({
     redirect("/intake");
   }
 
-  const org = await prisma.organization.findUnique({
-    where: { id: session.user.organizationId },
-    select: {
-      name: true,
-      logoUrl: true,
-      businessMode: true,
-      businessProfile: true,
-      featureFlags: true,
-      onboardingCompletedAt: true,
-      attendanceEnabled: true,
-    },
-  });
+  const orgId = session.user.organizationId;
+  const needsProName =
+    !session.user.name?.trim() &&
+    session.user.role === "PROFESSIONAL" &&
+    Boolean(session.user.professionalId);
+
+  const [org, billing, platformCfg, brand, pro] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        name: true,
+        logoUrl: true,
+        businessMode: true,
+        businessProfile: true,
+        featureFlags: true,
+        onboardingCompletedAt: true,
+        attendanceEnabled: true,
+      },
+    }),
+    checkOrgBillingAccess(orgId),
+    getPlatformConfig(),
+    getRequestProductBrand(),
+    needsProName
+      ? prisma.professional.findUnique({
+          where: { id: session.user.professionalId! },
+          select: { displayName: true },
+        })
+      : Promise.resolve(null),
+  ]);
 
   if (!org?.onboardingCompletedAt) {
     redirect("/onboarding");
   }
 
   let accountName = session.user.name?.trim() || null;
-  if (!accountName && session.user.role === "PROFESSIONAL" && session.user.professionalId) {
-    const pro = await prisma.professional.findUnique({
-      where: { id: session.user.professionalId },
-      select: { displayName: true },
-    });
-    accountName = pro?.displayName?.trim() || null;
+  if (!accountName && pro?.displayName) {
+    accountName = pro.displayName.trim() || null;
   }
   if (!accountName && session.user.email) {
     accountName = session.user.email.split("@")[0] || null;
   }
-
-  const billing = await checkOrgBillingAccess(session.user.organizationId);
-  const platformCfg = await getPlatformConfig();
-  const brand = await getRequestProductBrand();
 
   if (!billing.allowed) {
     return (

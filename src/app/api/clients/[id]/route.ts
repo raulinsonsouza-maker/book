@@ -38,12 +38,13 @@ export async function GET(
     return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
   }
 
-  await backfillCustomerBookings({
+  // Não bloqueia a resposta do prontuário; vincula bookings órfãos em background.
+  void backfillCustomerBookings({
     organizationId: ctx.organizationId,
     customerId: customer.id,
     phoneE164: customer.phoneE164,
     email: customer.email,
-  });
+  }).catch(() => null);
 
   if (!customer.cpf) {
     const withCpf = await prisma.booking.findFirst({

@@ -41,14 +41,36 @@ export async function GET(req: Request) {
     professionalId,
   });
 
-  const [payments, total, paidAgg, pendingAgg, paidCount, chartRows, paidBookingRows] =
-    await Promise.all([
+  const cashWhere = {
+    organizationId: orgId,
+    ...(from || to
+      ? {
+          occurredAt: {
+            ...(from ? { gte: new Date(`${from}T00:00:00`) } : {}),
+            ...(to ? { lte: new Date(`${to}T23:59:59`) } : {}),
+          },
+        }
+      : {}),
+  };
+
+  const [
+    payments,
+    total,
+    paidAgg,
+    pendingAgg,
+    paidCount,
+    chartRows,
+    paidBookingRows,
+    cashIncomeAgg,
+    cashExpenseAgg,
+    cashEntries,
+  ] = await Promise.all([
     prisma.payment.findMany({
       where,
       include: {
         booking: {
           include: {
-            service: true,
+            service: { select: { title: true } },
             bookingPage: { select: { title: true } },
             professional: {
               select: {
@@ -89,6 +111,8 @@ export async function GET(req: Request) {
         paidAt: true,
         createdAt: true,
       },
+      orderBy: { createdAt: "desc" },
+      take: 1500,
     }),
     prisma.payment.findMany({
       where: { AND: [where, { status: "PAID", bookingId: { not: null } }] },
@@ -105,63 +129,42 @@ export async function GET(req: Request) {
           },
         },
       },
+      take: 1500,
     }),
+    isPro
+      ? Promise.resolve({ _sum: { amountCents: null as number | null } })
+      : prisma.cashEntry.aggregate({
+          where: { ...cashWhere, type: "INCOME" },
+          _sum: { amountCents: true },
+        }),
+    isPro
+      ? Promise.resolve({ _sum: { amountCents: null as number | null } })
+      : prisma.cashEntry.aggregate({
+          where: { ...cashWhere, type: "EXPENSE" },
+          _sum: { amountCents: true },
+        }),
+    isPro
+      ? Promise.resolve(
+          [] as Array<{
+            id: string;
+            type: "INCOME" | "EXPENSE";
+            amountCents: number;
+            method: string;
+            occurredAt: Date;
+            description: string;
+            customerId: string | null;
+            bookingId: string | null;
+            createdAt: Date;
+            customer: { id: string; name: string } | null;
+          }>,
+        )
+      : prisma.cashEntry.findMany({
+          where: cashWhere,
+          include: { customer: { select: { id: true, name: true } } },
+          orderBy: { occurredAt: "desc" },
+          take: 100,
+        }),
   ]);
-
-  const cashWhere = {
-    organizationId: orgId,
-    ...(from || to
-      ? {
-          occurredAt: {
-            ...(from ? { gte: new Date(`${from}T00:00:00`) } : {}),
-            ...(to ? { lte: new Date(`${to}T23:59:59`) } : {}),
-          },
-        }
-      : {}),
-  };
-
-  const emptyCash = {
-    income: { _sum: { amountCents: null as number | null } },
-    expense: { _sum: { amountCents: null as number | null } },
-    entries: [] as Array<{
-      id: string;
-      type: "INCOME" | "EXPENSE";
-      amountCents: number;
-      method: string;
-      occurredAt: Date;
-      description: string;
-      customerId: string | null;
-      bookingId: string | null;
-      createdAt: Date;
-      customer: { id: string; name: string } | null;
-    }>,
-  };
-
-  const cashBundle = isPro
-    ? emptyCash
-    : await (async () => {
-        const [income, expense, entries] = await Promise.all([
-          prisma.cashEntry.aggregate({
-            where: { ...cashWhere, type: "INCOME" },
-            _sum: { amountCents: true },
-          }),
-          prisma.cashEntry.aggregate({
-            where: { ...cashWhere, type: "EXPENSE" },
-            _sum: { amountCents: true },
-          }),
-          prisma.cashEntry.findMany({
-            where: cashWhere,
-            include: { customer: { select: { id: true, name: true } } },
-            orderBy: { occurredAt: "desc" },
-            take: 100,
-          }),
-        ]);
-        return { income, expense, entries };
-      })();
-
-  const cashIncomeAgg = cashBundle.income;
-  const cashExpenseAgg = cashBundle.expense;
-  const cashEntries = cashBundle.entries;
 
   const cashIncome = cashIncomeAgg._sum.amountCents || 0;
   const despesas = cashExpenseAgg._sum.amountCents || 0;
