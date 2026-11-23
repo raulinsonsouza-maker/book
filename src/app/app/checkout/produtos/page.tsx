@@ -161,9 +161,7 @@ export default function CheckoutProductsPage() {
     await load();
   }
 
-  const showInstallments =
-    form.payMethods.includes("card") &&
-    (paymentProvider === "MERCADO_PAGO" || paymentProvider === "ASAAS");
+  const showInstallments = form.payMethods.includes("card");
 
   return (
     <div className="space-y-6">
@@ -332,6 +330,7 @@ export default function CheckoutProductsPage() {
                       Parcelas no cartão
                     </span>
                     <p className="mb-1.5 text-xs text-muted">
+                      Quantas parcelas o cliente pode escolher nesta cobrança.
                       Padrão do site:{" "}
                       {orgCardMaxInstallments === 1
                         ? "só à vista"
@@ -387,10 +386,6 @@ export default function CheckoutProductsPage() {
 
                 <div>
                   <p className="mb-2 text-sm font-medium">Campos do formulário</p>
-                  <p className="mb-2 text-xs text-muted">
-                    Nome, e-mail, celular e CPF são obrigatórios para gerar a
-                    cobrança (Pix/cartão).
-                  </p>
                   <ul className="space-y-2">
                     {FIELD_PRESETS.filter((p) => p.preset).map((preset) => {
                       const field = form.formFields.find(
@@ -411,12 +406,7 @@ export default function CheckoutProductsPage() {
                               toggleField(preset.preset!, e.target.checked)
                             }
                           />
-                          <span className="flex-1">{preset.label}</span>
-                          {locked ? (
-                            <span className="text-[11px] text-muted">
-                              Obrigatório
-                            </span>
-                          ) : null}
+                          {preset.label}
                         </li>
                       );
                     })}

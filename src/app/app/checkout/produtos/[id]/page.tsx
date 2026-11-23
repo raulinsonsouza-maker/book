@@ -47,7 +47,6 @@ export default function EditProductPage() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [caktoOfferId, setCaktoOfferId] = useState("");
-  const [isActive, setIsActive] = useState(true);
   const [formFields, setFormFields] = useState<FormFieldConfig[]>(
     defaultProductFormConfig().formFields,
   );
@@ -84,7 +83,6 @@ export default function EditProductPage() {
         setDescription(data.description || "");
         setPrice(centsToInput(data.priceCents));
         setCaktoOfferId(data.caktoOfferId || "");
-        setIsActive(data.isActive);
         const parsed = parseProductFormConfig(data.formConfig);
         setFormFields(parsed.formFields);
         setPayMethods(normalizePayMethods(parsed.payMethods));
@@ -133,7 +131,7 @@ export default function EditProductPage() {
         description: description || null,
         priceCents: inputToCents(price),
         ...(paymentProvider === "CAKTO" ? { caktoOfferId: caktoOfferId || null } : {}),
-        isActive,
+        isActive: true,
         productKind: "SIMPLE",
         intakeTemplateKey: null,
         cardMaxInstallments: payMethods.includes("card")
@@ -149,9 +147,7 @@ export default function EditProductPage() {
     }
     setSaveMsg({
       tone: "ok",
-      text: isActive
-        ? "Salvo. O link de pagamento está no ar."
-        : "Salvo. Produto inativo — o link de pagamento está fora do ar.",
+      text: "Salvo. O link de pagamento está no ar.",
     });
   }
 
@@ -225,17 +221,16 @@ export default function EditProductPage() {
             <input className="input-field" value={caktoOfferId} onChange={(e) => setCaktoOfferId(e.target.value)} />
           </label>
         )}
-        {payMethods.includes("card") &&
-          (paymentProvider === "MERCADO_PAGO" ||
-            paymentProvider === "ASAAS") && (
+        {payMethods.includes("card") && (
           <label className="block text-sm">
             <span className="mb-1.5 block font-medium">Parcelas no cartão</span>
             <p className="mb-1.5 text-xs text-muted">
-              Padrão do site:{" "}
+              Quantas parcelas o cliente pode escolher nesta cobrança. Padrão do
+              site:{" "}
               {orgCardMaxInstallments === 1
                 ? "só à vista"
                 : `até ${orgCardMaxInstallments}x`}
-              . Altere só se este produto tiver condição diferente.
+              .
             </p>
             <select
               className="input-field max-w-xs"
@@ -260,25 +255,9 @@ export default function EditProductPage() {
             </select>
           </label>
         )}
-        <div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-            Produto ativo
-          </label>
-          {!isActive && (
-            <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              Com o produto inativo, o link de pagamento sai do ar e o cliente
-              vê “link não encontrado”.
-            </p>
-          )}
-        </div>
 
         <div>
           <p className="mb-2 text-sm font-medium">Campos do formulário</p>
-          <p className="mb-2 text-xs text-muted">
-            Nome, e-mail, celular e CPF são obrigatórios para gerar a cobrança
-            (Pix/cartão).
-          </p>
           <ul className="space-y-2">
             {FIELD_PRESETS.filter((p) => p.preset).map((preset) => {
               const field = formFields.find((f) => f.preset === preset.preset);
@@ -292,10 +271,7 @@ export default function EditProductPage() {
                     disabled={locked}
                     onChange={(e) => toggleField(preset.preset!, e.target.checked)}
                   />
-                  <span className="flex-1">{preset.label}</span>
-                  {locked ? (
-                    <span className="text-[11px] text-muted">Obrigatório</span>
-                  ) : null}
+                  {preset.label}
                 </li>
               );
             })}
@@ -307,9 +283,7 @@ export default function EditProductPage() {
             className={`rounded-lg border px-3 py-2 text-sm ${
               saveMsg.tone === "err"
                 ? "border-red-200 bg-red-50 text-danger"
-                : isActive
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-emerald-200 bg-emerald-50 text-emerald-800"
             }`}
           >
             {saveMsg.text}
