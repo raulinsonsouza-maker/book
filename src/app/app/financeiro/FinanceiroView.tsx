@@ -439,11 +439,11 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
       )}
 
       <div className="surface relative z-0 overflow-visible">
-        <div className="relative z-20 flex flex-wrap items-center gap-2 rounded-t-[inherit] border-b border-border bg-muted-bg/50 px-3 py-2.5 sm:px-4">
+        <div className="relative z-20 flex flex-wrap items-center gap-1.5 rounded-t-[inherit] border-b border-border bg-muted-bg/50 px-2.5 py-1.5 sm:px-3">
           <button
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+            className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[13px] font-medium transition ${
               filtersOpen || hasFilters
                 ? "border-foreground/20 bg-white text-foreground shadow-sm"
                 : "border-border bg-white text-foreground hover:bg-muted-bg"
@@ -455,18 +455,19 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
               : ""}
           </button>
 
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
             <div className="relative z-30" ref={rangeRef}>
               <button
                 type="button"
                 onClick={() => setRangeOpen((v) => !v)}
-                className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-muted-bg"
+                className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-white px-2.5 py-1.5 text-[13px] font-medium text-foreground shadow-sm hover:bg-muted-bg"
                 aria-expanded={rangeOpen}
                 aria-haspopup="listbox"
+                title={rangeLabel}
               >
                 <svg
-                  width="16"
-                  height="16"
+                  width="14"
+                  height="14"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -476,13 +477,12 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
                   <rect x="3" y="5" width="18" height="16" rx="2" />
                   <path d="M3 10h18M8 3v4M16 3v4" />
                 </svg>
-                <span className="max-w-[14rem] truncate sm:max-w-[18rem]">
-                  <span className="text-muted">{presetLabel}: </span>
-                  {rangeLabel}
+                <span className="max-w-[12rem] truncate sm:max-w-[16rem]">
+                  {preset === null ? rangeLabel : presetLabel}
                 </span>
                 <svg
-                  width="12"
-                  height="12"
+                  width="11"
+                  height="11"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -601,7 +601,7 @@ export function FinanceiroView({ isProfessionalView = false }: Props) {
             <button
               type="button"
               onClick={exportCsv}
-              className="inline-flex items-center rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-foreground hover:bg-muted-bg"
+              className="inline-flex items-center rounded-md border border-border bg-white px-2.5 py-1.5 text-[13px] font-medium text-foreground hover:bg-muted-bg"
             >
               Exportar
             </button>

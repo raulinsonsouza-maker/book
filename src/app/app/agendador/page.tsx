@@ -642,6 +642,8 @@ function AgendadorInner() {
                 ? bookingPublicPath(orgSlug, p.slug)
                 : `/p/${p.slug}`;
               const url = `${appUrl}${path}`;
+              const hostLabel = appUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+              const urlLabel = `${hostLabel}/…/${p.slug}`;
               const thumb = p.coverImageUrl || p.logoUrl || null;
               const menuOpen = openPageMenuId === p.id;
               return (
@@ -675,7 +677,7 @@ function AgendadorInner() {
                           className="pages-hub-url-text"
                           title={url}
                         >
-                          {url.replace(/^https?:\/\//, "")}
+                          {urlLabel}
                         </a>
                         <CopyLinkButton
                           url={url}

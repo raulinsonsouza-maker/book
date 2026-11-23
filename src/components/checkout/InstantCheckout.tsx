@@ -75,18 +75,18 @@ function CheckoutDescription({ text }: { text: string }) {
   if (!blocks.length) return null;
 
   return (
-    <div className="checkout-desc mx-auto mt-3 max-w-sm text-left text-sm leading-relaxed text-muted">
+    <div className="checkout-desc mx-auto mt-2 max-w-sm text-left text-[13px] leading-relaxed text-muted">
       {blocks.map((block, i) =>
         block.type === "p" ? (
-          <p key={i} className={i === 0 ? "text-center" : "mt-3"}>
+          <p key={i} className={i === 0 ? "text-center" : "mt-2"}>
             {block.text}
           </p>
         ) : (
-          <ul key={i} className="mt-3 list-none space-y-2 pl-0">
+          <ul key={i} className="mt-2 list-none space-y-1.5 pl-0">
             {block.items.map((item, j) => (
-              <li key={j} className="flex gap-2.5 text-left">
+              <li key={j} className="flex gap-2 text-left">
                 <span
-                  className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-50"
+                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-50"
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">{item}</span>
@@ -716,38 +716,38 @@ export function InstantCheckout({ slug }: { slug: string }) {
     <div className={shellClass} data-brand={brand.id} style={shellStyle}>
       <PublicTracking config={tracking} />
       <div className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-8">
-        <header className="mb-8 text-center">
+        <header className="mb-6 text-center">
           {displayLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={displayLogoUrl}
               alt=""
-              className="mx-auto mb-4 h-14 max-w-[180px] object-contain"
+              className="mx-auto mb-3 h-11 max-w-[140px] object-contain"
             />
           ) : (
             <div
-              className="checkout-logo-fallback mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-sm font-bold text-white"
+              className="checkout-logo-fallback mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg text-xs font-bold text-white"
               style={isTemark ? undefined : { background: shellAccent }}
             >
               {(businessName || displayTitle || "BS").slice(0, 2).toUpperCase()}
             </div>
           )}
           {businessName && (
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
-              {businessName}
-            </p>
+            <p className="text-[13px] font-medium text-muted">{businessName}</p>
           )}
-          <h1 className="mt-2 text-2xl font-bold tracking-tight">{displayTitle}</h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight">
+            {displayTitle}
+          </h1>
           {displayDescription ? (
             <CheckoutDescription text={displayDescription} />
           ) : null}
           <p
-            className="checkout-price mt-4 text-3xl font-bold tracking-tight"
+            className="checkout-price mt-3 text-2xl font-semibold tracking-tight"
             style={isTemark ? undefined : { color: shellAccent }}
           >
             {formatBRL(priceCents)}
           </p>
-          {isIntake && <IntakePriceIncludes className="mt-4 text-left" />}
+          {isIntake && <IntakePriceIncludes className="mt-3 text-left" />}
         </header>
 
         <main className="flex-1 space-y-4">
