@@ -4,8 +4,12 @@ import {
   getAvailableSlots,
   getTheoreticalSlots,
   getBusyIntervals,
+  type GoogleBusyOverride,
 } from "@/lib/availability";
-import { getGoogleCalendarEvents } from "@/lib/google/calendar";
+import {
+  getGoogleBusyIntervals,
+  getGoogleCalendarEvents,
+} from "@/lib/google/calendar";
 import {
   apiAuthContext,
   bookingScopeWhere,
@@ -193,6 +197,20 @@ export async function GET(req: Request) {
   const availableSlots: SlotOut[] = [];
   let setupHint: "NO_PROS" | "NO_HOURS" | "NEED_PRO_FILTER" | null = null;
 
+  // 1 freebusy para o range da visão — reutilizado em todos os dias/profissionais.
+  let googleBusyOverride: GoogleBusyOverride | null = null;
+  const orgGoogleConnected = Boolean(
+    organization.googleRefreshToken || organization.googleAccessToken,
+  );
+  if (canComputeSlots && orgGoogleConnected) {
+    const fb = await getGoogleBusyIntervals({
+      org: organization,
+      timeMin: startOfDay(fromDate),
+      timeMax: endOfDay(toDate),
+    });
+    googleBusyOverride = { busy: fb.busy, status: fb.status };
+  }
+
   if (canComputeSlots && page && service) {
     if (adminSalon && linkedPros.length === 0) {
       setupHint = "NO_PROS";
@@ -207,6 +225,7 @@ export async function GET(req: Request) {
         bufferBefore: service.bufferBefore,
         bufferAfter: service.bufferAfter,
         slotStepMinutes: page.slotStepMinutes,
+        googleBusyOverride,
       };
 
       let d = startOfDay(fromDate);
@@ -265,13 +284,15 @@ export async function GET(req: Request) {
             slotStepMinutes: page.slotStepMinutes,
             professionalId,
           });
-          const busy = await getBusyIntervals({
+          const { intervals: busy } = await getBusyIntervals({
             bookingPageId: page.id,
             date: dateStr,
             timezone: page.timezone,
             bufferBefore: service.bufferBefore,
             bufferAfter: service.bufferAfter,
             professionalId,
+            googleBusyOverride,
+            googleFailOpen: true,
           });
           for (const slot of slots) {
             const s = new Date(slot.startAt);

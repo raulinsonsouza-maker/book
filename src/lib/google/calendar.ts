@@ -310,50 +310,81 @@ export async function deleteCalendarEvent(params: {
   }
 }
 
-export async function getGoogleBusyIntervals(params: {
+export type GoogleBusyStatus = "ok" | "skipped" | "error";
+
+export type GoogleBusyResult = {
+  busy: { start: Date; end: Date }[];
+  status: GoogleBusyStatus;
+};
+
+const FREEBUSY_TIMEOUT_MS = 8_000;
+
+async function queryGoogleFreebusyOnce(params: {
   org: OrgGoogle;
   timeMin: Date;
   timeMax: Date;
-}) {
-  if (!params.org.googleRefreshToken && !params.org.googleAccessToken) {
-    return [] as { start: Date; end: Date }[];
+}): Promise<GoogleBusyResult> {
+  const auth = await getAuthedClient(params.org);
+  const calendar = google.calendar({ version: "v3", auth });
+  const calendarId = params.org.googleCalendarId || "primary";
+
+  const query = calendar.freebusy.query({
+    requestBody: {
+      timeMin: params.timeMin.toISOString(),
+      timeMax: params.timeMax.toISOString(),
+      items: [{ id: calendarId }],
+    },
+  });
+  // Sem timeout, freebusy lento/travado deixa o booking com "Continuar"/slots
+  // pendurados até o gateway devolver 502 (~90s).
+  const timed = await Promise.race([
+    query,
+    new Promise<"timeout">((resolve) =>
+      setTimeout(() => resolve("timeout"), FREEBUSY_TIMEOUT_MS),
+    ),
+  ]);
+  if (timed === "timeout") {
+    console.warn("[google] freebusy timeout");
+    return { busy: [], status: "error" };
   }
 
-  try {
-    const auth = await getAuthedClient(params.org);
-    const calendar = google.calendar({ version: "v3", auth });
-    const calendarId = params.org.googleCalendarId || "primary";
-
-    const query = calendar.freebusy.query({
-      requestBody: {
-        timeMin: params.timeMin.toISOString(),
-        timeMax: params.timeMax.toISOString(),
-        items: [{ id: calendarId }],
-      },
-    });
-    // Sem timeout, freebusy lento/travado deixa o booking com "Continuar"/slots
-    // pendurados até o gateway devolver 502 (~90s).
-    const timed = await Promise.race([
-      query,
-      new Promise<"timeout">((resolve) =>
-        setTimeout(() => resolve("timeout"), 8_000),
-      ),
-    ]);
-    if (timed === "timeout") {
-      console.warn("[google] freebusy timeout");
-      return [];
-    }
-
-    const busy = timed.data.calendars?.[calendarId]?.busy || [];
-    return busy
+  const busy = timed.data.calendars?.[calendarId]?.busy || [];
+  return {
+    busy: busy
       .filter((b) => b.start && b.end)
       .map((b) => ({
         start: new Date(b.start!),
         end: new Date(b.end!),
-      }));
+      })),
+    status: "ok",
+  };
+}
+
+export async function getGoogleBusyIntervals(params: {
+  org: OrgGoogle;
+  timeMin: Date;
+  timeMax: Date;
+}): Promise<GoogleBusyResult> {
+  if (!params.org.googleRefreshToken && !params.org.googleAccessToken) {
+    return { busy: [], status: "skipped" };
+  }
+
+  try {
+    const first = await queryGoogleFreebusyOnce(params);
+    if (first.status === "ok") return first;
+
+    // 1 retry em timeout/erro transitório antes de falhar de vez.
+    console.warn("[google] freebusy retry");
+    return await queryGoogleFreebusyOnce(params);
   } catch (e) {
     console.warn("[google] freebusy failed", e);
-    return [];
+    try {
+      console.warn("[google] freebusy retry after error");
+      return await queryGoogleFreebusyOnce(params);
+    } catch (e2) {
+      console.warn("[google] freebusy retry failed", e2);
+      return { busy: [], status: "error" };
+    }
   }
 }
 

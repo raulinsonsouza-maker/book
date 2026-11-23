@@ -15,8 +15,10 @@ import {
   parseTimeOnDate,
   type Rule,
 } from "@/lib/availability-core";
+import type { GoogleBusyStatus } from "@/lib/google/calendar";
 
 export type { Rule } from "@/lib/availability-core";
+export type { GoogleBusyStatus } from "@/lib/google/calendar";
 
 export function filterSlotsByBusy<T extends { startAt: string; endAt: string }>(
   slots: T[],
@@ -44,6 +46,29 @@ export class SlotUnavailableError extends Error {
   }
 }
 
+export type BusyInterval = { start: Date; end: Date };
+
+export type GoogleBusyOverride = {
+  busy: BusyInterval[];
+  status: GoogleBusyStatus;
+};
+
+export type BusyIntervalsResult = {
+  intervals: BusyInterval[];
+  googleIntervals: BusyInterval[];
+  googleStatus: GoogleBusyStatus;
+};
+
+function matchesExcludedBookingWindow(
+  interval: BusyInterval,
+  excluded: { startAt: Date; endAt: Date },
+) {
+  return (
+    Math.abs(interval.start.getTime() - excluded.startAt.getTime()) < 60_000 &&
+    Math.abs(interval.end.getTime() - excluded.endAt.getTime()) < 60_000
+  );
+}
+
 export async function getBusyIntervals(params: {
   bookingPageId: string;
   date: string;
@@ -52,10 +77,18 @@ export async function getBusyIntervals(params: {
   bufferAfter: number;
   professionalId?: string | null;
   excludeBookingId?: string;
-}) {
+  /** Prefetch do freebusy (ex.: range da semana na agenda). */
+  googleBusyOverride?: GoogleBusyOverride | null;
+  /**
+   * Listagem: em erro de freebusy, ignora Google (fail-open).
+   * Criação: use requireGoogleOk via assertSlotAvailable.
+   */
+  googleFailOpen?: boolean;
+}): Promise<BusyIntervalsResult> {
   const dayStart = parseTimeOnDate(params.date, "00:00", params.timezone);
   const dayEnd = parseTimeOnDate(params.date, "23:59", params.timezone);
   const now = new Date();
+  const googleFailOpen = params.googleFailOpen !== false;
 
   const page = await prisma.bookingPage.findUnique({
     where: { id: params.bookingPageId },
@@ -95,7 +128,7 @@ export async function getBusyIntervals(params: {
     },
   });
 
-  const intervals = [
+  const intervals: BusyInterval[] = [
     ...bookings.map((b) => ({
       start: addMinutes(b.startAt, -params.bufferBefore),
       end: addMinutes(b.endAt, params.bufferAfter),
@@ -106,23 +139,58 @@ export async function getBusyIntervals(params: {
     })),
   ];
 
-  // Google busy só no modo SOLO (calendário único da org)
-  if (page?.organization && !params.professionalId) {
-    const { getGoogleBusyIntervals } = await import("@/lib/google/calendar");
-    const googleBusy = await getGoogleBusyIntervals({
-      org: page.organization,
-      timeMin: dayStart,
-      timeMax: dayEnd,
-    });
-    for (const b of googleBusy) {
-      intervals.push({
+  let googleStatus: GoogleBusyStatus = "skipped";
+  let googleIntervals: BusyInterval[] = [];
+
+  const org = page?.organization;
+  const googleConnected = Boolean(
+    org?.googleRefreshToken || org?.googleAccessToken,
+  );
+
+  if (googleConnected && org) {
+    let rawBusy: BusyInterval[] = [];
+
+    if (params.googleBusyOverride) {
+      googleStatus = params.googleBusyOverride.status;
+      rawBusy = params.googleBusyOverride.busy;
+    } else {
+      const { getGoogleBusyIntervals } = await import("@/lib/google/calendar");
+      const result = await getGoogleBusyIntervals({
+        org,
+        timeMin: dayStart,
+        timeMax: dayEnd,
+      });
+      googleStatus = result.status;
+      rawBusy = result.busy;
+    }
+
+    // Listagem (fail-open): ignora busy se freebusy falhou.
+    if (googleStatus === "error" && googleFailOpen) {
+      rawBusy = [];
+    }
+
+    if (params.excludeBookingId && rawBusy.length > 0) {
+      const excluded = await prisma.booking.findUnique({
+        where: { id: params.excludeBookingId },
+        select: { startAt: true, endAt: true },
+      });
+      if (excluded) {
+        rawBusy = rawBusy.filter(
+          (b) => !matchesExcludedBookingWindow(b, excluded),
+        );
+      }
+    }
+
+    if (googleStatus === "ok") {
+      googleIntervals = rawBusy.map((b) => ({
         start: addMinutes(b.start, -params.bufferBefore),
         end: addMinutes(b.end, params.bufferAfter),
-      });
+      }));
+      intervals.push(...googleIntervals);
     }
   }
 
-  return intervals;
+  return { intervals, googleIntervals, googleStatus };
 }
 
 async function loadRulesAndExceptions(params: {
@@ -220,6 +288,7 @@ export async function getAvailableSlots(params: {
   bufferAfter?: number;
   slotStepMinutes?: number;
   professionalId?: string | null;
+  googleBusyOverride?: GoogleBusyOverride | null;
 }) {
   const {
     bookingPageId,
@@ -230,6 +299,7 @@ export async function getAvailableSlots(params: {
     bufferAfter = 0,
     slotStepMinutes = 0,
     professionalId,
+    googleBusyOverride,
   } = params;
 
   const page = await prisma.bookingPage.findUnique({
@@ -253,13 +323,15 @@ export async function getAvailableSlots(params: {
     professionalId,
   });
 
-  const busy = await getBusyIntervals({
+  const { intervals: busy } = await getBusyIntervals({
     bookingPageId,
     date,
     timezone,
     bufferBefore,
     bufferAfter,
     professionalId,
+    googleBusyOverride,
+    googleFailOpen: true,
   });
 
   const available = filterSlotsByBusy(
@@ -302,6 +374,7 @@ export async function getAvailableSlotsAnyone(params: {
   bufferBefore?: number;
   bufferAfter?: number;
   professionalIds: string[];
+  googleBusyOverride?: GoogleBusyOverride | null;
 }) {
   const byStart = new Map<string, { startAt: string; endAt: string; label: string }>();
 
@@ -309,6 +382,7 @@ export async function getAvailableSlotsAnyone(params: {
     const slots = await getAvailableSlots({
       ...params,
       professionalId,
+      googleBusyOverride: params.googleBusyOverride,
     });
     for (const s of slots) {
       if (!byStart.has(s.startAt)) byStart.set(s.startAt, s);
@@ -404,15 +478,29 @@ export async function assertSlotAvailable(params: {
     );
   }
 
-  const busy = await getBusyIntervals({
-    bookingPageId: params.bookingPageId,
-    date,
-    timezone: params.timezone,
-    bufferBefore,
-    bufferAfter,
-    excludeBookingId: params.excludeBookingId,
-    professionalId: params.professionalId,
-  });
+  const { intervals: busy, googleIntervals, googleStatus } =
+    await getBusyIntervals({
+      bookingPageId: params.bookingPageId,
+      date,
+      timezone: params.timezone,
+      bufferBefore,
+      bufferAfter,
+      excludeBookingId: params.excludeBookingId,
+      professionalId: params.professionalId,
+      googleFailOpen: false,
+    });
+
+  if (googleStatus === "error") {
+    throw new SlotUnavailableError(
+      "Não foi possível verificar a Agenda Google. Tente de novo.",
+    );
+  }
+
+  if (intervalsOverlap(params.startAt, params.endAt, googleIntervals)) {
+    throw new SlotUnavailableError(
+      "Este horário conflita com um evento na Agenda Google.",
+    );
+  }
 
   if (intervalsOverlap(params.startAt, params.endAt, busy)) {
     throw new SlotUnavailableError(
