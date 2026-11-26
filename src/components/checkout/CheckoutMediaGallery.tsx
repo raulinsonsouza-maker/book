@@ -81,18 +81,18 @@ export function CheckoutMediaGallery({ items }: { items: CheckoutMediaItem[] }) 
 
   return (
     <div
-      className="checkout-media mx-auto mt-4 w-full max-w-sm"
+      className="checkout-media"
       role={isGallery ? "region" : undefined}
       aria-roledescription={isGallery ? "carousel" : undefined}
       aria-label={isGallery ? "Galeria do produto" : undefined}
     >
-      <div className="checkout-media-frame relative aspect-[4/3] overflow-hidden rounded-2xl border border-border bg-muted-bg">
+      <div className="checkout-media-frame">
         <MediaSlide item={current} active />
         {isGallery ? (
           <>
             <button
               type="button"
-              className="checkout-media-nav absolute left-2 top-1/2 -translate-y-1/2"
+              className="checkout-media-nav is-prev"
               aria-label="Anterior"
               onClick={() => go(-1)}
             >
@@ -100,7 +100,7 @@ export function CheckoutMediaGallery({ items }: { items: CheckoutMediaItem[] }) 
             </button>
             <button
               type="button"
-              className="checkout-media-nav absolute right-2 top-1/2 -translate-y-1/2"
+              className="checkout-media-nav is-next"
               aria-label="Próximo"
               onClick={() => go(1)}
             >
@@ -110,7 +110,7 @@ export function CheckoutMediaGallery({ items }: { items: CheckoutMediaItem[] }) 
         ) : null}
       </div>
       {isGallery ? (
-        <div className="mt-2.5 flex items-center justify-center gap-1.5" role="tablist">
+        <div className="checkout-media-dots" role="tablist">
           {items.map((_, i) => (
             <button
               key={i}

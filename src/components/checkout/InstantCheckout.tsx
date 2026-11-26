@@ -82,21 +82,18 @@ function CheckoutDescription({ text }: { text: string }) {
   if (!blocks.length) return null;
 
   return (
-    <div className="checkout-desc mx-auto mt-2 max-w-sm text-left text-[13px] leading-relaxed text-muted">
+    <div className="checkout-desc">
       {blocks.map((block, i) =>
         block.type === "p" ? (
-          <p key={i} className={i === 0 ? "text-center" : "mt-2"}>
+          <p key={i} className={i === 0 ? "checkout-desc-lead" : "checkout-desc-p"}>
             {block.text}
           </p>
         ) : (
-          <ul key={i} className="mt-2 list-none space-y-1.5 pl-0">
+          <ul key={i} className="checkout-desc-list">
             {block.items.map((item, j) => (
-              <li key={j} className="flex gap-2 text-left">
-                <span
-                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-50"
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1">{item}</span>
+              <li key={j}>
+                <span className="checkout-desc-bullet" aria-hidden />
+                <span>{item}</span>
               </li>
             ))}
           </ul>
@@ -704,7 +701,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
   const customBg = normalizeBackgroundColor(backgroundColor);
   const headerTone = checkoutHeaderTone(customBg);
   const shellClass = `checkout-shell min-h-screen ${
-    customBg || isTemark ? "" : "dot-grid"
+    customBg ? "checkout-canvas-custom" : isTemark ? "" : "checkout-canvas"
   }`;
   const shellStyle = {
     "--accent": shellAccent,
@@ -712,12 +709,9 @@ export function InstantCheckout({ slug }: { slug: string }) {
       ? { "--checkout-bg": customBg, backgroundColor: customBg }
       : {}),
   } as React.CSSProperties;
-  const cardClass =
-    "checkout-card rounded-2xl border border-border bg-white p-6 shadow-sm";
+  const cardClass = "checkout-card";
   const headerMutedClass =
     headerTone === "light" ? "text-white/70" : "text-muted";
-  const headerTitleClass =
-    headerTone === "light" ? "text-white" : "text-foreground";
 
   if (loading) {
     return (
@@ -751,67 +745,59 @@ export function InstantCheckout({ slug }: { slug: string }) {
       style={shellStyle}
     >
       <PublicTracking config={tracking} />
-      <div className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-8">
-        <header className="mb-6 text-center">
+      <div className="checkout-stage">
+        <header className="checkout-merchant">
           {displayLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={displayLogoUrl}
               alt=""
-              className="mx-auto mb-3 h-11 max-w-[140px] object-contain"
+              className="checkout-merchant-logo"
             />
           ) : (
             <div
-              className="checkout-logo-fallback mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg text-xs font-bold text-white"
+              className="checkout-logo-fallback"
               style={isTemark ? undefined : { background: shellAccent }}
             >
               {(businessName || displayTitle || "BS").slice(0, 2).toUpperCase()}
             </div>
           )}
-          {businessName && (
-            <p className={`text-[13px] font-medium ${headerMutedClass}`}>
+          {businessName ? (
+            <p className={`checkout-merchant-name ${headerMutedClass}`}>
               {businessName}
             </p>
-          )}
-          <CheckoutMediaGallery items={mediaItems} />
-          <h1
-            className={`mt-1 text-xl font-semibold tracking-tight ${headerTitleClass}`}
-          >
-            {displayTitle}
-          </h1>
-          {displayDescription ? (
-            <div
-              className={
-                headerTone === "light" ? "checkout-desc-on-dark" : undefined
-              }
-            >
-              <CheckoutDescription text={displayDescription} />
-            </div>
           ) : null}
-          <p
-            className="checkout-price mt-3 text-2xl font-semibold tracking-tight"
-            style={
-              isTemark
-                ? undefined
-                : headerTone === "light"
-                  ? { color: "#fff" }
-                  : { color: shellAccent }
-            }
-          >
-            {formatBRL(priceCents)}
-          </p>
-          {isIntake && <IntakePriceIncludes className="mt-3 text-left" />}
         </header>
 
-        <main className="flex-1 space-y-4">
+        <article className="checkout-offer checkout-enter">
+          <CheckoutMediaGallery items={mediaItems} />
+          <div className="checkout-offer-body">
+            <h1 className="checkout-offer-title">{displayTitle}</h1>
+            {displayDescription ? (
+              <CheckoutDescription text={displayDescription} />
+            ) : null}
+            <div className="checkout-price-row">
+              <p
+                className="checkout-price"
+                style={isTemark ? undefined : { color: shellAccent }}
+              >
+                {formatBRL(priceCents)}
+              </p>
+              <span className="checkout-price-hint">pagamento seguro</span>
+            </div>
+            {isIntake && <IntakePriceIncludes className="mt-3 text-left" />}
+          </div>
+        </article>
+
+        <main className="checkout-main">
           {error && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <p className="checkout-error">
               {error}
             </p>
           )}
 
           {paid ? (
-            <div className={cardClass}>
+            <div className={`${cardClass} checkout-enter-delay`}>
               <SuccessStep
                 customerName={isIntake ? intakeCustomerName : details.customerName}
                 customerEmail={isIntake ? intakeCustomerEmail : details.customerEmail}
@@ -821,7 +807,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
             </div>
           ) : isIntake ? (
             <>
-              <section className={cardClass}>
+              <section className={`${cardClass} checkout-enter-delay`}>
                 <IntakeWizard
                   checkoutSlug={slug}
                   accentColor={shellAccent}
@@ -887,8 +873,8 @@ export function InstantCheckout({ slug }: { slug: string }) {
             </>
           ) : (
             <>
-              <section className={cardClass}>
-                <h2 className="text-lg font-semibold">Seus dados</h2>
+              <section className={`${cardClass} checkout-enter-delay`}>
+                <h2 className="checkout-section-title">Seus dados</h2>
                 <div className="mt-4 space-y-4">
                   <FunnelFormFields
                     fields={formFields}
@@ -900,11 +886,11 @@ export function InstantCheckout({ slug }: { slug: string }) {
                 </div>
               </section>
 
-              <section className={cardClass}>
+              <section className={`${cardClass} checkout-enter-delay-2`}>
                 {!formReady ? (
                   <div className="space-y-2">
-                    <h2 className="text-lg font-semibold text-muted">Pagamento</h2>
-                    <p className="text-sm text-muted">
+                    <h2 className="checkout-section-title is-muted">Pagamento</h2>
+                    <p className="checkout-section-hint">
                       Preencha seus dados acima para liberar Pix ou cartão nesta mesma tela.
                     </p>
                     <div className="pointer-events-none select-none opacity-40">
@@ -918,7 +904,7 @@ export function InstantCheckout({ slug }: { slug: string }) {
                         {allowedPayMethods.map((m) => (
                           <div
                             key={m}
-                            className="rounded-lg border border-border bg-muted-bg px-3 py-2.5 text-center text-sm font-semibold"
+                            className="checkout-pay-skeleton"
                           >
                             {m === "pix" ? "Pix" : "Cartão"}
                           </div>
