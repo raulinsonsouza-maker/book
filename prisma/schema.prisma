@@ -509,6 +509,12 @@ model Product {
   /** E-mails da equipe para aviso de intake (JSON array). */
   notifyEmails       String?
   intakeEmailAlerts  Boolean        @default(true)
+  /** Cor de fundo do checkout público. Null = tema padrão. */
+  backgroundColor    String?
+  /** JSON array de até 5 URLs /uploads/products/... */
+  imageUrls          String?
+  /** URL https do vídeo (YouTube, Vimeo ou .mp4). */
+  videoUrl           String?
   isActive           Boolean        @default(true)
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt

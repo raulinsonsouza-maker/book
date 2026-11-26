@@ -4,6 +4,11 @@ import { parseProductFormConfig } from "@/lib/product-form-config";
 import { resolvePaymentProvider, paymentProviderLabel } from "@/lib/payments/resolve-provider";
 import { resolveBrand } from "@/lib/branding";
 import { resolveCardMaxInstallments } from "@/lib/payments/installments";
+import {
+  normalizeBackgroundColor,
+  parseProductImageUrls,
+  parseVideoUrl,
+} from "@/lib/product-media";
 
 export async function GET(
   _req: Request,
@@ -55,6 +60,9 @@ export async function GET(
       priceCents: link.product.priceCents,
       productKind: link.product.productKind,
       intakeTemplateKey: link.product.intakeTemplateKey,
+      backgroundColor: normalizeBackgroundColor(link.product.backgroundColor),
+      imageUrls: parseProductImageUrls(link.product.imageUrls),
+      videoUrl: parseVideoUrl(link.product.videoUrl),
     },
     businessName: brand.businessName,
     businessDescription: org.description,

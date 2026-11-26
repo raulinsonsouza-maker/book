@@ -12,7 +12,7 @@ const MIME: Record<string, string> = {
   ".gif": "image/gif",
 };
 
-const ALLOWED_ROOTS = new Set(["covers"]);
+const ALLOWED_ROOTS = new Set(["covers", "products"]);
 
 export async function GET(
   _req: Request,

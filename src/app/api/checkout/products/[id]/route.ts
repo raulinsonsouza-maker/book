@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
+import { unlink } from "fs/promises";
+import path from "path";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -9,6 +11,12 @@ import {
 } from "@/lib/product-form-config";
 import { ensureProductCheckoutLink } from "@/lib/checkout-slug";
 import { serializeNotifyEmails } from "@/lib/intake/notify-emails";
+import {
+  normalizeBackgroundColor,
+  parseProductImageUrls,
+  parseVideoUrl,
+  productImageFilename,
+} from "@/lib/product-media";
 
 const schema = z.object({
   title: z.string().min(2).optional(),
@@ -23,6 +31,8 @@ const schema = z.object({
   intakeEmailAlerts: z.boolean().optional(),
   /** null = usar padrão da organização */
   cardMaxInstallments: z.number().int().min(1).max(12).nullable().optional(),
+  backgroundColor: z.string().nullable().optional(),
+  videoUrl: z.string().nullable().optional(),
 });
 
 export async function GET(
@@ -56,6 +66,9 @@ export async function GET(
   const { organization, ...rest } = product;
   return NextResponse.json({
     ...rest,
+    backgroundColor: normalizeBackgroundColor(product.backgroundColor),
+    imageUrls: parseProductImageUrls(product.imageUrls),
+    videoUrl: parseVideoUrl(product.videoUrl),
     orgCardMaxInstallments: Math.min(
       12,
       Math.max(1, organization.cardMaxInstallments || 12),
@@ -83,6 +96,45 @@ export async function PATCH(
       return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
     }
 
+    const backgroundColor =
+      body.backgroundColor === undefined
+        ? undefined
+        : body.backgroundColor === null || body.backgroundColor === ""
+          ? null
+          : normalizeBackgroundColor(body.backgroundColor);
+    if (
+      body.backgroundColor !== undefined &&
+      body.backgroundColor !== null &&
+      body.backgroundColor !== "" &&
+      backgroundColor === null
+    ) {
+      return NextResponse.json(
+        { error: "Cor de fundo inválida — use #RRGGBB" },
+        { status: 400 },
+      );
+    }
+
+    const videoUrl =
+      body.videoUrl === undefined
+        ? undefined
+        : body.videoUrl === null || body.videoUrl.trim() === ""
+          ? null
+          : parseVideoUrl(body.videoUrl);
+    if (
+      body.videoUrl !== undefined &&
+      body.videoUrl !== null &&
+      body.videoUrl.trim() !== "" &&
+      videoUrl === null
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "URL de vídeo inválida — use YouTube, Vimeo ou link https .mp4",
+        },
+        { status: 400 },
+      );
+    }
+
     const product = await prisma.product.update({
       where: { id },
       data: {
@@ -104,6 +156,8 @@ export async function PATCH(
         ...(body.cardMaxInstallments !== undefined
           ? { cardMaxInstallments: body.cardMaxInstallments }
           : {}),
+        ...(backgroundColor !== undefined ? { backgroundColor } : {}),
+        ...(videoUrl !== undefined ? { videoUrl } : {}),
         ...(body.formConfig !== undefined
           ? {
               formConfig: serializeProductFormConfig(
@@ -114,7 +168,12 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json(product);
+    return NextResponse.json({
+      ...product,
+      backgroundColor: normalizeBackgroundColor(product.backgroundColor),
+      imageUrls: parseProductImageUrls(product.imageUrls),
+      videoUrl: parseVideoUrl(product.videoUrl),
+    });
   } catch (e) {
     if (e instanceof z.ZodError) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
@@ -140,6 +199,22 @@ export async function DELETE(
     return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
   }
 
+  const imageUrls = parseProductImageUrls(existing.imageUrls);
   await prisma.product.delete({ where: { id } });
+
+  await Promise.all(
+    imageUrls.map(async (url) => {
+      const filename = productImageFilename(url);
+      if (!filename) return;
+      try {
+        await unlink(
+          path.join(process.cwd(), "public", "uploads", "products", filename),
+        );
+      } catch {
+        /* ignore */
+      }
+    }),
+  );
+
   return NextResponse.json({ ok: true });
 }

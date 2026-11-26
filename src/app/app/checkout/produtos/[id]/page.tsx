@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FIELD_PRESETS } from "@/types/funnel-config";
 import type { FormFieldConfig } from "@/types/funnel-config";
 import {
@@ -21,6 +21,11 @@ import {
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { CheckoutSubnav } from "@/components/admin/CheckoutSubnav";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import {
+  MAX_PRODUCT_IMAGES,
+  normalizeBackgroundColor,
+  parseVideoUrl,
+} from "@/lib/product-media";
 
 type Product = {
   id: string;
@@ -33,6 +38,9 @@ type Product = {
   cardMaxInstallments: number | null;
   orgCardMaxInstallments?: number;
   checkoutLinks: { slug: string }[];
+  backgroundColor?: string | null;
+  imageUrls?: string[] | string | null;
+  videoUrl?: string | null;
 };
 
 function centsToInput(cents: number) {
@@ -43,10 +51,16 @@ function inputToCents(value: string) {
   return Math.round(parseFloat(value.replace(",", ".")) * 100);
 }
 
+function asImageList(value: Product["imageUrls"]): string[] {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return [];
+}
+
 export default function EditProductPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { confirm } = useConfirm();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -72,6 +86,11 @@ export default function EditProductPage() {
   >("CAKTO");
   const [businessProfile, setBusinessProfile] =
     useState<BusinessProfileId | null>(null);
+  const [backgroundColor, setBackgroundColor] = useState<string | null>(null);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaMsg, setMediaMsg] = useState<string | null>(null);
   const placeholders = productFormPlaceholders(businessProfile);
   const appUrl =
     typeof window !== "undefined"
@@ -102,6 +121,9 @@ export default function EditProductPage() {
           data.cardMaxInstallments == null ? null : data.cardMaxInstallments,
         );
         setOrgCardMaxInstallments(data.orgCardMaxInstallments || 12);
+        setBackgroundColor(normalizeBackgroundColor(data.backgroundColor));
+        setImageUrls(asImageList(data.imageUrls));
+        setVideoUrl(data.videoUrl || "");
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -123,12 +145,78 @@ export default function EditProductPage() {
     });
   }
 
+  async function uploadImage(file: File | null) {
+    if (!file) return;
+    setMediaBusy(true);
+    setMediaMsg(null);
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(`/api/checkout/products/${id}/images`, {
+      method: "POST",
+      body,
+    }).catch(() => null);
+    setMediaBusy(false);
+    if (!res?.ok) {
+      const data = await res?.json().catch(() => null);
+      setMediaMsg(data?.error || "Não foi possível enviar a foto.");
+      return;
+    }
+    const data = await res.json();
+    setImageUrls(Array.isArray(data.imageUrls) ? data.imageUrls : []);
+  }
+
+  async function removeImage(url: string) {
+    setMediaBusy(true);
+    setMediaMsg(null);
+    const res = await fetch(
+      `/api/checkout/products/${id}/images?url=${encodeURIComponent(url)}`,
+      { method: "DELETE" },
+    ).catch(() => null);
+    setMediaBusy(false);
+    if (!res?.ok) {
+      setMediaMsg("Não foi possível remover a foto.");
+      return;
+    }
+    const data = await res.json();
+    setImageUrls(Array.isArray(data.imageUrls) ? data.imageUrls : []);
+  }
+
+  async function moveImage(index: number, dir: -1 | 1) {
+    const nextIndex = index + dir;
+    if (nextIndex < 0 || nextIndex >= imageUrls.length) return;
+    const next = [...imageUrls];
+    const tmp = next[index]!;
+    next[index] = next[nextIndex]!;
+    next[nextIndex] = tmp;
+    setImageUrls(next);
+    setMediaBusy(true);
+    const res = await fetch(`/api/checkout/products/${id}/images`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageUrls: next }),
+    }).catch(() => null);
+    setMediaBusy(false);
+    if (!res?.ok) {
+      setMediaMsg("Não foi possível reordenar.");
+      return;
+    }
+    const data = await res.json();
+    setImageUrls(Array.isArray(data.imageUrls) ? data.imageUrls : next);
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (payMethods.length === 0) {
       setSaveMsg({
         tone: "err",
         text: "Escolha ao menos uma forma de pagamento.",
+      });
+      return;
+    }
+    if (videoUrl.trim() && !parseVideoUrl(videoUrl)) {
+      setSaveMsg({
+        tone: "err",
+        text: "URL de vídeo inválida — use YouTube, Vimeo ou link https .mp4.",
       });
       return;
     }
@@ -149,11 +237,17 @@ export default function EditProductPage() {
           ? cardMaxInstallments
           : null,
         formConfig: { formFields, payMethods },
+        backgroundColor,
+        videoUrl: videoUrl.trim() || null,
       }),
     }).catch(() => null);
     setSaving(false);
     if (!res?.ok) {
-      setSaveMsg({ tone: "err", text: "Não foi possível salvar. Tente de novo." });
+      const data = await res?.json().catch(() => null);
+      setSaveMsg({
+        tone: "err",
+        text: data?.error || "Não foi possível salvar. Tente de novo.",
+      });
       return;
     }
     setSaveMsg({
@@ -213,6 +307,146 @@ export default function EditProductPage() {
           <span className="mb-1.5 block font-medium">Preço (R$)</span>
           <input required className="input-field max-w-xs" value={price} onChange={(e) => setPrice(e.target.value)} />
         </label>
+
+        <div className="space-y-3 rounded-xl border border-border bg-muted-bg/40 p-4">
+          <div>
+            <p className="text-sm font-medium">Aparência do checkout</p>
+            <p className="mt-0.5 text-xs text-muted">
+              Cor de fundo, fotos do produto e um vídeo opcional.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block text-sm">
+              <span className="mb-1.5 block font-medium">Cor de fundo</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  className="h-10 w-12 cursor-pointer rounded border border-border bg-white p-1"
+                  value={backgroundColor || "#ffffff"}
+                  onChange={(e) =>
+                    setBackgroundColor(normalizeBackgroundColor(e.target.value))
+                  }
+                />
+                <input
+                  className="input-field w-28 font-mono text-xs"
+                  value={backgroundColor || ""}
+                  placeholder="#ffffff"
+                  onChange={(e) => {
+                    const v = e.target.value.trim();
+                    if (!v) {
+                      setBackgroundColor(null);
+                      return;
+                    }
+                    setBackgroundColor(normalizeBackgroundColor(v) || v);
+                  }}
+                />
+              </div>
+            </label>
+            <button
+              type="button"
+              className="btn-secondary text-sm"
+              onClick={() => setBackgroundColor(null)}
+            >
+              Padrão do tema
+            </button>
+          </div>
+
+          <div>
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">
+                Fotos do produto ({imageUrls.length}/{MAX_PRODUCT_IMAGES})
+              </p>
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                disabled={mediaBusy || imageUrls.length >= MAX_PRODUCT_IMAGES}
+                onClick={() => fileRef.current?.click()}
+              >
+                {mediaBusy ? "Enviando…" : "Adicionar foto"}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  void uploadImage(e.target.files?.[0] || null);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            <p className="mb-2 text-xs text-muted">
+              Até 5 imagens (PNG, JPG ou WebP, máx. 2 MB). Com mais de um item
+              (fotos + vídeo), o checkout mostra uma galeria.
+            </p>
+            {imageUrls.length > 0 ? (
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {imageUrls.map((url, index) => (
+                  <li
+                    key={url}
+                    className="overflow-hidden rounded-lg border border-border bg-white"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt=""
+                      className="aspect-[4/3] w-full object-cover"
+                    />
+                    <div className="flex items-center justify-between gap-1 border-t border-border px-2 py-1.5">
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="text-xs text-muted hover:text-foreground disabled:opacity-40"
+                          disabled={mediaBusy || index === 0}
+                          onClick={() => void moveImage(index, -1)}
+                        >
+                          ←
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs text-muted hover:text-foreground disabled:opacity-40"
+                          disabled={mediaBusy || index === imageUrls.length - 1}
+                          onClick={() => void moveImage(index, 1)}
+                        >
+                          →
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-xs text-danger"
+                        disabled={mediaBusy}
+                        onClick={() => void removeImage(url)}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {mediaMsg ? (
+              <p className="mt-2 text-xs text-danger">{mediaMsg}</p>
+            ) : null}
+          </div>
+
+          <label className="block text-sm">
+            <span className="mb-1.5 block font-medium">Vídeo (URL)</span>
+            <p className="mb-1.5 text-xs text-muted">
+              YouTube, Vimeo ou link https de arquivo .mp4 — opcional.
+            </p>
+            <input
+              className="input-field"
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+            />
+            {videoUrl.trim() && parseVideoUrl(videoUrl) ? (
+              <p className="mt-1.5 text-xs text-emerald-700">URL válida</p>
+            ) : null}
+          </label>
+        </div>
+
         <div>
           <p className="mb-1.5 text-sm font-medium">Formas de pagamento</p>
           <ul className="space-y-2">

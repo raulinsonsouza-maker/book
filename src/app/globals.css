@@ -567,6 +567,45 @@ button {
   background-size: 24px 24px;
 }
 
+.checkout-desc-on-dark .checkout-desc {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.checkout-media-nav {
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, #fff 88%, transparent);
+  color: var(--foreground);
+  font-size: 1.25rem;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.checkout-media-nav:hover {
+  background: #fff;
+}
+
+.checkout-media-dot {
+  height: 0.4rem;
+  width: 0.4rem;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  background: color-mix(in srgb, var(--muted, #94a3b8) 55%, transparent);
+  cursor: pointer;
+}
+
+.checkout-media-dot.is-active {
+  width: 1rem;
+  border-radius: 999px;
+  background: var(--accent, #0a0a0a);
+}
+
 /* Temark product chrome (host app.temark / temark.com.br) */
 html[data-product-brand="temark"] {
   --ink: #101820;

@@ -23,6 +23,13 @@ import {
   type PublicTrackingConfig,
 } from "@/lib/tracking/client";
 import { useHostProductBrand } from "@/hooks/useProductBrand";
+import { CheckoutMediaGallery } from "@/components/checkout/CheckoutMediaGallery";
+import {
+  buildCheckoutMediaItems,
+  checkoutHeaderTone,
+  normalizeBackgroundColor,
+  type CheckoutMediaItem,
+} from "@/lib/product-media";
 
 function formatCardNumber(value: string) {
   const d = value.replace(/\D/g, "").slice(0, 16);
@@ -196,6 +203,8 @@ export function InstantCheckout({ slug }: { slug: string }) {
   const [intakePaymentReady, setIntakePaymentReady] = useState(false);
   const [intakeCustomerName, setIntakeCustomerName] = useState("");
   const [intakeCustomerEmail, setIntakeCustomerEmail] = useState("");
+  const [backgroundColor, setBackgroundColor] = useState<string | null>(null);
+  const [mediaItems, setMediaItems] = useState<CheckoutMediaItem[]>([]);
 
   const formFields: FormFieldConfig[] = useMemo(() => {
     const base = enabledProductFormFields(formConfig);
@@ -276,6 +285,15 @@ export function InstantCheckout({ slug }: { slug: string }) {
           googleAdsSendTo: data.tracking?.googleAdsSendTo || null,
         });
         setProductKind(data.product.productKind === "INTAKE" ? "INTAKE" : "SIMPLE");
+        setBackgroundColor(
+          normalizeBackgroundColor(data.product.backgroundColor) || null,
+        );
+        setMediaItems(
+          buildCheckoutMediaItems(
+            Array.isArray(data.product.imageUrls) ? data.product.imageUrls : [],
+            data.product.videoUrl || null,
+          ),
+        );
         setLoading(false);
       })
       .catch((e) => {
@@ -683,10 +701,23 @@ export function InstantCheckout({ slug }: { slug: string }) {
     isTemark && (!accentColor || accentColor === "#0a0a0a")
       ? "#101820"
       : accentColor;
-  const shellClass = `checkout-shell min-h-screen ${isTemark ? "" : "dot-grid"}`;
-  const shellStyle = { "--accent": shellAccent } as React.CSSProperties;
+  const customBg = normalizeBackgroundColor(backgroundColor);
+  const headerTone = checkoutHeaderTone(customBg);
+  const shellClass = `checkout-shell min-h-screen ${
+    customBg || isTemark ? "" : "dot-grid"
+  }`;
+  const shellStyle = {
+    "--accent": shellAccent,
+    ...(customBg
+      ? { "--checkout-bg": customBg, backgroundColor: customBg }
+      : {}),
+  } as React.CSSProperties;
   const cardClass =
     "checkout-card rounded-2xl border border-border bg-white p-6 shadow-sm";
+  const headerMutedClass =
+    headerTone === "light" ? "text-white/70" : "text-muted";
+  const headerTitleClass =
+    headerTone === "light" ? "text-white" : "text-foreground";
 
   if (loading) {
     return (
@@ -713,7 +744,12 @@ export function InstantCheckout({ slug }: { slug: string }) {
   }
 
   return (
-    <div className={shellClass} data-brand={brand.id} style={shellStyle}>
+    <div
+      className={shellClass}
+      data-brand={brand.id}
+      data-header-tone={headerTone}
+      style={shellStyle}
+    >
       <PublicTracking config={tracking} />
       <div className="mx-auto flex min-h-screen max-w-lg flex-col px-4 py-8">
         <header className="mb-6 text-center">
@@ -733,17 +769,34 @@ export function InstantCheckout({ slug }: { slug: string }) {
             </div>
           )}
           {businessName && (
-            <p className="text-[13px] font-medium text-muted">{businessName}</p>
+            <p className={`text-[13px] font-medium ${headerMutedClass}`}>
+              {businessName}
+            </p>
           )}
-          <h1 className="mt-1 text-xl font-semibold tracking-tight">
+          <CheckoutMediaGallery items={mediaItems} />
+          <h1
+            className={`mt-1 text-xl font-semibold tracking-tight ${headerTitleClass}`}
+          >
             {displayTitle}
           </h1>
           {displayDescription ? (
-            <CheckoutDescription text={displayDescription} />
+            <div
+              className={
+                headerTone === "light" ? "checkout-desc-on-dark" : undefined
+              }
+            >
+              <CheckoutDescription text={displayDescription} />
+            </div>
           ) : null}
           <p
             className="checkout-price mt-3 text-2xl font-semibold tracking-tight"
-            style={isTemark ? undefined : { color: shellAccent }}
+            style={
+              isTemark
+                ? undefined
+                : headerTone === "light"
+                  ? { color: "#fff" }
+                  : { color: shellAccent }
+            }
           >
             {formatBRL(priceCents)}
           </p>
