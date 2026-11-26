@@ -710,9 +710,6 @@ export function InstantCheckout({ slug }: { slug: string }) {
       : {}),
   } as React.CSSProperties;
   const cardClass = "checkout-card";
-  const headerMutedClass =
-    headerTone === "light" ? "text-white/70" : "text-muted";
-
   if (loading) {
     return (
       <div
@@ -748,7 +745,11 @@ export function InstantCheckout({ slug }: { slug: string }) {
       <div className="checkout-stage">
         <header className="checkout-merchant">
           <div className="checkout-merchant-lockup">
-            <div className="checkout-merchant-mark">
+            <div
+              className={`checkout-merchant-mark ${
+                displayLogoUrl ? "has-photo" : ""
+              }`}
+            >
               {displayLogoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -767,14 +768,9 @@ export function InstantCheckout({ slug }: { slug: string }) {
                 </div>
               )}
             </div>
-            <div className="checkout-merchant-copy">
-              <p className={`checkout-merchant-kicker ${headerMutedClass}`}>
-                Oferta de
-              </p>
-              <p className={`checkout-merchant-name ${headerMutedClass}`}>
-                {businessName || displayTitle}
-              </p>
-            </div>
+            <p className="checkout-merchant-name">
+              {businessName || displayTitle}
+            </p>
           </div>
         </header>
 
