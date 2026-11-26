@@ -747,26 +747,35 @@ export function InstantCheckout({ slug }: { slug: string }) {
       <PublicTracking config={tracking} />
       <div className="checkout-stage">
         <header className="checkout-merchant">
-          {displayLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={displayLogoUrl}
-              alt=""
-              className="checkout-merchant-logo"
-            />
-          ) : (
-            <div
-              className="checkout-logo-fallback"
-              style={isTemark ? undefined : { background: shellAccent }}
-            >
-              {(businessName || displayTitle || "BS").slice(0, 2).toUpperCase()}
+          <div className="checkout-merchant-lockup">
+            <div className="checkout-merchant-mark">
+              {displayLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={displayLogoUrl}
+                  alt=""
+                  className="checkout-merchant-logo"
+                />
+              ) : (
+                <div
+                  className="checkout-logo-fallback"
+                  style={isTemark ? undefined : { background: shellAccent }}
+                >
+                  {(businessName || displayTitle || "BS")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+              )}
             </div>
-          )}
-          {businessName ? (
-            <p className={`checkout-merchant-name ${headerMutedClass}`}>
-              {businessName}
-            </p>
-          ) : null}
+            <div className="checkout-merchant-copy">
+              <p className={`checkout-merchant-kicker ${headerMutedClass}`}>
+                Oferta de
+              </p>
+              <p className={`checkout-merchant-name ${headerMutedClass}`}>
+                {businessName || displayTitle}
+              </p>
+            </div>
+          </div>
         </header>
 
         <article className="checkout-offer checkout-enter">
