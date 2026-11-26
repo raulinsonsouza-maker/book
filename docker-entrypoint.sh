@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-mkdir -p /data /app/public/uploads/covers /app/uploads/intake
+mkdir -p /data /app/public/uploads/covers /app/public/uploads/products /app/uploads/intake
 chown -R nextjs:nodejs /data /app/public/uploads /app/uploads
 
 # SQLite + Swarm: migrate pode falhar se outro task ainda segura o arquivo
